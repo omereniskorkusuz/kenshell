@@ -32,6 +32,7 @@ russh = { version = "0.65", default-features = false, features = ["ring", "rsa",
 arboard = { version = "3.7", default-features = false }
 keyring = { version = "3.6", default-features = false, features = ["apple-native", "windows-native", "linux-native"] }
 zeroize = "1.8"
+tauri-plugin-dialog = "2"
 
 [lints]
 workspace = true

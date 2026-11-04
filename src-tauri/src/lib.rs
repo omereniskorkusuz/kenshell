@@ -4,6 +4,7 @@ mod commands;
 mod console_detect;
 mod error;
 mod events;
+mod import;
 mod logging;
 mod model;
 mod platform;
@@ -41,6 +42,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::app::app_ready,
             commands::app::app_info,
@@ -70,6 +72,10 @@ pub fn run() {
             commands::session::live_reconnect,
             commands::session::live_answer,
             commands::session::known_host_forget,
+            commands::import::import_detect,
+            commands::import::import_sessions,
+            commands::import::export_sessions,
+            commands::import::pick_path,
             commands::secrets::profile_list,
             commands::secrets::profile_create,
             commands::secrets::profile_update,
