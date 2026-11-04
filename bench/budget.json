@@ -1,0 +1,8 @@
+{
+  "_comment": "Performance budget (spec section 3.1). Checked by bench/*.mjs and CI.",
+  "jsGzipKB": 500,
+  "installerMB": { "windows": 15, "macos": 25 },
+  "coldStartMs": 1000,
+  "idleRamMB": 100,
+  "idleCpuPercent": 1
+}
