@@ -8,12 +8,14 @@
 //! * `--raw`:  plain TCP, no Telnet negotiation (KenShell "Raw" protocol)
 //! * `--stdio`: one session on stdin/stdout — pair with `socat` to emulate a serial console:
 //!   `socat pty,raw,echo=0,link=/tmp/ks-console EXEC:'device-simulator --stdio --profile ruijie'`
+//! * `--ssh` SSH server (default port 2222; `--host-key-seed N`, `--legacy-only`)
 //! * `--pty` (unix): creates a pseudo-terminal pair and prints the device path to open in
 //!   KenShell as a serial port (no socat needed). With `--baud N` the simulator emits
 //!   garbage unless the port is set to N (exercises autobaud).
 
 mod engine;
 mod profile;
+mod ssh;
 mod telnet;
 
 use std::io::{Read, Write};
@@ -31,6 +33,10 @@ struct Options {
     stdio: bool,
     pty: bool,
     baud: Option<u32>,
+    ssh: bool,
+    host_key_seed: u64,
+    legacy_only: bool,
+    port_set: bool,
     list: bool,
 }
 
@@ -43,6 +49,10 @@ fn parse_args() -> Result<Options, String> {
         stdio: false,
         pty: false,
         baud: None,
+        ssh: false,
+        host_key_seed: 1,
+        legacy_only: false,
+        port_set: false,
         list: false,
     };
     let mut args = std::env::args().skip(1);
@@ -51,7 +61,17 @@ fn parse_args() -> Result<Options, String> {
         match a.as_str() {
             "--profile" | "-p" => o.profile = val()?,
             "--bind" => o.bind = val()?,
-            "--port" => o.port = val()?.parse().map_err(|e| format!("--port: {e}"))?,
+            "--port" => {
+                o.port = val()?.parse().map_err(|e| format!("--port: {e}"))?;
+                o.port_set = true;
+            }
+            "--ssh" => o.ssh = true,
+            "--legacy-only" => o.legacy_only = true,
+            "--host-key-seed" => {
+                o.host_key_seed = val()?
+                    .parse()
+                    .map_err(|e| format!("--host-key-seed: {e}"))?;
+            }
             "--raw" => o.raw = true,
             "--stdio" => o.stdio = true,
             "--pty" => o.pty = true,
@@ -81,7 +101,7 @@ fn main() {
                 eprintln!("error: {e}");
             }
             eprintln!(
-                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--stdio] [--pty [--baud N]] [--list]"
+                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--ssh [--host-key-seed N] [--legacy-only]] [--stdio] [--pty [--baud N]] [--list]"
             );
             std::process::exit(2);
         }
@@ -99,6 +119,24 @@ fn main() {
             std::process::exit(2);
         }
     };
+    if opts.ssh {
+        // The SSH handler needs a 'static profile; this process serves it until exit.
+        let profile: &'static Profile = Box::leak(Box::new((*profile).clone()));
+        let result = ssh::run(
+            profile,
+            ssh::Options {
+                bind: opts.bind.clone(),
+                port: if opts.port_set { opts.port } else { 2222 },
+                host_key_seed: opts.host_key_seed,
+                legacy_only: opts.legacy_only,
+            },
+        );
+        if let Err(e) = result {
+            eprintln!("error: {e}");
+            std::process::exit(1);
+        }
+        return;
+    }
     let result = if opts.stdio {
         run_stdio(&profile)
     } else if opts.pty {

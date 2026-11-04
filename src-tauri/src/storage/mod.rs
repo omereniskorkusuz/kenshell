@@ -20,6 +20,7 @@
 //! - Lists are ordered deterministically: `(parent/folder id, sort_order, id)`.
 
 mod folders;
+mod known_hosts;
 mod migrations;
 mod port_memory;
 mod sessions;

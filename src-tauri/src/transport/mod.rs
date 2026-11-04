@@ -4,11 +4,17 @@
 //! A transport pushes everything it receives into its [`TransportSink`] (given at
 //! construction) from its own reader thread/task, so the session loop never polls.
 
+pub mod net;
+pub mod raw;
+pub mod rlogin;
 pub mod serial;
+pub mod ssh;
+pub mod telnet;
 
 use async_trait::async_trait;
 
 use crate::error::{AppError, Result};
+use crate::model::{KnownHost, NetLink, PromptRequest};
 
 #[derive(Debug)]
 pub enum TransportEvent {
@@ -28,4 +34,23 @@ pub trait Transport: Send {
     async fn resize(&mut self, cols: u16, rows: u16) -> Result<()>;
     async fn send_break(&mut self) -> Result<()>;
     async fn disconnect(&mut self) -> Result<()>;
+
+    /// Network connection facts once connected (identity bar). Serial: `None`.
+    fn net_link(&self) -> Option<NetLink> {
+        None
+    }
+}
+
+/// Asks the user something during login (username, password, keyboard-interactive,
+/// key passphrase). Answered inside the terminal, PuTTY-style. `None` = cancelled
+/// (tab closed). Implementations must never log the answers.
+#[async_trait]
+pub trait Prompter: Send + Sync {
+    async fn ask(&self, request: PromptRequest) -> Option<Vec<String>>;
+}
+
+/// Stored SSH host keys (implemented by the SQLite store).
+pub trait HostKeyStore: Send + Sync {
+    fn get(&self, host: &str, port: u16) -> Result<Option<KnownHost>>;
+    fn save(&self, key: &KnownHost) -> Result<()>;
 }

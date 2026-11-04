@@ -9,8 +9,10 @@ publish = false
 
 # Dev tool only — never bundled into the app. Kept dependency-light on purpose.
 [dependencies]
+russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2", "des"] }
 serde = { version = "1", features = ["derive"] }
 serialport = { version = "4.10", default-features = false }
+tokio = { version = "1", features = ["rt", "net", "macros", "time", "sync"] }
 toml = { version = "1", default-features = false, features = ["parse", "serde"] }
 
 [lints]

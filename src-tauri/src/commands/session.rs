@@ -69,3 +69,16 @@ pub fn live_close(state: State<'_, AppState>, id: RuntimeId) -> Result<()> {
 pub fn live_reconnect(state: State<'_, AppState>, id: RuntimeId) -> Result<()> {
     state.sessions.reconnect(id)
 }
+
+/// Answers the pending login prompt. `answers` may contain passwords: never logged.
+#[tauri::command]
+pub fn live_answer(state: State<'_, AppState>, id: RuntimeId, answers: Vec<String>) -> Result<()> {
+    state.sessions.answer(id, answers)
+}
+
+/// Forgets a stored SSH host key (after a legitimate key change, e.g. device replaced).
+/// The next connection learns the new key.
+#[tauri::command]
+pub fn known_host_forget(state: State<'_, AppState>, host: String, port: u16) -> Result<()> {
+    state.db.forget_known_host(&host, port)
+}

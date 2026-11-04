@@ -63,6 +63,8 @@ pub fn run() {
             commands::session::live_break,
             commands::session::live_close,
             commands::session::live_reconnect,
+            commands::session::live_answer,
+            commands::session::known_host_forget,
         ])
         .setup(|app| {
             let dir = app.path().app_data_dir()?;

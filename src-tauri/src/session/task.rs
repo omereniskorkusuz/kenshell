@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use tokio::sync::mpsc::{self, Receiver, UnboundedReceiver};
+use tokio::sync::oneshot;
 use tokio::time::Instant;
 
 use super::backend::Backend;
@@ -13,10 +14,10 @@ use super::{Registry, SessionOutput, Timing};
 use crate::console_detect::autobaud::Outcome;
 use crate::error::{AppError, ErrorCode, Result};
 use crate::model::{
-    BaudTrial, ConnState, HealthKind, OpenTarget, RuntimeId, SerialLink, SerialSettings,
-    SessionEvent,
+    BaudTrial, ConnState, HealthKind, OpenTarget, PromptRequest, RuntimeId, SerialLink,
+    SerialSettings, SessionEvent,
 };
-use crate::transport::{Transport, TransportEvent};
+use crate::transport::{Prompter, Transport, TransportEvent};
 
 /// Baud used when autobaud heard nothing and nothing is remembered.
 pub(crate) const FALLBACK_BAUD: u32 = 9600;
@@ -41,6 +42,29 @@ pub(crate) enum Command {
     PortAttached,
     /// The session's cable vanished (hotplug).
     PortDetached,
+    /// Answers to the pending login prompt (secrets: never logged).
+    Answer(Vec<String>),
+}
+
+type PromptSlot = Arc<Mutex<Option<oneshot::Sender<Vec<String>>>>>;
+
+/// Login questions go to the UI as `SessionEvent::Prompt`; the answer comes back as
+/// `Command::Answer` and is handed to the waiting transport through the slot.
+struct TaskPrompter {
+    out: Arc<dyn SessionOutput>,
+    slot: PromptSlot,
+}
+
+#[async_trait::async_trait]
+impl Prompter for TaskPrompter {
+    async fn ask(&self, request: PromptRequest) -> Option<Vec<String>> {
+        let (tx, rx) = oneshot::channel();
+        if let Ok(mut s) = self.slot.lock() {
+            *s = Some(tx);
+        }
+        self.out.event(SessionEvent::Prompt { request });
+        rx.await.ok()
+    }
 }
 
 /// State visible to the manager without asking the task.
@@ -154,6 +178,9 @@ struct Ctx {
     backend: Arc<dyn Backend>,
     shared: Arc<Shared>,
     timing: Timing,
+    /// Latest terminal size (network transports need it at connect time).
+    size: Mutex<(u16, u16)>,
+    prompt: PromptSlot,
 }
 
 impl Ctx {
@@ -185,7 +212,10 @@ impl Ctx {
             tokio::time::sleep(d).await;
         }
         self.set_state(ConnState::Connecting, None);
-        let OpenTarget::Serial { settings } = &self.target;
+        let settings = match &self.target {
+            OpenTarget::Serial { settings } => settings,
+            OpenTarget::Network { .. } => return self.open_network().await,
+        };
         let path = settings.port.clone();
 
         let p = path.clone();
@@ -240,6 +270,35 @@ impl Ctx {
                 auto_detected: plan.auto_detected,
             },
         });
+        self.set_state(ConnState::Connected, None);
+        Ok((transport, rx))
+    }
+
+    async fn open_network(&self) -> Result<Link> {
+        let (tx, rx) = mpsc::channel(TRANSPORT_QUEUE);
+        let prompter = Arc::new(TaskPrompter {
+            out: Arc::clone(&self.out),
+            slot: Arc::clone(&self.prompt),
+        });
+        let size = self.size.lock().map(|s| *s).unwrap_or((80, 24));
+        let mut transport =
+            self.backend
+                .make_network_transport(&self.target, size, tx, prompter)?;
+        transport.connect().await?;
+        // Size may have changed while we were logging in.
+        let now = self.size.lock().map(|s| *s).unwrap_or(size);
+        if now != size {
+            let _ = transport.resize(now.0, now.1).await;
+        }
+        if let Some(sid) = self.session_id {
+            let touched = self.call(move |b| b.touch_session(sid)).await;
+            if let Err(e) | Ok(Err(e)) = touched {
+                tracing::warn!("touch session {sid}: {e}");
+            }
+        }
+        if let Some(link) = transport.net_link() {
+            self.out.event(SessionEvent::NetLink { link });
+        }
         self.set_state(ConnState::Connected, None);
         Ok((transport, rx))
     }
@@ -311,6 +370,7 @@ impl SessionTask {
         backend: Arc<dyn Backend>,
         shared: Arc<Shared>,
         timing: Timing,
+        size: (u16, u16),
         cmds: UnboundedReceiver<Command>,
         registry: Weak<Registry>,
     ) -> Self {
@@ -323,6 +383,8 @@ impl SessionTask {
                 backend,
                 shared,
                 timing,
+                size: Mutex::new(size),
+                prompt: Arc::new(Mutex::new(None)),
             },
             cmds,
             registry,
@@ -392,7 +454,21 @@ impl SessionTask {
                         // Dropping `open` drops a half-open transport; the flag stops a
                         // running autobaud at its next candidate.
                         cancel.store(true, Ordering::Release);
+                        if let Ok(mut slot) = ctx.prompt.lock() {
+                            slot.take(); // a pending login prompt resolves as cancelled
+                        }
                         return OpenResult::Cancelled;
+                    }
+                    Some(Command::Answer(answers)) => {
+                        let tx = ctx.prompt.lock().ok().and_then(|mut s| s.take());
+                        if let Some(tx) = tx {
+                            let _ = tx.send(answers);
+                        }
+                    }
+                    Some(Command::Resize(cols, rows)) => {
+                        if let Ok(mut s) = ctx.size.lock() {
+                            *s = (cols, rows);
+                        }
                     }
                     // Not connected yet: the manager rejects writes/breaks; anything
                     // racing in is dropped. Reconnect/hotplug are moot while opening.
@@ -477,6 +553,9 @@ impl SessionTask {
                         }
                     }
                     Command::Resize(cols, rows) => {
+                        if let Ok(mut s) = self.ctx.size.lock() {
+                            *s = (cols, rows);
+                        }
                         if let Err(e) = transport.resize(cols, rows).await {
                             tracing::debug!(session = self.ctx.id, "resize: {e}");
                         }
@@ -501,7 +580,7 @@ impl SessionTask {
                             detach_deadline = Some(Instant::now() + self.ctx.timing.detach_grace);
                         }
                     }
-                    Command::Reconnect | Command::PortAttached => {}
+                    Command::Reconnect | Command::PortAttached | Command::Answer(_) => {}
                 },
             }
         }
@@ -545,11 +624,13 @@ impl SessionTask {
                         Err(e) => tracing::warn!("auto reconnect setting: {e}"),
                     }
                 }
+                Some(Command::Resize(cols, rows)) => {
+                    if let Ok(mut s) = self.ctx.size.lock() {
+                        *s = (cols, rows);
+                    }
+                }
                 Some(
-                    Command::Write(_)
-                    | Command::Resize(..)
-                    | Command::Break
-                    | Command::PortDetached,
+                    Command::Write(_) | Command::Break | Command::PortDetached | Command::Answer(_),
                 ) => {}
             }
         }

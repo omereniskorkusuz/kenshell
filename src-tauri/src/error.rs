@@ -15,6 +15,20 @@ pub enum ErrorCode {
     PermissionDenied,
     /// The device/cable disappeared during the session.
     DeviceGone,
+    /// DNS lookup failed.
+    HostNotFound,
+    /// TCP connection refused (nothing listening on the port).
+    ConnectionRefused,
+    /// Connect / handshake timed out (host down, firewall).
+    Timeout,
+    /// Server rejected every authentication attempt.
+    AuthFailed,
+    /// The SSH host key differs from the stored one — connection blocked (security).
+    HostKeyChanged,
+    /// No common algorithm with the server (try the legacy algorithms option).
+    NoCommonAlgorithm,
+    /// The remote side closed the connection.
+    ConnectionClosed,
     NotFound,
     Invalid,
     Unsupported,

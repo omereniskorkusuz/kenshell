@@ -62,7 +62,10 @@ fn simulator_bin() -> Option<PathBuf> {
 async fn wait_until(what: &str, mut f: impl FnMut() -> bool) {
     let start = Instant::now();
     while !f() {
-        assert!(start.elapsed() < Duration::from_secs(20), "timed out waiting for {what}");
+        assert!(
+            start.elapsed() < Duration::from_secs(20),
+            "timed out waiting for {what}"
+        );
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
@@ -118,7 +121,12 @@ async fn autobaud_connects_to_simulated_ruijie_console_and_remembers_speed() {
     while !o.connected() && start.elapsed() < Duration::from_secs(20) {
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
-    assert!(o.connected(), "events: {:#?}\ndata: {:?}", o.events.lock().unwrap(), o.text());
+    assert!(
+        o.connected(),
+        "events: {:#?}\ndata: {:?}",
+        o.events.lock().unwrap(),
+        o.text()
+    );
     let result = out.events.lock().unwrap().iter().find_map(|e| match e {
         SessionEvent::Autobaud {
             result: Some(b), ..
@@ -131,8 +139,15 @@ async fn autobaud_connects_to_simulated_ruijie_console_and_remembers_speed() {
         _ => None,
     });
     let link = link.expect("link event");
-    assert_eq!((link.baud, link.framing.as_str(), link.auto_detected), (115_200, "8N1", true));
-    assert_eq!(consoles.remembered_baud(&path), Some(115_200), "speed remembered");
+    assert_eq!(
+        (link.baud, link.framing.as_str(), link.auto_detected),
+        (115_200, "8N1", true)
+    );
+    assert_eq!(
+        consoles.remembered_baud(&path),
+        Some(115_200),
+        "speed remembered"
+    );
 
     // Talk to the device through the session.
     manager.write(id, b"admin\r").unwrap();
@@ -145,10 +160,16 @@ async fn autobaud_connects_to_simulated_ruijie_console_and_remembers_speed() {
     let out2 = Arc::new(Recorder::default());
     let id2 = open(Arc::clone(&out2));
     wait_until("reconnected", || out2.connected()).await;
-    let trials = out2.events.lock().unwrap().iter().rev().find_map(|e| match e {
-        SessionEvent::Autobaud { trials, result, .. } if result.is_some() => Some(trials.len()),
-        _ => None,
-    });
+    let trials = out2
+        .events
+        .lock()
+        .unwrap()
+        .iter()
+        .rev()
+        .find_map(|e| match e {
+            SessionEvent::Autobaud { trials, result, .. } if result.is_some() => Some(trials.len()),
+            _ => None,
+        });
     assert_eq!(trials, Some(1), "remembered baud must be tried first");
     manager.close(id2).unwrap();
 }

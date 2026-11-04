@@ -190,6 +190,18 @@ impl Backend for FakeBackend {
             write_result: st.write_result.clone(),
         })
     }
+    fn make_network_transport(
+        &self,
+        _target: &OpenTarget,
+        _size: (u16, u16),
+        _sink: TransportSink,
+        _prompter: Arc<dyn crate::transport::Prompter>,
+    ) -> Result<Box<dyn Transport>> {
+        Err(AppError::invalid(
+            "network transports are tested in session::net_tests",
+        ))
+    }
+
     fn touch_session(&self, id: i64) -> Result<()> {
         self.st().touched.push(id);
         Ok(())
@@ -594,7 +606,9 @@ async fn open_failure_keeps_session_and_reconnect_retries() {
 async fn invalid_requests_are_rejected_synchronously() {
     let (_backend, mgr, out) = setup();
     let mut req = request(Some(9600), None);
-    let OpenTarget::Serial { settings } = &mut req.target;
+    let OpenTarget::Serial { settings } = &mut req.target else {
+        unreachable!()
+    };
     settings.port = "  ".into();
     assert_eq!(
         mgr.open(req, out.clone()).unwrap_err().code,

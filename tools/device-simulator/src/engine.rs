@@ -78,6 +78,13 @@ impl<'p> Session<'p> {
         }
     }
 
+    /// A session that skips the CLI login (SSH already authenticated the user).
+    pub fn new_authenticated(profile: &'p Profile) -> Self {
+        let mut s = Self::new(profile);
+        s.stage = Stage::Shell;
+        s
+    }
+
     pub fn is_closed(&self) -> bool {
         self.stage == Stage::Closed
     }
@@ -90,6 +97,15 @@ impl<'p> Session<'p> {
     /// Initial output after connect: banner + username prompt.
     pub fn start(&mut self) -> Vec<u8> {
         let mut out = String::new();
+        if self.stage == Stage::Shell {
+            if !self.profile.motd.is_empty() {
+                out.push_str(&crlf(&self.profile.motd));
+                out.push_str("\r\n");
+            }
+            out.push_str("\r\n");
+            out.push_str(&self.prompt());
+            return out.into_bytes();
+        }
         if !self.profile.banner.is_empty() {
             out.push_str(&crlf(&self.profile.banner));
             out.push_str("\r\n");
@@ -438,8 +454,8 @@ impl<'p> Session<'p> {
                 self.mode = Mode::User;
                 self.hostname = self.profile.hostname.clone();
                 self.term_length = self.profile.terminal_length;
-                out.push_str(&String::from_utf8_lossy(&self.start()));
                 self.stage = Stage::LoginUser;
+                out.push_str(&String::from_utf8_lossy(&self.start()));
                 return;
             }
             Action::Interface => match normalize_iface(self.profile, args) {

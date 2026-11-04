@@ -21,6 +21,8 @@ mod tests;
 // (ENOTTY), so the pty-based end-to-end test runs on Linux only (CI job `e2e-linux`).
 #[cfg(all(test, target_os = "linux"))]
 mod e2e;
+#[cfg(test)]
+mod net_e2e;
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -124,16 +126,39 @@ impl SessionManager {
 
     /// Starts connecting in the background and returns immediately.
     pub fn open(&self, req: OpenRequest, out: Arc<dyn SessionOutput>) -> Result<RuntimeId> {
-        let OpenTarget::Serial { settings } = &req.target;
-        if settings.port.trim().is_empty() {
-            return Err(AppError::invalid("no serial port selected"));
-        }
-        if settings.baud == Some(0) {
-            return Err(AppError::invalid("baud rate must be > 0"));
-        }
+        let path = match &req.target {
+            OpenTarget::Serial { settings } => {
+                if settings.port.trim().is_empty() {
+                    return Err(AppError::invalid("no serial port selected"));
+                }
+                if settings.baud == Some(0) {
+                    return Err(AppError::invalid("baud rate must be > 0"));
+                }
+                settings.port.clone()
+            }
+            OpenTarget::Network {
+                protocol,
+                host,
+                port,
+                ..
+            } => {
+                let host = host.trim();
+                if host.is_empty() || host.chars().any(char::is_whitespace) {
+                    return Err(AppError::invalid("host required"));
+                }
+                if *protocol == crate::model::Protocol::Serial {
+                    return Err(AppError::invalid("serial needs serial settings"));
+                }
+                let port = port
+                    .or(protocol.default_port())
+                    .filter(|p| *p > 0)
+                    .ok_or_else(|| AppError::invalid("port required"))?;
+                crate::transport::net::label(host, port)
+            }
+        };
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::unbounded_channel();
-        let shared = Arc::new(Shared::new(settings.port.clone()));
+        let shared = Arc::new(Shared::new(path.clone()));
         self.registry().insert(
             id,
             Handle {
@@ -141,7 +166,7 @@ impl SessionManager {
                 shared: Arc::clone(&shared),
             },
         );
-        tracing::debug!(session = id, port = %settings.port, "session open");
+        tracing::debug!(session = id, target = %path, "session open");
         let task = SessionTask::new(
             id,
             req.session_id,
@@ -150,6 +175,7 @@ impl SessionManager {
             Arc::clone(&self.backend),
             shared,
             self.timing,
+            (req.cols.max(1), req.rows.max(1)),
             rx,
             Arc::downgrade(&self.sessions),
         );
@@ -200,6 +226,11 @@ impl SessionManager {
         let _ = h.cmds.send(Command::Close);
         tracing::debug!(session = id, "session close requested");
         Ok(())
+    }
+
+    /// Answers the pending login prompt (username / password / keyboard-interactive).
+    pub fn answer(&self, id: RuntimeId, answers: Vec<String>) -> Result<()> {
+        self.send(id, Command::Answer(answers))
     }
 
     /// Re-runs the open flow for a disconnected session (same output).

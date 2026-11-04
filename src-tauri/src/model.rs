@@ -215,7 +215,19 @@ pub type RuntimeId = u32;
     rename_all_fields = "camelCase"
 )]
 pub enum OpenTarget {
-    Serial { settings: SerialSettings },
+    Serial {
+        settings: SerialSettings,
+    },
+    /// ssh / telnet / rlogin / raw.
+    Network {
+        protocol: Protocol,
+        host: String,
+        /// `None` = protocol default (22 / 23 / 513; raw has no default).
+        port: Option<u16>,
+        username: Option<String>,
+        #[serde(default)]
+        ssh: SshOptions,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -296,7 +308,93 @@ pub enum SessionEvent {
     Link {
         link: SerialLink,
     },
+    NetLink {
+        link: NetLink,
+    },
+    /// Login questions; answer with `live_answer` (or close the tab to abort).
+    Prompt {
+        request: PromptRequest,
+    },
     Health {
         kind: HealthKind,
     },
+}
+
+// ---------------------------------------------------------------- network sessions (Phase 2)
+
+/// SSH options of a session (all optional; defaults are secure + quiet).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SshOptions {
+    /// Also offer legacy algorithms (diffie-hellman-group1/14-sha1, ssh-rsa, *-cbc,
+    /// 3des-cbc, hmac-sha1) for old Cisco/Ruijie/Juniper devices.
+    pub legacy_algorithms: bool,
+    /// Private key file (OpenSSH format). Agent and password are tried too.
+    pub key_path: Option<String>,
+    /// SSH keepalive interval in seconds (`None` = 30, `Some(0)` = off).
+    pub keepalive_secs: Option<u32>,
+}
+
+impl Protocol {
+    pub fn default_port(self) -> Option<u16> {
+        match self {
+            Protocol::Ssh => Some(22),
+            Protocol::Telnet => Some(23),
+            Protocol::Rlogin => Some(513),
+            Protocol::Raw | Protocol::Serial => None,
+        }
+    }
+}
+
+/// Network connection facts (identity bar / details).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetLink {
+    pub protocol: Protocol,
+    pub host: String,
+    pub port: u16,
+    pub username: Option<String>,
+    /// SSH only.
+    pub host_key: Option<HostKeyInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HostKeyInfo {
+    /// e.g. `ssh-ed25519`
+    pub algorithm: String,
+    /// `SHA256:…`
+    pub fingerprint: String,
+    /// First connection to this host: the key was just learned and stored.
+    pub first_seen: bool,
+}
+
+/// One question during login (PuTTY-style, answered inside the terminal).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptItem {
+    pub text: String,
+    /// `false` = secret (password): never echoed, never logged.
+    pub echo: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptRequest {
+    /// Banner / instruction lines to print before the prompts (may be empty).
+    pub instruction: String,
+    pub items: Vec<PromptItem>,
+}
+
+/// A stored SSH host key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnownHost {
+    pub host: String,
+    pub port: u16,
+    pub algorithm: String,
+    /// OpenSSH public key line (`ssh-ed25519 AAAA…`).
+    pub public_key: String,
+    pub fingerprint: String,
+    pub added_at: i64,
 }

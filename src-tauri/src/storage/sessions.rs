@@ -169,7 +169,10 @@ impl Db {
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
 
-    #[allow(dead_code, reason = "contract API; first caller is the P2 session editor")]
+    #[allow(
+        dead_code,
+        reason = "contract API; first caller is the P2 session editor"
+    )]
     pub fn get_session(&self, id: i64) -> Result<SessionRecord> {
         fetch(&self.conn(), id)
     }

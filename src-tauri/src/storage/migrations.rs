@@ -19,9 +19,10 @@ struct Migration {
     sql: &'static str,
 }
 
-const MIGRATIONS: &[Migration] = &[Migration {
-    name: "v1 folders, sessions, settings, port_memory",
-    sql: r#"
+const MIGRATIONS: &[Migration] = &[
+    Migration {
+        name: "v1 folders, sessions, settings, port_memory",
+        sql: r#"
 CREATE TABLE folders (
     id         INTEGER PRIMARY KEY,
     parent_id  INTEGER NULL REFERENCES folders(id),
@@ -69,7 +70,22 @@ CREATE TABLE port_memory (
     updated_at    INTEGER NOT NULL
 );
 "#,
-}];
+    },
+    Migration {
+        name: "v2 known_hosts (SSH host keys)",
+        sql: r#"
+CREATE TABLE known_hosts (
+    host       TEXT    NOT NULL,
+    port       INTEGER NOT NULL CHECK (port BETWEEN 1 AND 65535),
+    algorithm  TEXT    NOT NULL,
+    public_key TEXT    NOT NULL,
+    fingerprint TEXT   NOT NULL,
+    added_at   INTEGER NOT NULL,
+    PRIMARY KEY (host, port)
+);
+"#,
+    },
+];
 
 /// Schema version this build expects.
 pub(super) fn latest_version() -> u32 {
@@ -143,13 +159,19 @@ mod tests {
     }
 
     #[test]
-    fn fresh_db_reaches_latest_version_with_v1_tables() {
+    fn fresh_db_reaches_latest_version_with_all_tables() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrate(&mut conn).unwrap();
         assert_eq!(user_version(&conn), latest_version());
         assert_eq!(
             tables(&conn),
-            vec!["folders", "port_memory", "sessions", "settings"]
+            vec![
+                "folders",
+                "known_hosts",
+                "port_memory",
+                "sessions",
+                "settings"
+            ]
         );
     }
 

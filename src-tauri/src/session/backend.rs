@@ -7,10 +7,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use crate::console_detect::ConsoleRegistry;
 use crate::console_detect::autobaud::{self, Outcome, Probe, SerialProbe};
 use crate::error::{AppError, Result};
-use crate::model::{BaudTrial, SerialSettings};
+use crate::model::{BaudTrial, KnownHost, OpenTarget, Protocol, SerialSettings};
 use crate::storage::Db;
+use crate::transport::net::TcpTransport;
+use crate::transport::raw::RawCodec;
+use crate::transport::rlogin::{RloginCodec, local_user_name};
 use crate::transport::serial::SerialTransport;
-use crate::transport::{Transport, TransportSink};
+use crate::transport::ssh::SshTransport;
+use crate::transport::telnet::TelnetCodec;
+use crate::transport::{HostKeyStore, Prompter, Transport, TransportSink};
 
 /// Setting key; JSON bool, default `true`.
 pub const AUTO_RECONNECT_SETTING: &str = "console.autoReconnect";
@@ -40,8 +45,98 @@ pub(crate) trait Backend: Send + Sync + 'static {
         baud: u32,
         sink: TransportSink,
     ) -> Box<dyn Transport>;
+    /// ssh / telnet / rlogin / raw transport for a `OpenTarget::Network`.
+    fn make_network_transport(
+        &self,
+        target: &OpenTarget,
+        size: (u16, u16),
+        sink: TransportSink,
+        prompter: Arc<dyn Prompter>,
+    ) -> Result<Box<dyn Transport>>;
     fn touch_session(&self, id: i64) -> Result<()>;
     fn auto_reconnect_enabled(&self) -> bool;
+}
+
+/// SQLite-backed SSH host key store.
+pub(crate) struct DbHostKeys(pub Arc<Db>);
+
+impl HostKeyStore for DbHostKeys {
+    fn get(&self, host: &str, port: u16) -> Result<Option<KnownHost>> {
+        self.0.get_known_host(host, port)
+    }
+    fn save(&self, key: &KnownHost) -> Result<()> {
+        self.0.save_known_host(key)
+    }
+}
+
+/// Builds the transport for a network target (shared by the real backend and tests
+/// that talk to the local device simulator).
+pub(crate) fn network_transport(
+    target: &OpenTarget,
+    size: (u16, u16),
+    sink: TransportSink,
+    prompter: Arc<dyn Prompter>,
+    keys: Arc<dyn HostKeyStore>,
+) -> Result<Box<dyn Transport>> {
+    let OpenTarget::Network {
+        protocol,
+        host,
+        port,
+        username,
+        ssh,
+    } = target
+    else {
+        return Err(AppError::invalid("not a network target"));
+    };
+    let port = port
+        .or(protocol.default_port())
+        .ok_or_else(|| AppError::invalid("port required"))?;
+    let (cols, rows) = size;
+    let host = host.trim().to_owned();
+    Ok(match protocol {
+        Protocol::Ssh => Box::new(SshTransport::new(
+            host,
+            port,
+            username.clone(),
+            ssh.clone(),
+            sink,
+            prompter,
+            keys,
+            cols,
+            rows,
+        )),
+        Protocol::Telnet => Box::new(TcpTransport::new(
+            *protocol,
+            host,
+            port,
+            username.clone(),
+            TelnetCodec::new(),
+            sink,
+            cols,
+            rows,
+        )),
+        Protocol::Raw => Box::new(TcpTransport::new(
+            *protocol, host, port, None, RawCodec, sink, cols, rows,
+        )),
+        Protocol::Rlogin => {
+            let remote = username
+                .clone()
+                .filter(|u| !u.trim().is_empty())
+                .unwrap_or_else(|| local_user_name("root"));
+            let local = local_user_name(&remote);
+            Box::new(TcpTransport::new(
+                *protocol,
+                host,
+                port,
+                Some(remote.clone()),
+                RloginCodec::new(local, remote),
+                sink,
+                cols,
+                rows,
+            ))
+        }
+        Protocol::Serial => return Err(AppError::invalid("serial is not a network protocol")),
+    })
 }
 
 /// Production backend: console registry + autobaud + serial transport + SQLite.
@@ -95,6 +190,17 @@ impl Backend for RealBackend {
         sink: TransportSink,
     ) -> Box<dyn Transport> {
         Box::new(SerialTransport::new(settings.clone(), baud, sink))
+    }
+
+    fn make_network_transport(
+        &self,
+        target: &OpenTarget,
+        size: (u16, u16),
+        sink: TransportSink,
+        prompter: Arc<dyn Prompter>,
+    ) -> Result<Box<dyn Transport>> {
+        let keys = Arc::new(DbHostKeys(Arc::clone(&self.db)));
+        network_transport(target, size, sink, prompter, keys)
     }
 
     fn touch_session(&self, id: i64) -> Result<()> {
