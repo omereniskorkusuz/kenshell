@@ -8,6 +8,9 @@
 //! * `--raw`:  plain TCP, no Telnet negotiation (KenShell "Raw" protocol)
 //! * `--stdio`: one session on stdin/stdout — pair with `socat` to emulate a serial console:
 //!   `socat pty,raw,echo=0,link=/tmp/ks-console EXEC:'device-simulator --stdio --profile ruijie'`
+//! * `--pty` (unix): creates a pseudo-terminal pair and prints the device path to open in
+//!   KenShell as a serial port (no socat needed). With `--baud N` the simulator emits
+//!   garbage unless the port is set to N (exercises autobaud).
 
 mod engine;
 mod profile;
@@ -26,6 +29,8 @@ struct Options {
     port: u16,
     raw: bool,
     stdio: bool,
+    pty: bool,
+    baud: Option<u32>,
     list: bool,
 }
 
@@ -36,6 +41,8 @@ fn parse_args() -> Result<Options, String> {
         port: 2323,
         raw: false,
         stdio: false,
+        pty: false,
+        baud: None,
         list: false,
     };
     let mut args = std::env::args().skip(1);
@@ -47,6 +54,8 @@ fn parse_args() -> Result<Options, String> {
             "--port" => o.port = val()?.parse().map_err(|e| format!("--port: {e}"))?,
             "--raw" => o.raw = true,
             "--stdio" => o.stdio = true,
+            "--pty" => o.pty = true,
+            "--baud" => o.baud = Some(val()?.parse().map_err(|e| format!("--baud: {e}"))?),
             "--list" => o.list = true,
             "--help" | "-h" => return Err(String::new()),
             other => return Err(format!("unknown argument '{other}'")),
@@ -72,7 +81,7 @@ fn main() {
                 eprintln!("error: {e}");
             }
             eprintln!(
-                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--stdio] [--list]"
+                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--stdio] [--pty [--baud N]] [--list]"
             );
             std::process::exit(2);
         }
@@ -92,6 +101,8 @@ fn main() {
     };
     let result = if opts.stdio {
         run_stdio(&profile)
+    } else if opts.pty {
+        run_pty(&profile, opts.baud)
     } else {
         run_tcp(&opts, profile)
     };
@@ -181,4 +192,86 @@ fn serve(mut stream: TcpStream, profile: &Profile, raw: bool) -> std::io::Result
         }
     }
     Ok(())
+}
+
+#[cfg(unix)]
+fn line_speed(tty: &std::fs::File) -> Option<u32> {
+    use std::os::fd::AsRawFd;
+    let t = nix::sys::termios::tcgetattr(tty.as_raw_fd()).ok()?;
+    u32::try_from(nix::sys::termios::cfgetospeed(&t) as u64).ok()
+}
+
+#[cfg(unix)]
+fn run_pty(profile: &Profile, baud: Option<u32>) -> std::io::Result<()> {
+    use serialport::{SerialPort, TTYPort};
+    use std::os::unix::fs::OpenOptionsExt;
+    use std::time::Duration;
+
+    let (mut master, slave) = TTYPort::pair().map_err(std::io::Error::other)?;
+    let path = slave.name().unwrap_or_default();
+    // Keep the slave end alive so the device node stays valid while KenShell (re)opens it.
+    let _slave = slave;
+    // Termios is per tty device: a second fd on the slave reveals the speed KenShell set.
+    let probe = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .custom_flags(nix::fcntl::OFlag::O_NOCTTY.bits())
+        .open(&path)?;
+    master
+        .set_timeout(Duration::from_millis(200))
+        .map_err(std::io::Error::other)?;
+    eprintln!(
+        "device-simulator: {} ({}) on pseudo-terminal {path}{}",
+        profile.name,
+        profile.vendor,
+        baud.map(|b| format!(" (clean output only at {b} baud)"))
+            .unwrap_or_default()
+    );
+    println!("{path}");
+
+    let mut session = Session::new(profile);
+    let mut started = false;
+    let mut buf = [0u8; 1024];
+    loop {
+        let n = match master.read(&mut buf) {
+            Ok(0) => continue,
+            Ok(n) => n,
+            Err(e) if e.kind() == std::io::ErrorKind::TimedOut => continue,
+            // EIO while no client has the slave open: wait for the next one.
+            Err(_) => {
+                std::thread::sleep(Duration::from_millis(200));
+                continue;
+            }
+        };
+        let mut out = Vec::new();
+        if !started {
+            started = true;
+            out.extend(session.start());
+        }
+        out.extend(session.feed(&buf[..n]));
+        if session.is_closed() {
+            session = Session::new(profile);
+            started = false;
+        }
+        let speed_ok = match baud {
+            Some(want) => line_speed(&probe).is_none_or(|b| b == want),
+            None => true,
+        };
+        if !speed_ok {
+            out = garble(&out);
+        }
+        master.write_all(&out)?;
+    }
+}
+
+#[cfg(not(unix))]
+fn run_pty(_profile: &Profile, _baud: Option<u32>) -> std::io::Result<()> {
+    Err(std::io::Error::other(
+        "--pty is unix-only; on Windows use a com0com pair with --stdio",
+    ))
+}
+
+/// What a terminal sees when the line speed is wrong: framing noise, high bytes.
+fn garble(data: &[u8]) -> Vec<u8> {
+    data.iter().map(|b| b.rotate_left(3) | 0x80).collect()
 }
