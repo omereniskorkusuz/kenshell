@@ -1,87 +1,101 @@
-import { useEffect, useState } from 'react';
-import { useT } from '../i18n';
-import { appInfo, appReady, modKey } from '../lib/ipc';
-
 /**
- * Phase 0 shell: static "Quiet Console" layout built only from design tokens.
- * Real layout, panels and state arrive in P1-T01.
+ * App shell (Concept "Quiet Console"): top bar · sidebar | tabs + panes | side panel · status
+ * bar, plus overlays (palette, settings, session editor, toasts) and the aria-live region.
  */
+import { lazy, Suspense, useEffect } from 'react';
+import { useT } from '../i18n';
+import { appReady } from '../lib/ipc';
+import { describeError } from '../lib/errors';
+import { LiveRegion } from '../components/LiveRegion';
+import { SessionEditor } from '../components/SessionEditor';
+import { Sidebar } from '../components/Sidebar';
+import { StatusBar } from '../components/StatusBar';
+import { Toasts } from '../components/Toasts';
+import { TopBar } from '../components/TopBar';
+import { Workspace } from '../components/Workspace';
+import { loadTerminalView } from '../components/Pane';
+import { useConsoles } from '../stores/consoles';
+import { useLibrary } from '../stores/library';
+import { setPersistErrorHandler, useSettings } from '../stores/settings';
+import { toast } from '../stores/toasts';
+import { useUi } from '../stores/ui';
+import { installSettingsEffects } from './effects';
+import { installShortcuts } from './keyboard';
+
+const loadPalette = () => import('../palette/CommandPalette');
+const loadSettings = () => import('../settings/SettingsView');
+const CommandPalette = lazy(loadPalette);
+const SettingsView = lazy(loadSettings);
+
+/** Warm the lazy chunks after first paint so the first ⌘K / tab open is instant. */
+function preloadChunks(): void {
+  const idle =
+    typeof requestIdleCallback === 'function'
+      ? (cb: () => void) => requestIdleCallback(cb, { timeout: 2000 })
+      : (cb: () => void) => setTimeout(cb, 800);
+  idle(() => {
+    void loadTerminalView();
+    void loadPalette();
+  });
+}
+
 export function App() {
   const t = useT();
-  const [version, setVersion] = useState<string | null>(null);
+  const paletteOpen = useUi((s) => s.paletteOpen);
+  const settingsOpen = useUi((s) => s.settingsOpen);
+  const editor = useUi((s) => s.editor);
 
   useEffect(() => {
-    // First commit done → show the (initially hidden) window. Note: rAF does not fire
-    // while a WKWebView window is hidden, so this must not wait for an animation frame.
+    // First commit done → show the (initially hidden) window. rAF does not fire while a
+    // WKWebView window is hidden, so this must not wait for an animation frame.
     void appReady();
-    void appInfo().then((info) => setVersion(info?.version ?? null));
-  }, []);
 
-  const shortcut = `${modKey()}+K`;
+    setPersistErrorHandler((e) => {
+      const d = describeError(e, t);
+      toast({ kind: 'error', message: d.message, detail: d.detail });
+    });
+    const disposeEffects = installSettingsEffects();
+    const disposeKeys = installShortcuts();
+    void useSettings.getState().load();
+    void useLibrary.getState().load();
+    void useConsoles.getState().load();
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+    void useConsoles
+      .getState()
+      .subscribe()
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {});
+    preloadChunks();
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+      disposeEffects();
+      disposeKeys();
+    };
+    // Boot once; `t` is a stable module function.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex h-full flex-col">
-      <header
-        className="flex shrink-0 items-center gap-3 border-b border-subtle bg-surface px-3"
-        style={{ height: 'var(--top-bar-height)' }}
-      >
-        <span className="font-semibold tracking-tight">{t('app.name')}</span>
-        <button
-          type="button"
-          className="h-7 w-80 max-w-[40vw] rounded-md border border-subtle bg-app px-2 text-left text-muted hover:border-strong"
-        >
-          {t('shell.quickConnect')}
-        </button>
-        <div className="ml-auto flex items-center gap-1 text-secondary">
-          <button type="button" className="rounded-md px-2 py-1 hover:bg-hover">
-            {t('shell.scanNetwork')}
-          </button>
-          <button
-            type="button"
-            className="rounded-md px-2 py-1 font-mono text-xs hover:bg-hover"
-            aria-label={t('shell.commandPalette')}
-          >
-            {shortcut}
-          </button>
-          <button type="button" className="rounded-md px-2 py-1 hover:bg-hover">
-            {t('shell.settings')}
-          </button>
-        </div>
-      </header>
-
+      <TopBar />
       <div className="flex min-h-0 flex-1">
-        <nav
-          className="flex shrink-0 flex-col gap-4 border-r border-subtle bg-surface p-3"
-          style={{ width: 'var(--sidebar-width)' }}
-        >
-          <section>
-            <h2 className="label-caps mb-1">{t('shell.sessions')}</h2>
-            <p className="text-sm text-muted">{t('shell.noSessions')}</p>
-          </section>
-          <section>
-            <h2 className="label-caps mb-1">{t('shell.detectedConsoles')}</h2>
-          </section>
-          <section>
-            <h2 className="label-caps mb-1">{t('shell.recent')}</h2>
-          </section>
-        </nav>
-
-        <main className="flex min-w-0 flex-1 bg-terminal" data-mode="unknown">
-          <div className="mode-stripe shrink-0" />
-          <div className="m-auto max-w-md text-center">
-            <h1 className="text-lg font-medium text-secondary">{t('shell.emptyTitle')}</h1>
-            <p className="mt-1 text-sm text-muted">{t('shell.emptyHint', { shortcut })}</p>
-          </div>
-        </main>
+        <Sidebar />
+        <Workspace />
       </div>
-
-      <footer
-        className="flex shrink-0 items-center gap-4 border-t border-subtle bg-surface px-3 text-xs text-muted"
-        style={{ height: 'var(--status-bar-height)' }}
-      >
-        <span>{t('shell.statusReady')}</span>
-        {version && <span className="ml-auto font-mono">{t('shell.version', { version })}</span>}
-      </footer>
+      <StatusBar />
+      <Toasts />
+      <LiveRegion />
+      <Suspense fallback={null}>
+        {paletteOpen && <CommandPalette />}
+        {settingsOpen && <SettingsView />}
+      </Suspense>
+      {editor && <SessionEditor key={editor.sessionId ?? 'new'} state={editor} />}
     </div>
   );
 }
