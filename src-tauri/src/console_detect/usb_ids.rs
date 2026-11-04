@@ -190,7 +190,6 @@ pub(crate) fn chip_for_os(vid: u16, pid: u16, os: TargetOs) -> Option<ChipInfo> 
 }
 
 /// `FTDI FT232R` style label (identity bar).
-#[allow(dead_code)] // TODO(P1-T06): used by the session layer's `SerialLink.chip`
 pub fn label(chip: &ChipInfo) -> String {
     format!("{} {}", chip.vendor, chip.model)
 }

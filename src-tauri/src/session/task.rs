@@ -508,12 +508,18 @@ impl SessionTask {
     }
 
     /// The link failed (or closed): release the port, report, keep the tab.
-    async fn link_lost(&mut self, mut transport: Box<dyn Transport>, err: Option<AppError>) -> Next {
+    async fn link_lost(
+        &mut self,
+        mut transport: Box<dyn Transport>,
+        err: Option<AppError>,
+    ) -> Next {
         if let Err(e) = transport.disconnect().await {
             tracing::debug!(session = self.ctx.id, "disconnect after loss: {e}");
         }
         drop(transport);
-        let gone = err.as_ref().is_some_and(|e| e.code == ErrorCode::DeviceGone);
+        let gone = err
+            .as_ref()
+            .is_some_and(|e| e.code == ErrorCode::DeviceGone);
         self.ctx.set_state(ConnState::Disconnected, err);
         if gone {
             self.ctx.health(HealthKind::CableRemoved);
@@ -540,7 +546,10 @@ impl SessionTask {
                     }
                 }
                 Some(
-                    Command::Write(_) | Command::Resize(..) | Command::Break | Command::PortDetached,
+                    Command::Write(_)
+                    | Command::Resize(..)
+                    | Command::Break
+                    | Command::PortDetached,
                 ) => {}
             }
         }
@@ -564,19 +573,35 @@ mod tests {
     fn plan_prefers_accepted_then_suggestion_then_remembered() {
         assert_eq!(
             plan_from_outcome(&outcome(Some(9600), Some(19200), false), Some(115200)),
-            BaudPlan { baud: 9600, auto_detected: true, remember: true }
+            BaudPlan {
+                baud: 9600,
+                auto_detected: true,
+                remember: true
+            }
         );
         assert_eq!(
             plan_from_outcome(&outcome(None, Some(19200), false), Some(115200)),
-            BaudPlan { baud: 19200, auto_detected: true, remember: false }
+            BaudPlan {
+                baud: 19200,
+                auto_detected: true,
+                remember: false
+            }
         );
         assert_eq!(
             plan_from_outcome(&outcome(None, None, true), Some(115200)),
-            BaudPlan { baud: 115200, auto_detected: false, remember: false }
+            BaudPlan {
+                baud: 115200,
+                auto_detected: false,
+                remember: false
+            }
         );
         assert_eq!(
             plan_from_outcome(&outcome(None, None, true), None),
-            BaudPlan { baud: FALLBACK_BAUD, auto_detected: false, remember: false }
+            BaudPlan {
+                baud: FALLBACK_BAUD,
+                auto_detected: false,
+                remember: false
+            }
         );
     }
 

@@ -66,7 +66,7 @@ impl Backend for RealBackend {
     fn chip_label(&self, path: &str) -> Option<String> {
         self.consoles
             .chip_for(path)
-            .map(|c| format!("{} {}", c.vendor, c.model))
+            .map(|c| crate::console_detect::usb_ids::label(&c))
     }
 
     fn port_key(&self, path: &str) -> String {

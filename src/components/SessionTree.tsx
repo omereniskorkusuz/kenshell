@@ -58,7 +58,7 @@ export function SessionTree() {
   const tree = useMemo(() => buildTree(folders, sessions), [folders, sessions]);
   const [selected, setSelected] = useState<Sel | null>(null);
   const [dropTarget, setDropTarget] = useState<number | 'root' | null>(null);
-  const dragging = useRef<DragPayload | null>(null);
+  const [dragging, setDragging] = useState<DragPayload | null>(null);
   const menu = useMenu();
   const [menuEntries, setMenuEntries] = useState<MenuEntry[]>([]);
   const addMenu = useMenu();
@@ -202,7 +202,7 @@ export function SessionTree() {
   // ---------------------------------------------------------------- drag & drop
 
   const canDropInto = (target: number | null): boolean => {
-    const d = dragging.current;
+    const d = dragging;
     if (!d) return false;
     if (d.kind === 'folder')
       return target === null || !descendantFolderIds(folders, d.id).has(target);
@@ -213,8 +213,8 @@ export function SessionTree() {
     e.preventDefault();
     e.stopPropagation();
     setDropTarget(null);
-    const d = readDrag(e) ?? dragging.current;
-    dragging.current = null;
+    const d = readDrag(e) ?? dragging;
+    setDragging(null);
     if (!d) return;
     if (d.kind === 'folder') {
       // Never into itself or one of its own sub-folders.
@@ -229,19 +229,19 @@ export function SessionTree() {
   const dragProps = (payload: DragPayload) => ({
     draggable: !renaming,
     onDragStart: (e: DragEvent) => {
-      dragging.current = payload;
+      setDragging(payload);
       e.dataTransfer.setData(DND_TYPE, JSON.stringify(payload));
       e.dataTransfer.effectAllowed = 'move';
     },
     onDragEnd: () => {
-      dragging.current = null;
+      setDragging(null);
       setDropTarget(null);
     },
   });
 
   const dropProps = (target: number | null) => ({
     onDragOver: (e: DragEvent) => {
-      if (!dragging.current || !canDropInto(target)) return;
+      if (!dragging || !canDropInto(target)) return;
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';

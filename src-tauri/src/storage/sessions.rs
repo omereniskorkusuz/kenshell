@@ -169,7 +169,7 @@ impl Db {
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
 
-    #[allow(dead_code, reason = "contract API; consumed by session/ (P1)")]
+    #[allow(dead_code, reason = "contract API; first caller is the P2 session editor")]
     pub fn get_session(&self, id: i64) -> Result<SessionRecord> {
         fetch(&self.conn(), id)
     }
@@ -278,7 +278,6 @@ impl Db {
     }
 
     /// Sets `last_connected_at` = now. Does not touch `updated_at` (not an edit).
-    #[allow(dead_code, reason = "contract API; consumed by session/ (P1)")]
     pub fn touch_session(&self, id: i64) -> Result<()> {
         let changed = self.conn().execute(
             "UPDATE sessions SET last_connected_at = ?2 WHERE id = ?1",

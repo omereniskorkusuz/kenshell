@@ -15,7 +15,6 @@ fn corrupt(key: &str, e: &serde_json::Error) -> AppError {
 }
 
 impl Db {
-    #[allow(dead_code, reason = "contract API; no backend consumer yet")]
     pub fn get_setting(&self, key: &str) -> Result<Option<serde_json::Value>> {
         let key = validate::setting_key(key)?;
         let raw: Option<String> = self

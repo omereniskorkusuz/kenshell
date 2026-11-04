@@ -4,6 +4,7 @@
  */
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import type * as MockModule from './mock';
 
 // ------------------------------------------------------------------ errors
 
@@ -222,8 +223,8 @@ export function isMac(): boolean {
  * in-memory mock so the UI can be demoed. The mock is a separate, dynamically imported chunk
  * that the Tauri app never loads.
  */
-let mockModule: Promise<typeof import('./mock')> | null = null;
-function loadMock(): Promise<typeof import('./mock')> {
+let mockModule: Promise<typeof MockModule> | null = null;
+function loadMock(): Promise<typeof MockModule> {
   mockModule ??= import('./mock');
   return mockModule;
 }
@@ -234,8 +235,9 @@ function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
 }
 
 /**
- * Opens an http(s) URL in the system browser. Other schemes are refused.
- * TODO(lead): route through the Tauri opener plugin once it is wired.
+ * Opens an official https link (e.g. a driver download page) in the system browser.
+ * In Tauri this goes through the backend `open_external` command (https only, validated);
+ * in a plain browser it falls back to `window.open`. Returns false for refused URLs.
  */
 export function openExternal(url: string): boolean {
   let parsed: URL;
@@ -244,8 +246,12 @@ export function openExternal(url: string): boolean {
   } catch {
     return false;
   }
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
-  window.open(parsed.href, '_blank', 'noopener,noreferrer');
+  if (parsed.protocol !== 'https:') return false;
+  if (inTauri()) {
+    void invoke('open_external', { url: parsed.href }).catch(() => undefined);
+  } else {
+    window.open(parsed.href, '_blank', 'noopener,noreferrer');
+  }
   return true;
 }
 
@@ -255,29 +261,30 @@ export const api = {
   folderList: () => call<Folder[]>('folder_list'),
   folderCreate: (name: string, parentId: number | null) =>
     call<Folder>('folder_create', { name, parentId }),
-  folderRename: (id: number, name: string) => call<void>('folder_rename', { id, name }),
-  folderMove: (id: number, parentId: number | null) => call<void>('folder_move', { id, parentId }),
-  folderDelete: (id: number) => call<void>('folder_delete', { id }),
+  folderRename: (id: number, name: string) => call<undefined>('folder_rename', { id, name }),
+  folderMove: (id: number, parentId: number | null) =>
+    call<undefined>('folder_move', { id, parentId }),
+  folderDelete: (id: number) => call<undefined>('folder_delete', { id }),
 
   sessionList: () => call<SessionRecord[]>('session_list'),
   sessionCreate: (input: SessionInput) => call<SessionRecord>('session_create', { input }),
   sessionUpdate: (id: number, input: SessionInput) =>
     call<SessionRecord>('session_update', { id, input }),
-  sessionDelete: (id: number) => call<void>('session_delete', { id }),
+  sessionDelete: (id: number) => call<undefined>('session_delete', { id }),
   sessionDuplicate: (id: number) => call<SessionRecord>('session_duplicate', { id }),
 
   settingsAll: () => call<Settings>('settings_all'),
-  settingSet: (key: string, value: unknown) => call<void>('setting_set', { key, value }),
+  settingSet: (key: string, value: unknown) => call<undefined>('setting_set', { key, value }),
 
   consoleList: () => call<ConsoleSnapshot>('console_list'),
   consoleRescan: () => call<ConsoleSnapshot>('console_rescan'),
 
-  liveWrite: (id: RuntimeId, data: string) => call<void>('live_write', { id, data }),
+  liveWrite: (id: RuntimeId, data: string) => call<undefined>('live_write', { id, data }),
   liveResize: (id: RuntimeId, cols: number, rows: number) =>
-    call<void>('live_resize', { id, cols, rows }),
-  liveBreak: (id: RuntimeId) => call<void>('live_break', { id }),
-  liveClose: (id: RuntimeId) => call<void>('live_close', { id }),
-  liveReconnect: (id: RuntimeId) => call<void>('live_reconnect', { id }),
+    call<undefined>('live_resize', { id, cols, rows }),
+  liveBreak: (id: RuntimeId) => call<undefined>('live_break', { id }),
+  liveClose: (id: RuntimeId) => call<undefined>('live_close', { id }),
+  liveReconnect: (id: RuntimeId) => call<undefined>('live_reconnect', { id }),
 };
 
 /**

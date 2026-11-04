@@ -11,7 +11,7 @@
 //! * Read failures are classified: a vanished USB adapter becomes
 //!   [`ErrorCode::DeviceGone`] (the session layer turns that into "cable removed").
 
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -187,8 +187,10 @@ impl Transport for SerialTransport {
             let port = guard
                 .as_mut()
                 .ok_or_else(|| AppError::invalid("not connected"))?;
+            // No flush(): on serial ports it is tcdrain(), which blocks until the bytes are
+            // physically transmitted (seconds for a large paste at 9600 baud) while holding
+            // the writer lock — and never returns on a pty whose peer is not reading.
             write_fully(port.as_mut(), &data, WRITE_DEADLINE)
-                .and_then(|()| port.flush())
                 .map_err(|e| classify_write_error(&path, &e))
         })
         .await
@@ -448,16 +450,25 @@ mod tests {
     fn classify_device_gone_vs_io() {
         let gone = |e: io::Error, exists| classify_read_error("/dev/x", &e, exists).code;
         use io::ErrorKind as K;
-        assert_eq!(gone(io::Error::new(K::BrokenPipe, "x"), true), ErrorCode::DeviceGone);
-        assert_eq!(gone(io::Error::new(K::Other, "x"), false), ErrorCode::DeviceGone);
         assert_eq!(
-            gone(io::Error::new(K::Other, "Device not configured"), true),
+            gone(io::Error::new(K::BrokenPipe, "x"), true),
             ErrorCode::DeviceGone
         );
-        assert_eq!(gone(io::Error::new(K::Other, "I/O error"), true), ErrorCode::DeviceGone);
-        assert_eq!(gone(io::Error::from_raw_os_error(GONE_OS_ERRORS[0]), true), ErrorCode::DeviceGone);
-        assert_eq!(gone(io::Error::new(K::Other, "framing"), true), ErrorCode::Io);
-        let e = classify_read_error("/dev/x", &io::Error::new(K::Other, "boom"), true);
+        assert_eq!(gone(io::Error::other("x"), false), ErrorCode::DeviceGone);
+        assert_eq!(
+            gone(io::Error::other("Device not configured"), true),
+            ErrorCode::DeviceGone
+        );
+        assert_eq!(
+            gone(io::Error::other("I/O error"), true),
+            ErrorCode::DeviceGone
+        );
+        assert_eq!(
+            gone(io::Error::from_raw_os_error(GONE_OS_ERRORS[0]), true),
+            ErrorCode::DeviceGone
+        );
+        assert_eq!(gone(io::Error::other("framing"), true), ErrorCode::Io);
+        let e = classify_read_error("/dev/x", &io::Error::other("boom"), true);
         assert_eq!(e.detail.as_deref(), Some("/dev/x: boom"));
     }
 
@@ -468,7 +479,10 @@ mod tests {
         assert_eq!(e.detail.as_deref(), Some("p: write timed out"));
     }
 
-    fn transport(settings: SerialSettings, baud: u32) -> (SerialTransport, tokio::sync::mpsc::Receiver<TransportEvent>) {
+    fn transport(
+        settings: SerialSettings,
+        baud: u32,
+    ) -> (SerialTransport, tokio::sync::mpsc::Receiver<TransportEvent>) {
         let (tx, rx) = tokio::sync::mpsc::channel(64);
         (SerialTransport::new(settings, baud, tx), rx)
     }
@@ -480,9 +494,18 @@ mod tests {
             ..SerialSettings::default()
         };
         for s in [
-            SerialSettings { data_bits: 9, ..base.clone() },
-            SerialSettings { stop_bits: 3, ..base.clone() },
-            SerialSettings { port: " ".into(), ..base.clone() },
+            SerialSettings {
+                data_bits: 9,
+                ..base.clone()
+            },
+            SerialSettings {
+                stop_bits: 3,
+                ..base.clone()
+            },
+            SerialSettings {
+                port: " ".into(),
+                ..base.clone()
+            },
         ] {
             let (mut t, _rx) = transport(s, 9600);
             assert_eq!(t.connect().await.unwrap_err().code, ErrorCode::Invalid);
@@ -505,6 +528,7 @@ mod tests {
     mod pty {
         use super::*;
         use serialport::TTYPort;
+        use std::io::Write;
         use tokio::sync::mpsc::Receiver;
 
         const WAIT: Duration = Duration::from_secs(5);
@@ -569,7 +593,10 @@ mod tests {
                 }
             }
             assert_eq!(got, payload);
-            assert!(events < chunks, "expected coalescing: {events} events for {chunks} writes");
+            assert!(
+                events < chunks,
+                "expected coalescing: {events} events for {chunks} writes"
+            );
             let _master = writer.join().unwrap();
             t.disconnect().await.unwrap();
         }
@@ -579,6 +606,7 @@ mod tests {
             let (mut t, _rx, mut master) = started();
             t.write(b"show version\r").await.unwrap();
             t.write(b"").await.unwrap();
+            master.set_timeout(Duration::from_millis(100)).unwrap();
             let got = tokio::task::spawn_blocking(move || {
                 let mut buf = Vec::new();
                 let mut chunk = [0u8; 64];
@@ -603,7 +631,10 @@ mod tests {
             let (mut t, mut rx, _master) = started();
             let start = Instant::now();
             t.disconnect().await.unwrap();
-            assert!(start.elapsed() < IO_TIMEOUT * 3, "reader must stop within its timeout");
+            assert!(
+                start.elapsed() < IO_TIMEOUT * 3,
+                "reader must stop within its timeout"
+            );
             assert!(matches!(next(&mut rx).await, TransportEvent::Closed(None)));
             t.disconnect().await.unwrap();
             assert_eq!(t.write(b"x").await.unwrap_err().code, ErrorCode::Invalid);

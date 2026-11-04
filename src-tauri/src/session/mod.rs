@@ -223,7 +223,8 @@ impl SessionManager {
             let has = |keys: &[String]| key.as_ref().is_some_and(|k| keys.contains(k));
             let cmd = match h.shared.state() {
                 ConnState::Disconnected
-                    if has(&change.attached) || attached_paths.contains(&h.shared.path.as_str()) =>
+                    if has(&change.attached)
+                        || attached_paths.contains(&h.shared.path.as_str()) =>
                 {
                     Command::PortAttached
                 }

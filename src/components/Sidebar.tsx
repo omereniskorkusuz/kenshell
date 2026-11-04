@@ -1,5 +1,5 @@
 /** Left sidebar: saved sessions, detected consoles, recent connections. Resizable 180–320px. */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useT, getLocale } from '../i18n';
 import { envKind, envLabel, envLetter, recentSessions } from '../lib/tree';
 import { useLibrary } from '../stores/library';
@@ -49,7 +49,7 @@ function RecentList() {
   const t = useT();
   const sessions = useLibrary((s) => s.sessions);
   const recent = useMemo(() => recentSessions(sessions), [sessions]);
-  const now = Date.now();
+  const now = useNow(60_000);
   if (recent.length === 0) return null;
 
   return (
@@ -82,4 +82,14 @@ function RecentList() {
       </ul>
     </section>
   );
+}
+
+/** Current time, refreshed every `intervalMs` (keeps relative times like "5 min ago" fresh). */
+function useNow(intervalMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return now;
 }

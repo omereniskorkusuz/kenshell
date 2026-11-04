@@ -23,7 +23,7 @@ export type QuickConnect =
 
 const WINDOWS_COM = /^com(\d{1,3})$/i;
 // Bare macOS / Linux device names typed without /dev/.
-const BARE_DEVICE = /^(cu|tty)\.[\w.\-]+$|^tty(USB|ACM|S|AMA)\d+$/;
+const BARE_DEVICE = /^(cu|tty)\.[\w.-]+$|^tty(USB|ACM|S|AMA)\d+$/;
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}(:\d{1,5})?$/;
 const HOST_PORT = /^[\w.-]+:\d{1,5}$/;
 const USER_AT_HOST = /^[^@\s]+@[\w.\-:[\]]+$/;

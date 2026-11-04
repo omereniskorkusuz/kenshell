@@ -14,8 +14,6 @@
 //! (`port_key`, `remember` …) never take `scan_lock` and never notify the listener, so
 //! they are safe to call from inside `on_change` or while holding other locks.
 
-// TODO(P1-T06): drop the allow once the session layer (autobaud wiring) is merged.
-#[allow(dead_code)]
 pub mod autobaud;
 pub mod driver_hint;
 pub mod hotplug;
@@ -216,9 +214,6 @@ impl ConsoleRegistry {
 }
 
 /// Lookups used by the session layer (identity bar, port memory).
-// TODO(P1-T06): drop the allow once the session layer is merged; until then nothing
-// in this tree calls these.
-#[allow(dead_code)]
 impl ConsoleRegistry {
     /// Stable key for a port path (USB serial number if known, else the path).
     pub fn port_key(&self, path: &str) -> String {
