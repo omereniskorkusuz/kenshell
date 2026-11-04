@@ -17,6 +17,10 @@ mod backend;
 mod task;
 #[cfg(test)]
 mod tests;
+// macOS: serialport sets the speed with IOSSIOSPEED, which pseudo-terminals reject
+// (ENOTTY), so the pty-based end-to-end test runs on Linux only (CI job `e2e-linux`).
+#[cfg(all(test, target_os = "linux"))]
+mod e2e;
 
 use std::collections::HashMap;
 use std::future::Future;

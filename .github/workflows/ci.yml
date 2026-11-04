@@ -49,6 +49,25 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
+  e2e-linux:
+    # Real SessionManager + autobaud + serial transport against the device simulator on a
+    # pseudo-terminal (not possible on macOS: ptys reject IOSSIOSPEED).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Tauri system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev
+      - run: npm ci
+      - run: npx vite build
+      - run: cargo build -p device-simulator
+      - run: cargo test -p kenshell e2e -- --ignored
+
   bundle:
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     needs: [frontend, rust]
