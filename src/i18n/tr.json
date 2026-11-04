@@ -312,7 +312,9 @@
     "charsetHint": "Gelen baytların nasıl gösterileceği.",
     "lineTimestamps": "Her satıra zaman damgası",
     "lineTimestampsHint": "Yalnız terminalde gösterilir; cihaz çıktısı değişmez.",
-    "credentials": "Kimlik profilleri"
+    "credentials": "Kimlik profilleri",
+    "data": "İçe / dışa aktar",
+    "choose": "Seç…"
   },
   "mode": {
     "user": "USER",
@@ -363,5 +365,21 @@
     "noPassword": "şifre yok",
     "newPassword": "Yeni şifre ⏎",
     "delete": "Sil"
+  },
+  "data": {
+    "import": "Oturumları içe aktar",
+    "importHint": "Her kaynak kendi klasörüne aktarılır; orada zaten olan oturumlar atlanır. Şifreler içe aktarılmaz.",
+    "putty": "PuTTY ({{count}})",
+    "pickFolder": "Sessions klasörünü seçin",
+    "pickFile": "Dosyayı seçin",
+    "export": "Oturumları dışa aktar",
+    "exportHint": "Tüm klasörler ve oturumlar, şifreler hariç.",
+    "created_one": "{{count}} oturum aktarıldı",
+    "created_other": "{{count}} oturum aktarıldı",
+    "skipped_one": "{{count}} zaten vardı",
+    "skipped_other": "{{count}} zaten vardı",
+    "failed_one": "{{count}} aktarılamadı",
+    "failed_other": "{{count}} aktarılamadı",
+    "exported": "Kaydedildi: {{path}}"
   }
 }

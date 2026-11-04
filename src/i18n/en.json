@@ -312,7 +312,9 @@
     "charsetHint": "How received bytes are shown.",
     "lineTimestamps": "Timestamp each line",
     "lineTimestampsHint": "Shown in the terminal only; the device output is unchanged.",
-    "credentials": "Logins"
+    "credentials": "Logins",
+    "data": "Import / export",
+    "choose": "Choose…"
   },
   "mode": {
     "user": "USER",
@@ -363,5 +365,21 @@
     "noPassword": "no password",
     "newPassword": "New password ⏎",
     "delete": "Delete"
+  },
+  "data": {
+    "import": "Import sessions",
+    "importHint": "Each source goes into its own folder; sessions that already exist there are skipped. Passwords are never imported.",
+    "putty": "PuTTY ({{count}})",
+    "pickFolder": "Choose the Sessions folder",
+    "pickFile": "Choose the file",
+    "export": "Export sessions",
+    "exportHint": "All folders and sessions, without passwords.",
+    "created_one": "{{count}} session imported",
+    "created_other": "{{count}} sessions imported",
+    "skipped_one": "{{count}} already existed",
+    "skipped_other": "{{count}} already existed",
+    "failed_one": "{{count}} could not be imported",
+    "failed_other": "{{count}} could not be imported",
+    "exported": "Saved: {{path}}"
   }
 }

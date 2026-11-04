@@ -705,6 +705,14 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           s.credentialProfileId === a.id ? { ...s, credentialProfileId: null } : s,
         );
         return undefined;
+      case 'import_detect':
+        return { puttyCount: 3, secureCrtDir: null, mobaxtermIni: null };
+      case 'import_sessions':
+        return { created: 3, skipped: 0, errors: [], folder: 'PuTTY' };
+      case 'export_sessions':
+        return undefined;
+      case 'pick_path':
+        return null;
       case 'session_reorder': {
         const id = a.id as number;
         const folderId = (a.folderId as number | null) ?? null;

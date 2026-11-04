@@ -113,6 +113,21 @@ export type SessionInput = Pick<
 
 export type Settings = Record<string, unknown>;
 
+export interface ImportSources {
+  puttyCount: number;
+  secureCrtDir: string | null;
+  mobaxtermIni: string | null;
+}
+
+export interface ImportReport {
+  created: number;
+  skipped: number;
+  errors: string[];
+  folder: string | null;
+}
+
+export type ImportSource = 'putty' | 'securecrt' | 'mobaxterm' | 'csv';
+
 /** Reusable login; the password itself stays in the OS keychain. */
 export interface CredentialProfile {
   id: number;
@@ -380,6 +395,15 @@ export const api = {
   sessionPasswordSet: (id: number, password: string | null) =>
     call<undefined>('session_password_set', { id, password }),
   sessionPasswordExists: (id: number) => call<boolean>('session_password_exists', { id }),
+
+  importDetect: () => call<ImportSources>('import_detect'),
+  importSessions: (source: ImportSource, path: string | null) =>
+    call<ImportReport>('import_sessions', { source, path }),
+  exportSessions: (path: string, format: 'json' | 'csv') =>
+    call<undefined>('export_sessions', { path, format }),
+  /** Native dialog; resolves null when cancelled. */
+  pickPath: (kind: 'file' | 'folder' | 'save', extensions?: string[], name?: string) =>
+    call<string | null>('pick_path', { kind, extensions: extensions ?? null, name: name ?? null }),
 
   consoleList: () => call<ConsoleSnapshot>('console_list'),
   consoleRescan: () => call<ConsoleSnapshot>('console_rescan'),

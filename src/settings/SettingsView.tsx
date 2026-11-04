@@ -1,15 +1,25 @@
 /**
  * Settings (lazy chunk). Every change applies instantly and is persisted — no Save/OK.
  */
-import { useId, useState, type ReactNode, type FormEvent } from 'react';
+import { useEffect, useId, useState, type ReactNode, type FormEvent } from 'react';
 import { Dialog } from '../components/Dialog';
+import { api, type ImportReport, type ImportSource, type ImportSources } from '../lib/ipc';
+import { describeError } from '../lib/errors';
+import { toast } from '../stores/toasts';
 import { useLibrary } from '../stores/library';
 import { useT, type TKey } from '../i18n';
 import { LIMITS, useSettings, type AppSettings, type SettingKey } from '../stores/settings';
 import { useUi } from '../stores/ui';
 
 type SectionId =
-  'appearance' | 'language' | 'terminal' | 'connection' | 'credentials' | 'logging' | 'console';
+  | 'appearance'
+  | 'language'
+  | 'terminal'
+  | 'connection'
+  | 'credentials'
+  | 'logging'
+  | 'console'
+  | 'data';
 const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'appearance', label: 'settings.appearance' },
   { id: 'language', label: 'settings.language' },
@@ -18,6 +28,7 @@ const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'credentials', label: 'settings.credentials' },
   { id: 'logging', label: 'settings.logging' },
   { id: 'console', label: 'settings.console' },
+  { id: 'data', label: 'settings.data' },
 ];
 
 export default function SettingsView() {
@@ -57,6 +68,7 @@ export default function SettingsView() {
           {section === 'credentials' && <CredentialsSection />}
           {section === 'logging' && <LoggingSection />}
           {section === 'console' && <ConsoleSection />}
+          {section === 'data' && <DataSection />}
           <p className="mt-auto text-xs text-muted">{t('settings.instantHint')}</p>
         </div>
       </div>
@@ -463,6 +475,128 @@ function ProfileRow(p: {
   );
 }
 
+function DataSection() {
+  const t = useT();
+  const [sources, setSources] = useState<ImportSources | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void api
+      .importDetect()
+      .then((s) => live && setSources(s))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const report = (r: ImportReport) => {
+    const parts = [t('data.created', { count: r.created })];
+    if (r.skipped) parts.push(t('data.skipped', { count: r.skipped }));
+    if (r.errors.length) parts.push(t('data.failed', { count: r.errors.length }));
+    toast({
+      kind: r.errors.length && !r.created ? 'error' : 'info',
+      message: r.folder ? `${parts.join(' · ')} — ${r.folder}` : parts.join(' · '),
+      detail: r.errors.slice(0, 20).join('\n') || null,
+    });
+  };
+
+  const run = async (source: ImportSource, path: string | null) => {
+    setBusy(true);
+    try {
+      report(await api.importSessions(source, path));
+      await useLibrary.getState().load();
+    } catch (e) {
+      const d = describeError(e, t);
+      toast({ kind: 'error', message: d.message, detail: d.detail });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pickAndRun = async (source: ImportSource, kind: 'file' | 'folder', ext?: string[]) => {
+    const path = await api.pickPath(kind, ext).catch(() => null);
+    if (path) await run(source, path);
+  };
+
+  const exportAs = async (format: 'json' | 'csv') => {
+    const date = new Date().toISOString().slice(0, 10);
+    const path = await api
+      .pickPath('save', [format], `kenshell-sessions-${date}.${format}`)
+      .catch(() => null);
+    if (!path) return;
+    try {
+      await api.exportSessions(path, format);
+      useUi.getState().flash(t('data.exported', { path }));
+    } catch (e) {
+      const d = describeError(e, t);
+      toast({ kind: 'error', message: d.message, detail: d.detail });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h3 className="label-caps">{t('data.import')}</h3>
+      <p className="text-sm text-muted">{t('data.importHint')}</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="btn"
+          disabled={busy || !sources?.puttyCount}
+          onClick={() => void run('putty', null)}
+        >
+          {t('data.putty', { count: sources?.puttyCount ?? 0 })}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={busy}
+          onClick={() =>
+            sources?.secureCrtDir
+              ? void run('securecrt', sources.secureCrtDir)
+              : void pickAndRun('securecrt', 'folder')
+          }
+          title={sources?.secureCrtDir ?? t('data.pickFolder')}
+        >
+          SecureCRT{sources?.secureCrtDir ? '' : '…'}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={busy}
+          onClick={() =>
+            sources?.mobaxtermIni
+              ? void run('mobaxterm', sources.mobaxtermIni)
+              : void pickAndRun('mobaxterm', 'file', ['ini'])
+          }
+          title={sources?.mobaxtermIni ?? t('data.pickFile')}
+        >
+          MobaXterm{sources?.mobaxtermIni ? '' : '…'}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={busy}
+          onClick={() => void pickAndRun('csv', 'file', ['csv', 'txt'])}
+        >
+          CSV…
+        </button>
+      </div>
+      <h3 className="label-caps mt-2">{t('data.export')}</h3>
+      <p className="text-sm text-muted">{t('data.exportHint')}</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn" onClick={() => void exportAs('json')}>
+          JSON…
+        </button>
+        <button type="button" className="btn" onClick={() => void exportAs('csv')}>
+          CSV…
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function LoggingSection() {
   const t = useT();
   const [enabled, setEnabled] = useSetting('log.enabled');
@@ -477,14 +611,29 @@ function LoggingSection() {
       </Row>
       <Row label={t('settings.logDir')} hint={t('settings.logDirHint')}>
         {(id) => (
-          <input
-            id={id}
-            className="field mono w-72"
-            defaultValue={dir}
-            placeholder="~/Documents/KenShell Logs"
-            spellCheck={false}
-            onBlur={(e) => setDir(e.target.value)}
-          />
+          <div className="flex gap-2">
+            <input
+              id={id}
+              key={dir}
+              className="field mono w-64"
+              defaultValue={dir}
+              placeholder="~/Documents/KenShell Logs"
+              spellCheck={false}
+              onBlur={(e) => setDir(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn"
+              onClick={() =>
+                void api
+                  .pickPath('folder')
+                  .then((p) => p && setDir(p))
+                  .catch(() => {})
+              }
+            >
+              {t('settings.choose')}
+            </button>
+          </div>
         )}
       </Row>
       <Row label={t('settings.logTemplate')} hint={t('settings.logTemplateHint')}>
