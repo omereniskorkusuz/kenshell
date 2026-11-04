@@ -256,6 +256,7 @@ export type SessionEvent =
   | { type: 'link'; link: SerialLink }
   | { type: 'netLink'; link: NetLink }
   | { type: 'prompt'; request: PromptRequest }
+  | { type: 'logging'; path: string | null; error: AppError | null }
   | { type: 'health'; kind: HealthKind };
 
 // ------------------------------------------------------------------ plumbing

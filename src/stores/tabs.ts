@@ -113,6 +113,7 @@ export const useTabs = create<TabsState>()((set, get) => {
       link: null,
       netLink: null,
       prompt: null,
+      logPath: null,
       connectedAt: null,
       health: x.health === 'cableReturned' ? x.health : null,
     }));
@@ -134,6 +135,10 @@ export const useTabs = create<TabsState>()((set, get) => {
         update(key, (x) => ({ ...x, prompt: startPrompt(ev.request) }));
         announce(key);
         return;
+      }
+      if (ev.type === 'logging' && ev.error) {
+        const d = describeError(ev.error, t);
+        toast({ kind: 'error', message: t('log.openFailed'), detail: d.detail });
       }
       if (ev.type === 'netLink' && ev.link.hostKey?.firstSeen) {
         useUi
@@ -253,6 +258,7 @@ export const useTabs = create<TabsState>()((set, get) => {
         link: null,
         netLink: null,
         prompt: null,
+        logPath: null,
         health: null,
         connectedAt: null,
         mode: 'unknown',

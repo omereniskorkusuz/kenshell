@@ -319,6 +319,12 @@ pub enum SessionEvent {
     Prompt {
         request: PromptRequest,
     },
+    /// Session log state after connecting: `path` when logging, `error` if the log
+    /// could not be opened (the session itself keeps working).
+    Logging {
+        path: Option<String>,
+        error: Option<AppError>,
+    },
     Health {
         kind: HealthKind,
     },

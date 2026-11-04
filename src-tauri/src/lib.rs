@@ -4,6 +4,7 @@ mod commands;
 mod console_detect;
 mod error;
 mod events;
+mod logging;
 mod model;
 mod platform;
 mod session;

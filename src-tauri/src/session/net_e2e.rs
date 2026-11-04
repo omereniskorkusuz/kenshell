@@ -305,3 +305,49 @@ async fn net_e2e_ssh_legacy_algorithms_and_wrong_password() {
     until("auth failed", || failed(&out).is_some()).await;
     assert_eq!(failed(&out), Some(ErrorCode::AuthFailed));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs target/debug/device-simulator"]
+async fn net_e2e_session_log_has_output_but_never_typed_passwords() {
+    let port = free_port();
+    let _sim = sim(&["--profile", "cisco"], port);
+    let (m, db) = manager();
+    let dir = tempfile::tempdir().unwrap();
+    db.set_setting("log.enabled", &serde_json::json!(true)).unwrap();
+    db.set_setting("log.dir", &serde_json::json!(dir.path())).unwrap();
+    db.set_setting("log.template", &serde_json::json!("{name}")).unwrap();
+
+    let out = Arc::new(Rec::default());
+    let id = m.open(net(Protocol::Telnet, port, None, false), out.clone()).unwrap();
+    until("connected", || connected(&out)).await;
+    let path = out
+        .events
+        .lock()
+        .unwrap()
+        .iter()
+        .find_map(|e| match e {
+            SessionEvent::Logging { path, .. } => path.clone(),
+            _ => None,
+        })
+        .expect("log path event");
+    until("username", || out.text().contains("Username:")).await;
+    for (send, want) in [
+        ("admin\r", "Password:"),
+        ("Sup3rS3cret!\r", "Login invalid"),
+        ("admin\r", "Password:"),
+        ("admin\r", "core-sw-01>"),
+        ("enable\r", "Password:"),
+        ("cisco\r", "core-sw-01#"),
+    ] {
+        m.write(id, send.as_bytes()).unwrap();
+        until(want, || out.text().contains(want)).await;
+    }
+    m.close(id).unwrap();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let log = std::fs::read_to_string(&path).unwrap();
+    assert!(log.contains("core-sw-01#"), "{log}");
+    assert!(!log.contains('\x1b'), "printable mode strips escapes");
+    for secret in ["Sup3rS3cret!", "cisco\n"] {
+        assert!(!log.contains(secret), "typed secret {secret:?} leaked into the log:\n{log}");
+    }
+}

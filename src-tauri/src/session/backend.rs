@@ -59,6 +59,8 @@ pub(crate) trait Backend: Send + Sync + 'static {
     fn auto_reconnect_enabled(&self) -> bool;
     /// `connection.autoReconnect` (default false): reconnect dropped network sessions.
     fn net_auto_reconnect_enabled(&self) -> bool;
+    /// Session logging config when `log.enabled` is on (default off).
+    fn log_config(&self) -> Option<crate::logging::LogConfig>;
 }
 
 /// SQLite-backed SSH host key store.
@@ -209,6 +211,32 @@ impl Backend for RealBackend {
 
     fn touch_session(&self, id: i64) -> Result<()> {
         self.db.touch_session(id)
+    }
+
+    fn log_config(&self) -> Option<crate::logging::LogConfig> {
+        use crate::logging::{DEFAULT_TEMPLATE, LogConfig, LogMode, default_dir};
+        let get = |k: &str| self.db.get_setting(k).ok().flatten();
+        if !get("log.enabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            return None;
+        }
+        let text = |k: &str| {
+            get(k)
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .filter(|s| !s.trim().is_empty())
+        };
+        Some(LogConfig {
+            dir: text("log.dir").map(Into::into).unwrap_or_else(default_dir),
+            template: text("log.template").unwrap_or_else(|| DEFAULT_TEMPLATE.into()),
+            mode: get("log.mode")
+                .and_then(|v| serde_json::from_value::<LogMode>(v).ok())
+                .unwrap_or_default(),
+            timestamps: get("log.timestamps")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+        })
     }
 
     fn net_auto_reconnect_enabled(&self) -> bool {

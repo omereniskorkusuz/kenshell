@@ -512,8 +512,41 @@ impl SessionTask {
         }
     }
 
+    /// Opens the session log if logging is enabled (never fails the session).
+    async fn open_log(&self) -> Option<crate::logging::SessionLog> {
+        let path = self.ctx.shared.path.clone();
+        let serial = matches!(self.ctx.target, OpenTarget::Serial { .. });
+        let res = self
+            .ctx
+            .call(move |b| {
+                let cfg = b.log_config()?;
+                let name = if serial { b.display_name(&path) } else { path };
+                Some(crate::logging::SessionLog::open(&cfg, &name))
+            })
+            .await;
+        match res {
+            Ok(Some(Ok(log))) => {
+                self.ctx.out.event(SessionEvent::Logging {
+                    path: Some(log.path().display().to_string()),
+                    error: None,
+                });
+                Some(log)
+            }
+            Ok(Some(Err(e))) | Err(e) => {
+                tracing::warn!(session = self.ctx.id, "session log: {e}");
+                self.ctx.out.event(SessionEvent::Logging {
+                    path: None,
+                    error: Some(e),
+                });
+                None
+            }
+            Ok(None) => None,
+        }
+    }
+
     async fn connected(&mut self, link: Link) -> Next {
         let (mut transport, mut rx) = link;
+        let log = self.open_log().await;
         let mut carry: Option<TransportEvent> = None;
         let mut detach_deadline: Option<Instant> = None;
         loop {
@@ -553,6 +586,9 @@ impl SessionTask {
                             }
                             Err(_) => break,
                         }
+                    }
+                    if let Some(log) = &log {
+                        log.write(&buf);
                     }
                     self.ctx.out.data(buf);
                 }

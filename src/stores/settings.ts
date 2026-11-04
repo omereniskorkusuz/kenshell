@@ -22,6 +22,12 @@ export interface AppSettings {
   'ui.sidebarCollapsed': boolean;
   'ui.sidePanelWidth': number;
   'ui.sidePanelPinned': boolean;
+  'log.enabled': boolean;
+  /** Empty = ~/Documents/KenShell Logs (decided by the backend). */
+  'log.dir': string;
+  'log.template': string;
+  'log.mode': 'printable' | 'all';
+  'log.timestamps': boolean;
 }
 
 export type SettingKey = keyof AppSettings;
@@ -39,6 +45,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'ui.sidebarCollapsed': false,
   'ui.sidePanelWidth': 320,
   'ui.sidePanelPinned': false,
+  'log.enabled': false,
+  'log.dir': '',
+  'log.template': '{name}_{date}_{time}.log',
+  'log.mode': 'printable',
+  'log.timestamps': false,
 };
 
 export const LIMITS = {
@@ -83,7 +94,15 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'connection.autoReconnect':
       case 'ui.sidebarCollapsed':
       case 'ui.sidePanelPinned':
+      case 'log.enabled':
+      case 'log.timestamps':
         return bool(value, d[k]);
+      case 'log.mode':
+        return oneOf(value, ['printable', 'all'] as const, d[k]);
+      case 'log.dir':
+        return typeof value === 'string' ? value.trim().slice(0, 1024) : d[k];
+      case 'log.template':
+        return typeof value === 'string' && value.trim() ? value.trim().slice(0, 200) : d[k];
       default:
         return d[k];
     }

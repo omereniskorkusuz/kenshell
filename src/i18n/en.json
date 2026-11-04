@@ -91,7 +91,8 @@
     "prodCount_other": "{{count}} PROD",
     "breakSent": "BREAK sent",
     "breakNeedsConnection": "BREAK needs a connected session.",
-    "loggingIn": "Logging in…"
+    "loggingIn": "Logging in…",
+    "logOn": "Log: {{file}}"
   },
   "autobaud": {
     "detecting": "Detecting speed…",
@@ -276,7 +277,19 @@
     "instantHint": "Changes apply immediately.",
     "connection": "Connection",
     "netAutoReconnect": "Reconnect dropped SSH/Telnet sessions",
-    "netAutoReconnectHint": "After a timeout or network error, retries after 2, 5, 10 and 30 seconds. Never after you log out or when login fails."
+    "netAutoReconnectHint": "After a timeout or network error, retries after 2, 5, 10 and 30 seconds. Never after you log out or when login fails.",
+    "logging": "Logging",
+    "logEnabled": "Log every session",
+    "logEnabledHint": "Device output is streamed to a file; what you type (passwords) is never logged.",
+    "logDir": "Log folder",
+    "logDirHint": "Empty = Documents/KenShell Logs",
+    "logTemplate": "File name",
+    "logTemplateHint": "{name}, {date}, {time} are replaced; existing files are never overwritten.",
+    "logMode": "Content",
+    "logModePrintable": "Readable text",
+    "logModeAll": "Raw output (all bytes)",
+    "logTimestamps": "Timestamp each line",
+    "logTimestampsHint": "Readable text mode only."
   },
   "mode": {
     "user": "USER",
@@ -296,5 +309,8 @@
     "forgetHostKey": "Forget stored key",
     "forgetHostKeyHint": "Only if you know the device was replaced or re-keyed. The next connection stores the new key.",
     "hostKeyTitle": "Host key {{algorithm}} {{fingerprint}}"
+  },
+  "log": {
+    "openFailed": "The session log could not be created; the session continues without it."
   }
 }

@@ -7,12 +7,13 @@ import { useT, type TKey } from '../i18n';
 import { LIMITS, useSettings, type AppSettings, type SettingKey } from '../stores/settings';
 import { useUi } from '../stores/ui';
 
-type SectionId = 'appearance' | 'language' | 'terminal' | 'connection' | 'console';
+type SectionId = 'appearance' | 'language' | 'terminal' | 'connection' | 'logging' | 'console';
 const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'appearance', label: 'settings.appearance' },
   { id: 'language', label: 'settings.language' },
   { id: 'terminal', label: 'settings.terminal' },
   { id: 'connection', label: 'settings.connection' },
+  { id: 'logging', label: 'settings.logging' },
   { id: 'console', label: 'settings.console' },
 ];
 
@@ -50,6 +51,7 @@ export default function SettingsView() {
           {section === 'language' && <LanguageSection />}
           {section === 'terminal' && <TerminalSection />}
           {section === 'connection' && <ConnectionSection />}
+          {section === 'logging' && <LoggingSection />}
           {section === 'console' && <ConsoleSection />}
           <p className="mt-auto text-xs text-muted">{t('settings.instantHint')}</p>
         </div>
@@ -280,6 +282,61 @@ function ConnectionSection() {
     <Row label={t('settings.netAutoReconnect')} hint={t('settings.netAutoReconnectHint')}>
       {(id) => <Toggle id={id} checked={reconnect} onChange={setReconnect} />}
     </Row>
+  );
+}
+
+function LoggingSection() {
+  const t = useT();
+  const [enabled, setEnabled] = useSetting('log.enabled');
+  const [dir, setDir] = useSetting('log.dir');
+  const [template, setTemplate] = useSetting('log.template');
+  const [mode, setMode] = useSetting('log.mode');
+  const [stamps, setStamps] = useSetting('log.timestamps');
+  return (
+    <>
+      <Row label={t('settings.logEnabled')} hint={t('settings.logEnabledHint')}>
+        {(id) => <Toggle id={id} checked={enabled} onChange={setEnabled} />}
+      </Row>
+      <Row label={t('settings.logDir')} hint={t('settings.logDirHint')}>
+        {(id) => (
+          <input
+            id={id}
+            className="field mono w-72"
+            defaultValue={dir}
+            placeholder="~/Documents/KenShell Logs"
+            spellCheck={false}
+            onBlur={(e) => setDir(e.target.value)}
+          />
+        )}
+      </Row>
+      <Row label={t('settings.logTemplate')} hint={t('settings.logTemplateHint')}>
+        {(id) => (
+          <input
+            id={id}
+            className="field mono w-72"
+            defaultValue={template}
+            spellCheck={false}
+            onBlur={(e) => setTemplate(e.target.value)}
+          />
+        )}
+      </Row>
+      <Row label={t('settings.logMode')}>
+        {(id) => (
+          <select
+            id={id}
+            className="field w-48"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as 'printable' | 'all')}
+          >
+            <option value="printable">{t('settings.logModePrintable')}</option>
+            <option value="all">{t('settings.logModeAll')}</option>
+          </select>
+        )}
+      </Row>
+      <Row label={t('settings.logTimestamps')} hint={t('settings.logTimestampsHint')}>
+        {(id) => <Toggle id={id} checked={stamps} onChange={setStamps} />}
+      </Row>
+    </>
   );
 }
 

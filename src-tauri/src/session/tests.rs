@@ -213,6 +213,10 @@ impl Backend for FakeBackend {
     fn net_auto_reconnect_enabled(&self) -> bool {
         self.st().net_auto_reconnect
     }
+
+    fn log_config(&self) -> Option<crate::logging::LogConfig> {
+        None
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

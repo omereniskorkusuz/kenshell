@@ -91,7 +91,8 @@
     "prodCount_other": "{{count}} PROD",
     "breakSent": "BREAK gönderildi",
     "breakNeedsConnection": "BREAK için bağlı bir oturum gerekir.",
-    "loggingIn": "Giriş yapılıyor…"
+    "loggingIn": "Giriş yapılıyor…",
+    "logOn": "Log: {{file}}"
   },
   "autobaud": {
     "detecting": "Hız algılanıyor…",
@@ -276,7 +277,19 @@
     "instantHint": "Değişiklikler hemen uygulanır.",
     "connection": "Bağlantı",
     "netAutoReconnect": "Kopan SSH/Telnet oturumlarını yeniden bağla",
-    "netAutoReconnectHint": "Zaman aşımı veya ağ hatasından sonra 2, 5, 10 ve 30 saniyede yeniden dener. Çıkış yaptığınızda veya giriş başarısız olduğunda denemez."
+    "netAutoReconnectHint": "Zaman aşımı veya ağ hatasından sonra 2, 5, 10 ve 30 saniyede yeniden dener. Çıkış yaptığınızda veya giriş başarısız olduğunda denemez.",
+    "logging": "Loglama",
+    "logEnabled": "Tüm oturumları logla",
+    "logEnabledHint": "Cihaz çıktısı dosyaya akışla yazılır; yazdıklarınız (şifreler) asla loglanmaz.",
+    "logDir": "Log klasörü",
+    "logDirHint": "Boş = Belgeler/KenShell Logs",
+    "logTemplate": "Dosya adı",
+    "logTemplateHint": "{name}, {date}, {time} yerine konur; var olan dosyanın üzerine yazılmaz.",
+    "logMode": "İçerik",
+    "logModePrintable": "Okunur metin",
+    "logModeAll": "Ham çıktı (tüm baytlar)",
+    "logTimestamps": "Her satıra zaman damgası",
+    "logTimestampsHint": "Yalnız okunur metin modunda."
   },
   "mode": {
     "user": "USER",
@@ -296,5 +309,8 @@
     "forgetHostKey": "Kayıtlı anahtarı unut",
     "forgetHostKeyHint": "Yalnızca cihazın değiştiğini ya da anahtarının yenilendiğini biliyorsanız. Sonraki bağlantı yeni anahtarı kaydeder.",
     "hostKeyTitle": "Host anahtarı {{algorithm}} {{fingerprint}}"
+  },
+  "log": {
+    "openFailed": "Oturum logu oluşturulamadı; oturum log olmadan devam ediyor."
   }
 }

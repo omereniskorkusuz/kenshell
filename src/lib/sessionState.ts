@@ -41,6 +41,8 @@ export interface LiveTab {
   netLink: NetLink | null;
   /** Login questions being answered in the terminal (network sessions). */
   prompt: PendingPrompt | null;
+  /** Session log file while logging (null = not logging). */
+  logPath: string | null;
   health: HealthKind | null;
   connectedAt: number | null;
   mode: CliMode;
@@ -99,6 +101,8 @@ export function applySessionEvent(tab: LiveTab, ev: SessionEvent, now: number): 
     case 'prompt':
       // Handled by the tabs store (it also writes the question into the terminal).
       return tab;
+    case 'logging':
+      return { ...tab, logPath: ev.path };
     case 'health':
       if (ev.kind === 'noData' && tab.state !== 'connected') return tab;
       return { ...tab, health: ev.kind };

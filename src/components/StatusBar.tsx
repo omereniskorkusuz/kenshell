@@ -54,6 +54,7 @@ export function StatusBar() {
   const tabs = useTabs((s) => s.tabs);
   const message = useUi((s) => s.statusMessage);
   const counters = useActiveCounters(activeKey);
+  const activeLog = tabs.find((x) => x.key === activeKey)?.logPath ?? null;
   const prodCount = tabs.filter((x) => isProd(x.envTag)).length;
 
   return (
@@ -61,7 +62,13 @@ export function StatusBar() {
       className="flex shrink-0 items-center gap-4 border-t border-subtle bg-surface px-3 text-xs text-muted"
       style={{ height: 'var(--status-bar-height)' }}
     >
-      <span>{t('status.logOff')}</span>
+      {activeLog ? (
+        <span className="mono min-w-0 max-w-[30%] truncate" title={activeLog}>
+          {t('status.logOn', { file: activeLog.split(/[\\/]/).pop() ?? activeLog })}
+        </span>
+      ) : (
+        <span>{t('status.logOff')}</span>
+      )}
       {counters && (
         <>
           <span className="mono tabular" title={t('status.rxTxHint')}>
