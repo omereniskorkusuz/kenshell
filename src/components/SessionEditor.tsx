@@ -194,6 +194,19 @@ export function SessionEditor({ state }: { state: EditorState }) {
           )}
         </Field>
 
+        <Field label={t('editor.tags')}>
+          {(id) => (
+            <input
+              id={id}
+              className="field"
+              value={draft.tags}
+              placeholder={t('editor.tagsHint')}
+              spellCheck={false}
+              onChange={(e) => set('tags', e.target.value)}
+            />
+          )}
+        </Field>
+
         <Field label={t('editor.protocol')}>
           {(id) => (
             <select

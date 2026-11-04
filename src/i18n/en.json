@@ -52,7 +52,8 @@
     "languageEn": "Language: English",
     "openSettings": "Open settings",
     "find": "Find in scrollback",
-    "toggleTimestamps": "Line timestamps on/off"
+    "toggleTimestamps": "Line timestamps on/off",
+    "searchSessions": "Search sessions"
   },
   "quick": {
     "label": "Quick connect",
@@ -162,7 +163,14 @@
     "newSubfolder": "New subfolder",
     "newFolderName": "New folder",
     "folderDeleted": "Folder “{{name}}” deleted.",
-    "sessionDeleted": "Session “{{name}}” deleted."
+    "sessionDeleted": "Session “{{name}}” deleted.",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "favorites": "Favorites",
+    "search": "Search sessions",
+    "results_one": "{{count}} result",
+    "results_other": "{{count}} results",
+    "noResults": "No session matches."
   },
   "consoles": {
     "connect": "Connect",
@@ -230,7 +238,9 @@
     "keyPath": "Private key file",
     "portRange": "Port must be 1–65535.",
     "useAgent": "Use SSH agent keys",
-    "useAgentHint": "Tries up to 2 keys from ssh-agent / Pageant before the password. Network devices often allow only 3 attempts."
+    "useAgentHint": "Tries up to 2 keys from ssh-agent / Pageant before the password. Network devices often allow only 3 attempts.",
+    "tags": "Tags",
+    "tagsHint": "core, dc1, floor-2 (comma separated)"
   },
   "palette": {
     "placeholder": "Search sessions, consoles and actions…",

@@ -57,6 +57,7 @@ pub fn run() {
             commands::storage::session_update,
             commands::storage::session_delete,
             commands::storage::session_duplicate,
+            commands::storage::session_reorder,
             commands::storage::settings_all,
             commands::storage::setting_set,
             commands::console::console_list,

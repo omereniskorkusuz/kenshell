@@ -705,6 +705,24 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           s.credentialProfileId === a.id ? { ...s, credentialProfileId: null } : s,
         );
         return undefined;
+      case 'session_reorder': {
+        const id = a.id as number;
+        const folderId = (a.folderId as number | null) ?? null;
+        const moved = need(
+          sessions.find((s) => s.id === id),
+          'session',
+        );
+        const rest = sessions
+          .filter((s) => s.folderId === folderId && s.id !== id)
+          .sort((x, y) => x.sortOrder - y.sortOrder);
+        const at = rest.findIndex((s) => s.id === a.beforeId);
+        rest.splice(at < 0 ? rest.length : at, 0, moved);
+        rest.forEach((s, i) => {
+          s.folderId = folderId;
+          s.sortOrder = i;
+        });
+        return undefined;
+      }
       case 'session_password_set':
         if (a.password) sessionPw.add(a.id as number);
         else sessionPw.delete(a.id as number);

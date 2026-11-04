@@ -79,3 +79,14 @@ pub fn setting_set(
 ) -> Result<()> {
     state.db.set_setting(&key, &value)
 }
+
+/// Drag & drop: put a session into `folder_id`, right before `before_id` (or last).
+#[tauri::command]
+pub fn session_reorder(
+    state: State<'_, AppState>,
+    id: i64,
+    folder_id: Option<i64>,
+    before_id: Option<i64>,
+) -> Result<()> {
+    state.db.reorder_session(id, folder_id, before_id)
+}

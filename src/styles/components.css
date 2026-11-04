@@ -357,3 +357,8 @@
 .xterm .xterm-viewport {
   background-color: var(--bg-terminal) !important;
 }
+
+/* Drop indicator: a 2px line above the session row a dragged session goes before. */
+.tree-row[data-drop-before='true'] {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}

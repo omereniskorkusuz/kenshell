@@ -58,6 +58,8 @@ export function SessionTree() {
   const tree = useMemo(() => buildTree(folders, sessions), [folders, sessions]);
   const [selected, setSelected] = useState<Sel | null>(null);
   const [dropTarget, setDropTarget] = useState<number | 'root' | null>(null);
+  /** Session row a dragged session would be inserted before. */
+  const [dropBefore, setDropBefore] = useState<number | null>(null);
   const [dragging, setDragging] = useState<DragPayload | null>(null);
   const menu = useMenu();
   const [menuEntries, setMenuEntries] = useState<MenuEntry[]>([]);
@@ -95,6 +97,10 @@ export function SessionTree() {
       onSelect: () => lib().setRenaming({ kind: 'session', id: s.id }),
     },
     { label: t('library.duplicate'), onSelect: () => void lib().duplicateSession(s.id) },
+    {
+      label: s.favorite ? t('library.unfavorite') : t('library.favorite'),
+      onSelect: () => void lib().toggleFavorite(s.id),
+    },
     { kind: 'separator' },
     ...moveTargets(new Set(), s.folderId, (fid) => void lib().moveSession(s.id, fid)),
     { kind: 'separator' },
@@ -236,6 +242,7 @@ export function SessionTree() {
     onDragEnd: () => {
       setDragging(null);
       setDropTarget(null);
+      setDropBefore(null);
     },
   });
 
@@ -251,6 +258,30 @@ export function SessionTree() {
       if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropTarget(null);
     },
     onDrop: (e: DragEvent) => onDrop(e, target),
+  });
+
+  /** Dropping a session onto another session row: insert before it (same or other folder). */
+  const sessionDropProps = (target: SessionRecord) => ({
+    onDragOver: (e: DragEvent) => {
+      if (dragging?.kind !== 'session' || dragging.id === target.id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      setDropBefore(target.id);
+      setDropTarget(null);
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropBefore(null);
+    },
+    onDrop: (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDropBefore(null);
+      const d = readDrag(e) ?? dragging;
+      setDragging(null);
+      if (d?.kind !== 'session' || d.id === target.id) return;
+      void lib().reorderSession(d.id, target.folderId, target.id);
+    },
   });
 
   // ---------------------------------------------------------------- render
@@ -350,7 +381,9 @@ export function SessionTree() {
           e.preventDefault();
           openMenuFor(node, e.clientX, e.clientY);
         }}
+        data-drop-before={dropBefore === s.id || undefined}
         {...dragProps({ kind: 'session', id: s.id })}
+        {...sessionDropProps(s)}
       >
         <span
           className="mode-rail"

@@ -167,3 +167,59 @@ export function recentSessions(sessions: readonly SessionRecord[], limit = 5): S
     .sort((a, b) => (b.lastConnectedAt ?? 0) - (a.lastConnectedAt ?? 0))
     .slice(0, limit);
 }
+
+/** Lower-cases for matching in both Turkish and English (İ/ı, I/i fold together). */
+export function fold(text: string): string {
+  return text
+    .toLocaleLowerCase('tr')
+    .replace(/ı/g, 'i')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/** Words of a session that search looks at (name, host, user, port, tags, env, folder). */
+function haystack(s: SessionRecord, folders: readonly Folder[]): string {
+  return fold(
+    [
+      s.name,
+      s.host ?? '',
+      s.username ?? '',
+      s.serial?.port ?? '',
+      s.port !== null ? String(s.port) : '',
+      s.protocol,
+      s.envTag ?? '',
+      ...s.tags,
+      folderPath(folders, s.folderId),
+    ].join(' '),
+  );
+}
+
+/**
+ * Instant search: every whitespace-separated term must match somewhere. Name prefix
+ * matches rank first, then name matches, then the rest (alphabetical inside a rank).
+ */
+export function searchSessions(
+  sessions: readonly SessionRecord[],
+  folders: readonly Folder[],
+  query: string,
+): SessionRecord[] {
+  const terms = fold(query).split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return [];
+  const scored: { s: SessionRecord; rank: number }[] = [];
+  for (const s of sessions) {
+    const hay = haystack(s, folders);
+    if (!terms.every((t) => hay.includes(t))) continue;
+    const name = fold(s.name);
+    const first = terms[0] as string;
+    const rank = name.startsWith(first) ? 0 : name.includes(first) ? 1 : 2;
+    scored.push({ s, rank });
+  }
+  return scored.sort((a, b) => a.rank - b.rank || byName(a.s.name, b.s.name)).map((x) => x.s);
+}
+
+/** Favorites, PROD first, then by name. */
+export function favoriteSessions(sessions: readonly SessionRecord[]): SessionRecord[] {
+  return sessions
+    .filter((s) => s.favorite)
+    .sort((a, b) => Number(isProd(b.envTag)) - Number(isProd(a.envTag)) || byName(a.name, b.name));
+}

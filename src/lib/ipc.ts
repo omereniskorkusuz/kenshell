@@ -358,6 +358,8 @@ export const api = {
     call<SessionRecord>('session_update', { id, input }),
   sessionDelete: (id: number) => call<undefined>('session_delete', { id }),
   sessionDuplicate: (id: number) => call<SessionRecord>('session_duplicate', { id }),
+  sessionReorder: (id: number, folderId: number | null, beforeId: number | null) =>
+    call<undefined>('session_reorder', { id, folderId, beforeId }),
 
   settingsAll: () => call<Settings>('settings_all'),
   settingSet: (key: string, value: unknown) => call<undefined>('setting_set', { key, value }),

@@ -52,7 +52,8 @@
     "languageEn": "Dil: English",
     "openSettings": "Ayarları aç",
     "find": "Geçmişte ara",
-    "toggleTimestamps": "Satır zaman damgası aç/kapat"
+    "toggleTimestamps": "Satır zaman damgası aç/kapat",
+    "searchSessions": "Oturum ara"
   },
   "quick": {
     "label": "Hızlı bağlan",
@@ -162,7 +163,14 @@
     "newSubfolder": "Yeni alt klasör",
     "newFolderName": "Yeni klasör",
     "folderDeleted": "“{{name}}” klasörü silindi.",
-    "sessionDeleted": "“{{name}}” oturumu silindi."
+    "sessionDeleted": "“{{name}}” oturumu silindi.",
+    "favorite": "Favorilere ekle",
+    "unfavorite": "Favorilerden çıkar",
+    "favorites": "Favoriler",
+    "search": "Oturum ara",
+    "results_one": "{{count}} sonuç",
+    "results_other": "{{count}} sonuç",
+    "noResults": "Eşleşen oturum yok."
   },
   "consoles": {
     "connect": "Bağlan",
@@ -230,7 +238,9 @@
     "keyPath": "Özel anahtar dosyası",
     "portRange": "Port 1–65535 arasında olmalı.",
     "useAgent": "SSH agent anahtarlarını kullan",
-    "useAgentHint": "Şifreden önce ssh-agent / Pageant içinden en fazla 2 anahtar dener. Ağ cihazları çoğu zaman yalnız 3 denemeye izin verir."
+    "useAgentHint": "Şifreden önce ssh-agent / Pageant içinden en fazla 2 anahtar dener. Ağ cihazları çoğu zaman yalnız 3 denemeye izin verir.",
+    "tags": "Etiketler",
+    "tagsHint": "core, dc1, kat-2 (virgülle ayırın)"
   },
   "palette": {
     "placeholder": "Oturum, konsol ve eylem ara…",

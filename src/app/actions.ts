@@ -168,6 +168,18 @@ export const ACTIONS: readonly AppAction[] = [
     run: () => useTabs.getState().reconnect(),
   },
   {
+    id: 'library.search',
+    title: 'actions.searchSessions',
+    group: 'actions',
+    shortcut: 'mod+shift+f',
+    keywords: ['search', 'find', 'session', 'ara', 'oturum'],
+    run: () => {
+      const st = useSettings.getState();
+      if (st.values['ui.sidebarCollapsed']) st.set('ui.sidebarCollapsed', false);
+      useUi.getState().focusSearch();
+    },
+  },
+  {
     id: 'terminal.find',
     title: 'actions.find',
     group: 'actions',

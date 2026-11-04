@@ -1,13 +1,153 @@
 /** Left sidebar: saved sessions, detected consoles, recent connections. Resizable 180–320px. */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, Star, X } from 'lucide-react';
 import { useT, getLocale } from '../i18n';
-import { envKind, envLabel, envLetter, recentSessions } from '../lib/tree';
+import {
+  envKind,
+  envLabel,
+  envLetter,
+  favoriteSessions,
+  folderPath,
+  recentSessions,
+  searchSessions,
+} from '../lib/tree';
+import type { SessionRecord } from '../lib/ipc';
+import { useUi } from '../stores/ui';
 import { useLibrary } from '../stores/library';
 import { LIMITS, useSettings } from '../stores/settings';
 import { useTabs } from '../stores/tabs';
 import { ConsoleList } from './ConsoleList';
 import { ResizeHandle } from './ResizeHandle';
 import { SessionTree } from './SessionTree';
+
+/** Search box + (results | favorites + tree), then consoles and recent. */
+function SessionSearch() {
+  const t = useT();
+  const [query, setQuery] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const sessions = useLibrary((s) => s.sessions);
+  const folders = useLibrary((s) => s.folders);
+  const focusTick = useUi((s) => s.searchFocus);
+  const results = useMemo(
+    () => searchSessions(sessions, folders, query),
+    [sessions, folders, query],
+  );
+  const favorites = useMemo(() => favoriteSessions(sessions), [sessions]);
+  const searching = query.trim() !== '';
+
+  useEffect(() => {
+    if (focusTick === 0) return;
+    input.current?.focus();
+    input.current?.select();
+  }, [focusTick]);
+
+  const open = (s: SessionRecord) => {
+    useTabs.getState().openSession(s);
+    setQuery('');
+  };
+
+  return (
+    <>
+      <div className="relative mx-2">
+        <Search
+          size={13}
+          className="pointer-events-none absolute left-2 top-1.5 text-muted"
+          aria-hidden
+        />
+        <input
+          ref={input}
+          type="text"
+          role="searchbox"
+          className="field h-7 w-full pl-7 pr-6 text-sm"
+          placeholder={t('library.search')}
+          aria-label={t('library.search')}
+          value={query}
+          spellCheck={false}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setQuery('');
+            if (e.key === 'Enter' && results[0]) open(results[0]);
+          }}
+        />
+        {searching && (
+          <button
+            type="button"
+            className="icon-btn absolute right-1 top-1"
+            aria-label={t('search.close')}
+            onClick={() => setQuery('')}
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+      {searching ? (
+        <SessionList
+          heading={t('library.results', { count: results.length })}
+          items={results}
+          empty={t('library.noResults')}
+          showPath
+          onOpen={open}
+        />
+      ) : (
+        <>
+          {favorites.length > 0 && (
+            <SessionList heading={t('library.favorites')} items={favorites} onOpen={open} star />
+          )}
+          <SessionTree />
+          <ConsoleList />
+          <RecentList />
+        </>
+      )}
+    </>
+  );
+}
+
+function SessionList(p: {
+  heading: string;
+  items: SessionRecord[];
+  empty?: string;
+  showPath?: boolean;
+  star?: boolean;
+  onOpen: (s: SessionRecord) => void;
+}) {
+  const t = useT();
+  const folders = useLibrary((s) => s.folders);
+  return (
+    <section className="flex flex-col">
+      <h2 className="label-caps flex h-7 items-center px-3">{p.heading}</h2>
+      {p.items.length === 0 && p.empty ? (
+        <p className="px-3 text-sm text-muted">{p.empty}</p>
+      ) : (
+        <ul className="flex flex-col px-1">
+          {p.items.map((s) => (
+            <li key={s.id}>
+              <button
+                type="button"
+                className="tree-row pl-2"
+                data-env={envKind(s.envTag) ?? undefined}
+                onClick={() => p.onOpen(s)}
+                title={t('library.connectTo', { name: s.name })}
+              >
+                {p.star && <Star size={11} className="shrink-0 text-muted" aria-hidden />}
+                <span className="mono min-w-0 flex-1 truncate">{s.name}</span>
+                {p.showPath && s.folderId !== null && (
+                  <span className="min-w-0 max-w-[45%] truncate text-xs text-muted">
+                    {folderPath(folders, s.folderId)}
+                  </span>
+                )}
+                {envKind(s.envTag) && (
+                  <span className="env-letter" title={envLabel(s.envTag) ?? ''}>
+                    {envLetter(s.envTag)}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 export function Sidebar() {
   const t = useT();
@@ -20,9 +160,7 @@ export function Sidebar() {
         aria-label={t('shell.sidebar')}
         className="scroll-thin flex min-w-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto border-r border-subtle bg-surface py-2"
       >
-        <SessionTree />
-        <ConsoleList />
-        <RecentList />
+        <SessionSearch />
       </nav>
       <ResizeHandle
         side="right"

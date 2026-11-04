@@ -43,6 +43,9 @@ interface LibraryState {
   moveSession(id: number, folderId: number | null): Promise<void>;
   duplicateSession(id: number): Promise<SessionRecord | null>;
   deleteSession(id: number): Promise<void>;
+  /** Drag & drop: into `folderId`, right before `beforeId` (null = last). */
+  reorderSession(id: number, folderId: number | null, beforeId: number | null): Promise<void>;
+  toggleFavorite(id: number): Promise<void>;
 
   reloadProfiles(): Promise<void>;
   createProfile(name: string, username: string | null, password: string | null): Promise<boolean>;
@@ -183,6 +186,15 @@ export const useLibrary = create<LibraryState>()((set, get) => {
       await mutate(() => api.sessionUpdate(id, { ...toInput(s), folderId }));
     },
     duplicateSession: (id) => mutate(() => api.sessionDuplicate(id)),
+    async reorderSession(id, folderId, beforeId) {
+      if (id === beforeId) return;
+      await mutate(() => api.sessionReorder(id, folderId, beforeId));
+    },
+    async toggleFavorite(id) {
+      const s = get().sessions.find((x) => x.id === id);
+      if (!s) return;
+      await mutate(() => api.sessionUpdate(id, { ...toInput(s), favorite: !s.favorite }));
+    },
     async deleteSession(id) {
       const s = get().sessions.find((x) => x.id === id);
       if (!s) return;

@@ -42,6 +42,8 @@ export interface Draft {
   keyPath: string;
   useAgent: boolean;
   credentialProfileId: number | null;
+  /** Comma separated. */
+  tags: string;
 }
 
 export function draftFrom(input: Partial<SessionInput> | null | undefined): Draft {
@@ -69,6 +71,7 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     keyPath: input?.ssh?.keyPath ?? '',
     useAgent: input?.ssh?.useAgent ?? false,
     credentialProfileId: input?.credentialProfileId ?? null,
+    tags: (input?.tags ?? []).join(', '),
   };
 }
 
@@ -138,7 +141,10 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
           }
         : null,
     envTag: env,
-    tags: base?.tags ?? [],
+    tags: d.tags
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean),
     favorite: base?.favorite ?? false,
     credentialProfileId: d.protocol === 'ssh' ? d.credentialProfileId : null,
     ssh:

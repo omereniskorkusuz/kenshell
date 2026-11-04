@@ -254,6 +254,41 @@ impl Db {
         Ok(record)
     }
 
+    /// Moves a session into `folder_id` and places it right before `before_id`
+    /// (`None` = at the end). Positions in that folder are renumbered 0..n.
+    pub fn reorder_session(
+        &self,
+        id: i64,
+        folder_id: Option<i64>,
+        before_id: Option<i64>,
+    ) -> Result<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        fetch(&tx, id)?;
+        require_folder(&tx, folder_id)?;
+        let mut ids: Vec<i64> = {
+            let mut stmt = tx.prepare(
+                "SELECT id FROM sessions WHERE folder_id IS ?1 AND id != ?2
+                 ORDER BY sort_order, id",
+            )?;
+            stmt.query_map(params![folder_id, id], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        let at = before_id
+            .and_then(|b| ids.iter().position(|x| *x == b))
+            .unwrap_or(ids.len());
+        ids.insert(at, id);
+        {
+            let mut upd =
+                tx.prepare("UPDATE sessions SET folder_id = ?2, sort_order = ?3 WHERE id = ?1")?;
+            for (i, sid) in ids.iter().enumerate() {
+                upd.execute(params![sid, folder_id, i as i64])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn delete_session(&self, id: i64) -> Result<()> {
         let changed = self
             .conn()
@@ -659,5 +694,33 @@ mod tests {
             .unwrap();
         assert_eq!(db.get_session(s.id).unwrap_err().code, ErrorCode::Db);
         assert_eq!(db.list_sessions().unwrap_err().code, ErrorCode::Db);
+    }
+
+    #[test]
+    fn reorder_places_before_target_and_moves_between_folders() {
+        let db = db();
+        let f = db.create_folder("LAB", None).unwrap();
+        let a = db.create_session(&serial("a")).unwrap();
+        let b = db.create_session(&serial("b")).unwrap();
+        let c = db.create_session(&serial("c")).unwrap();
+        let names = |db: &Db, folder: Option<i64>| {
+            let mut v: Vec<_> = db
+                .list_sessions()
+                .unwrap()
+                .into_iter()
+                .filter(|s| s.folder_id == folder)
+                .collect();
+            v.sort_by_key(|s| s.sort_order);
+            v.into_iter().map(|s| s.name).collect::<Vec<_>>()
+        };
+        db.reorder_session(c.id, None, Some(a.id)).unwrap();
+        assert_eq!(names(&db, None), ["c", "a", "b"]);
+        db.reorder_session(c.id, None, None).unwrap();
+        assert_eq!(names(&db, None), ["a", "b", "c"]);
+        db.reorder_session(b.id, Some(f.id), None).unwrap();
+        assert_eq!(names(&db, None), ["a", "c"]);
+        assert_eq!(names(&db, Some(f.id)), ["b"]);
+        assert!(db.reorder_session(999, None, None).is_err());
+        assert!(db.reorder_session(a.id, Some(999), None).is_err());
     }
 }
