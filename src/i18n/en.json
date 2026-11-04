@@ -271,7 +271,10 @@
     "hotplugToastHint": "A quiet notification with a Connect button. No sound.",
     "autoReconnect": "Reconnect when the cable returns",
     "autoReconnectHint": "Sessions waiting for an unplugged cable continue automatically.",
-    "instantHint": "Changes apply immediately."
+    "instantHint": "Changes apply immediately.",
+    "connection": "Connection",
+    "netAutoReconnect": "Reconnect dropped SSH/Telnet sessions",
+    "netAutoReconnectHint": "After a timeout or network error, retries after 2, 5, 10 and 30 seconds. Never after you log out or when login fails."
   },
   "mode": {
     "user": "USER",

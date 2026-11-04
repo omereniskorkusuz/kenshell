@@ -66,6 +66,8 @@ pub(crate) struct Timing {
     /// Delay before an automatic reconnect attempt (the OS may still be creating the
     /// port when the hotplug event arrives).
     pub reconnect_settle: Duration,
+    /// Waits before each automatic network reconnect attempt (backoff).
+    pub net_retry: [Duration; 4],
 }
 
 impl Default for Timing {
@@ -73,6 +75,12 @@ impl Default for Timing {
         Self {
             detach_grace: Duration::from_millis(1500),
             reconnect_settle: Duration::from_millis(500),
+            net_retry: [
+                Duration::from_secs(2),
+                Duration::from_secs(5),
+                Duration::from_secs(10),
+                Duration::from_secs(30),
+            ],
         }
     }
 }

@@ -271,7 +271,10 @@
     "hotplugToastHint": "Bağlan düğmeli sessiz bir bildirim. Ses yok.",
     "autoReconnect": "Kablo geri takılınca yeniden bağlan",
     "autoReconnectHint": "Çıkarılan kabloyu bekleyen oturumlar kendiliğinden devam eder.",
-    "instantHint": "Değişiklikler hemen uygulanır."
+    "instantHint": "Değişiklikler hemen uygulanır.",
+    "connection": "Bağlantı",
+    "netAutoReconnect": "Kopan SSH/Telnet oturumlarını yeniden bağla",
+    "netAutoReconnectHint": "Zaman aşımı veya ağ hatasından sonra 2, 5, 10 ve 30 saniyede yeniden dener. Çıkış yaptığınızda veya giriş başarısız olduğunda denemez."
   },
   "mode": {
     "user": "USER",

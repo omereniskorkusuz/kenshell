@@ -80,6 +80,7 @@ struct FakeState {
     transports: Vec<Arc<Mutex<TransportLog>>>,
     touched: Vec<i64>,
     auto_reconnect: bool,
+    net_auto_reconnect: bool,
 }
 
 struct FakeBackend(Mutex<FakeState>);
@@ -98,6 +99,7 @@ impl FakeBackend {
             transports: vec![],
             touched: vec![],
             auto_reconnect: true,
+            net_auto_reconnect: false,
         })))
     }
 
@@ -194,12 +196,10 @@ impl Backend for FakeBackend {
         &self,
         _target: &OpenTarget,
         _size: (u16, u16),
-        _sink: TransportSink,
+        sink: TransportSink,
         _prompter: Arc<dyn crate::transport::Prompter>,
     ) -> Result<Box<dyn Transport>> {
-        Err(AppError::invalid(
-            "network transports are tested in session::net_tests",
-        ))
+        Ok(self.make_transport(&SerialSettings::default(), 0, sink))
     }
 
     fn touch_session(&self, id: i64) -> Result<()> {
@@ -208,6 +208,10 @@ impl Backend for FakeBackend {
     }
     fn auto_reconnect_enabled(&self) -> bool {
         self.st().auto_reconnect
+    }
+
+    fn net_auto_reconnect_enabled(&self) -> bool {
+        self.st().net_auto_reconnect
     }
 }
 
@@ -295,6 +299,7 @@ fn timing() -> Timing {
     Timing {
         detach_grace: Duration::from_millis(40),
         reconnect_settle: Duration::from_millis(1),
+        net_retry: [Duration::from_millis(1); 4],
     }
 }
 
@@ -1011,4 +1016,55 @@ async fn dropping_the_manager_ends_tasks() {
         log.lock().unwrap().disconnects == 1
     })
     .await;
+}
+
+// ---------------------------------------------------------------- network auto reconnect
+
+fn net_request() -> OpenRequest {
+    OpenRequest {
+        session_id: None,
+        target: OpenTarget::Network {
+            protocol: crate::model::Protocol::Telnet,
+            host: "10.0.0.5".into(),
+            port: Some(2001),
+            username: None,
+            ssh: crate::model::SshOptions::default(),
+        },
+        cols: 80,
+        rows: 24,
+    }
+}
+
+async fn net_drop(auto: bool, err: Option<AppError>) -> (Arc<FakeBackend>, Arc<Recorder>) {
+    let (backend, mgr, out) = setup();
+    backend.st().net_auto_reconnect = auto;
+    mgr.open(net_request(), out.clone()).unwrap();
+    until("connected", || out.count_state(ConnState::Connected) == 1).await;
+    backend
+        .sink(0)
+        .try_send(TransportEvent::Closed(err))
+        .unwrap();
+    until("disconnected", || out.count_state(ConnState::Disconnected) >= 1).await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    std::mem::forget(mgr); // keep the session task alive for the assertions
+    (backend, out)
+}
+
+#[tokio::test]
+async fn network_drop_reconnects_automatically_when_enabled() {
+    let (backend, out) = net_drop(true, Some(AppError::with(ErrorCode::Timeout, "keepalive"))).await;
+    until("reconnected", || out.count_state(ConnState::Connected) == 2).await;
+    assert_eq!(backend.transport_count(), 2);
+}
+
+#[tokio::test]
+async fn network_drop_stays_disconnected_when_disabled_or_clean_or_auth() {
+    let (backend, out) = net_drop(false, Some(AppError::with(ErrorCode::Timeout, "x"))).await;
+    assert_eq!(out.count_state(ConnState::Connected), 1);
+    assert_eq!(backend.transport_count(), 1);
+
+    // Remote side logged us out (clean EOF): never reconnect behind the user's back.
+    let (backend, out) = net_drop(true, None).await;
+    assert_eq!(out.count_state(ConnState::Connected), 1);
+    assert_eq!(backend.transport_count(), 1);
 }

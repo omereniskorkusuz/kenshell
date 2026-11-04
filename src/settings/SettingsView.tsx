@@ -7,11 +7,12 @@ import { useT, type TKey } from '../i18n';
 import { LIMITS, useSettings, type AppSettings, type SettingKey } from '../stores/settings';
 import { useUi } from '../stores/ui';
 
-type SectionId = 'appearance' | 'language' | 'terminal' | 'console';
+type SectionId = 'appearance' | 'language' | 'terminal' | 'connection' | 'console';
 const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'appearance', label: 'settings.appearance' },
   { id: 'language', label: 'settings.language' },
   { id: 'terminal', label: 'settings.terminal' },
+  { id: 'connection', label: 'settings.connection' },
   { id: 'console', label: 'settings.console' },
 ];
 
@@ -48,6 +49,7 @@ export default function SettingsView() {
           {section === 'appearance' && <AppearanceSection />}
           {section === 'language' && <LanguageSection />}
           {section === 'terminal' && <TerminalSection />}
+          {section === 'connection' && <ConnectionSection />}
           {section === 'console' && <ConsoleSection />}
           <p className="mt-auto text-xs text-muted">{t('settings.instantHint')}</p>
         </div>
@@ -268,6 +270,16 @@ function TerminalSection() {
         )}
       </Row>
     </>
+  );
+}
+
+function ConnectionSection() {
+  const t = useT();
+  const [reconnect, setReconnect] = useSetting('connection.autoReconnect');
+  return (
+    <Row label={t('settings.netAutoReconnect')} hint={t('settings.netAutoReconnectHint')}>
+      {(id) => <Toggle id={id} checked={reconnect} onChange={setReconnect} />}
+    </Row>
   );
 }
 

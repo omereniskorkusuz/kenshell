@@ -19,6 +19,8 @@ use crate::transport::{HostKeyStore, Prompter, Transport, TransportSink};
 
 /// Setting key; JSON bool, default `true`.
 pub const AUTO_RECONNECT_SETTING: &str = "console.autoReconnect";
+/// Setting key; JSON bool, default `false`.
+pub const NET_AUTO_RECONNECT_SETTING: &str = "connection.autoReconnect";
 
 /// Synchronous by design: implementations may block briefly (DB, port enumeration);
 /// the session task calls them from `spawn_blocking`.
@@ -55,6 +57,8 @@ pub(crate) trait Backend: Send + Sync + 'static {
     ) -> Result<Box<dyn Transport>>;
     fn touch_session(&self, id: i64) -> Result<()>;
     fn auto_reconnect_enabled(&self) -> bool;
+    /// `connection.autoReconnect` (default false): reconnect dropped network sessions.
+    fn net_auto_reconnect_enabled(&self) -> bool;
 }
 
 /// SQLite-backed SSH host key store.
@@ -205,6 +209,17 @@ impl Backend for RealBackend {
 
     fn touch_session(&self, id: i64) -> Result<()> {
         self.db.touch_session(id)
+    }
+
+    fn net_auto_reconnect_enabled(&self) -> bool {
+        match self.db.get_setting(NET_AUTO_RECONNECT_SETTING) {
+            Ok(Some(v)) => v.as_bool().unwrap_or(false),
+            Ok(None) => false,
+            Err(e) => {
+                tracing::warn!("read {NET_AUTO_RECONNECT_SETTING}: {e}");
+                false
+            }
+        }
     }
 
     fn auto_reconnect_enabled(&self) -> bool {

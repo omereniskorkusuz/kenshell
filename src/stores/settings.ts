@@ -17,6 +17,7 @@ export interface AppSettings {
   'terminal.scrollback': number;
   'console.hotplugToast': boolean;
   'console.autoReconnect': boolean;
+  'connection.autoReconnect': boolean;
   'ui.sidebarWidth': number;
   'ui.sidebarCollapsed': boolean;
   'ui.sidePanelWidth': number;
@@ -33,6 +34,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'terminal.scrollback': 10_000,
   'console.hotplugToast': true,
   'console.autoReconnect': true,
+  'connection.autoReconnect': false,
   'ui.sidebarWidth': 220,
   'ui.sidebarCollapsed': false,
   'ui.sidePanelWidth': 320,
@@ -78,6 +80,7 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
         return clampInt(value, LIMITS.sidePanelWidth.min, LIMITS.sidePanelWidth.max, d[k]);
       case 'console.hotplugToast':
       case 'console.autoReconnect':
+      case 'connection.autoReconnect':
       case 'ui.sidebarCollapsed':
       case 'ui.sidePanelPinned':
         return bool(value, d[k]);

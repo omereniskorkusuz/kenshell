@@ -156,10 +156,20 @@ enum Phase {
     Disconnected,
 }
 
+/// Why a session (re)opens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Reopen {
+    /// First open or the user asked (Enter / button): one attempt.
+    Manual,
+    /// The console cable returned: a few quick attempts.
+    Cable,
+    /// A network link dropped and `connection.autoReconnect` is on: backoff attempts.
+    Network,
+}
+
 enum Next {
     Disconnected,
-    /// Reopen; `true` = automatic (cable returned).
-    Reopen(bool),
+    Reopen(Reopen),
     Exit,
 }
 
@@ -346,6 +356,18 @@ impl Ctx {
     }
 }
 
+/// Network failures worth an automatic reconnect (never auth or host-key problems).
+fn net_retryable(e: &AppError) -> bool {
+    matches!(
+        e.code,
+        ErrorCode::Timeout
+            | ErrorCode::ConnectionClosed
+            | ErrorCode::ConnectionRefused
+            | ErrorCode::HostNotFound
+            | ErrorCode::Io
+    )
+}
+
 /// Transient open errors worth another automatic attempt.
 fn retryable(e: &AppError) -> bool {
     matches!(
@@ -392,10 +414,10 @@ impl SessionTask {
     }
 
     pub async fn run(mut self) {
-        let mut next = Next::Reopen(false);
+        let mut next = Next::Reopen(Reopen::Manual);
         loop {
             next = match next {
-                Next::Reopen(auto) => match self.connect(auto).await {
+                Next::Reopen(why) => match self.connect(why).await {
                     Some(Phase::Connected(link)) => self.connected(link).await,
                     Some(Phase::Disconnected) => Next::Disconnected,
                     None => Next::Exit,
@@ -413,17 +435,29 @@ impl SessionTask {
     }
 
     /// Open flow, cancellable by `Close` at any point. `None` = closed.
-    async fn connect(&mut self, auto: bool) -> Option<Phase> {
-        let attempts = if auto { AUTO_RECONNECT_ATTEMPTS } else { 1 };
+    async fn connect(&mut self, why: Reopen) -> Option<Phase> {
+        let net_delays = self.ctx.timing.net_retry;
+        let attempts = match why {
+            Reopen::Manual => 1,
+            Reopen::Cable => AUTO_RECONNECT_ATTEMPTS,
+            Reopen::Network => net_delays.len() as u32,
+        };
         for attempt in 1..=attempts {
-            let settle = auto.then_some(self.ctx.timing.reconnect_settle);
+            let settle = match why {
+                Reopen::Manual => None,
+                Reopen::Cable => Some(self.ctx.timing.reconnect_settle),
+                Reopen::Network => net_delays.get(attempt as usize - 1).copied(),
+            };
             match self.open_cancellable(settle).await {
                 OpenResult::Ok(link) => return Some(Phase::Connected(link)),
                 OpenResult::Cancelled => {
                     self.ctx.set_state(ConnState::Disconnected, None);
                     return None;
                 }
-                OpenResult::Err(e) if attempt < attempts && retryable(&e) => {
+                OpenResult::Err(e)
+                    if attempt < attempts
+                        && (retryable(&e) || (why == Reopen::Network && net_retryable(&e))) =>
+                {
                     tracing::debug!(session = self.ctx.id, attempt, code = ?e.code, "auto reconnect retry");
                 }
                 OpenResult::Err(e) => {
@@ -599,9 +633,21 @@ impl SessionTask {
         let gone = err
             .as_ref()
             .is_some_and(|e| e.code == ErrorCode::DeviceGone);
+        let net_retry = matches!(self.ctx.target, OpenTarget::Network { .. })
+            && err.as_ref().is_some_and(net_retryable);
         self.ctx.set_state(ConnState::Disconnected, err);
         if gone {
             self.ctx.health(HealthKind::CableRemoved);
+        }
+        if net_retry {
+            match self.ctx.call(|b| b.net_auto_reconnect_enabled()).await {
+                Ok(true) => {
+                    tracing::debug!(session = self.ctx.id, "network auto reconnect");
+                    return Next::Reopen(Reopen::Network);
+                }
+                Ok(false) => {}
+                Err(e) => tracing::warn!("auto reconnect setting: {e}"),
+            }
         }
         Next::Disconnected
     }
@@ -615,11 +661,11 @@ impl SessionTask {
                     self.ctx.set_state(ConnState::Disconnected, None);
                     return Next::Exit;
                 }
-                Some(Command::Reconnect) => return Next::Reopen(false),
+                Some(Command::Reconnect) => return Next::Reopen(Reopen::Manual),
                 Some(Command::PortAttached) => {
                     self.ctx.health(HealthKind::CableReturned);
                     match self.ctx.call(|b| b.auto_reconnect_enabled()).await {
-                        Ok(true) => return Next::Reopen(true),
+                        Ok(true) => return Next::Reopen(Reopen::Cable),
                         Ok(false) => {}
                         Err(e) => tracing::warn!("auto reconnect setting: {e}"),
                     }
