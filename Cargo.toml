@@ -1,0 +1,27 @@
+[workspace]
+resolver = "3"
+members = ["src-tauri", "tools/device-simulator"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.90"
+license = "UNLICENSED"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+# Section 3.3 of the spec: size/speed-oriented release profile.
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true
+panic = "abort"
+
+# Same as release but optimised for size; used by bench/ to compare (see ADR).
+[profile.release-size]
+inherits = "release"
+opt-level = "s"
