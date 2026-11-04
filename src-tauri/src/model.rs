@@ -1,0 +1,302 @@
+//! DTOs shared between backend modules and the frontend (serialized camelCase).
+//! The TypeScript mirror lives in `src/lib/ipc.ts` — keep both in sync.
+
+use serde::{Deserialize, Serialize};
+
+use crate::error::AppError;
+
+// ---------------------------------------------------------------- storage
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Folder {
+    pub id: i64,
+    pub parent_id: Option<i64>,
+    pub name: String,
+    pub sort_order: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Protocol {
+    Serial,
+    Ssh,
+    Telnet,
+    Rlogin,
+    Raw,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Parity {
+    #[default]
+    None,
+    Odd,
+    Even,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum FlowControl {
+    #[default]
+    None,
+    RtsCts,
+    XonXoff,
+}
+
+/// Serial line settings. `baud: None` = automatic detection (autobaud).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerialSettings {
+    /// Port path used to connect (`/dev/cu.usbserial-…` on macOS, `COM4` on Windows).
+    pub port: String,
+    pub baud: Option<u32>,
+    pub data_bits: u8,
+    pub parity: Parity,
+    pub stop_bits: u8,
+    pub flow_control: FlowControl,
+    /// Initial DTR/RTS line state (`None` = driver default).
+    pub dtr: Option<bool>,
+    pub rts: Option<bool>,
+}
+
+impl Default for SerialSettings {
+    fn default() -> Self {
+        Self {
+            port: String::new(),
+            baud: None,
+            data_bits: 8,
+            parity: Parity::None,
+            stop_bits: 1,
+            flow_control: FlowControl::None,
+            dtr: None,
+            rts: None,
+        }
+    }
+}
+
+impl SerialSettings {
+    /// Framing label, e.g. `8N1`.
+    pub fn framing(&self) -> String {
+        let p = match self.parity {
+            Parity::None => 'N',
+            Parity::Odd => 'O',
+            Parity::Even => 'E',
+        };
+        format!("{}{}{}", self.data_bits, p, self.stop_bits)
+    }
+}
+
+/// A saved session (connection profile). Never contains secrets.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionRecord {
+    pub id: i64,
+    pub folder_id: Option<i64>,
+    pub name: String,
+    pub protocol: Protocol,
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub username: Option<String>,
+    pub serial: Option<SerialSettings>,
+    /// `prod` | `lab` | `test` | custom label (visual only).
+    pub env_tag: Option<String>,
+    pub tags: Vec<String>,
+    pub favorite: bool,
+    pub sort_order: i64,
+    /// Unix epoch milliseconds.
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub last_connected_at: Option<i64>,
+}
+
+/// Fields a user can create/update.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionInput {
+    pub folder_id: Option<i64>,
+    pub name: String,
+    pub protocol: Protocol,
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub username: Option<String>,
+    pub serial: Option<SerialSettings>,
+    pub env_tag: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub favorite: bool,
+}
+
+/// Remembered facts about a console cable, keyed by USB serial number (or port path).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortMemory {
+    pub key: String,
+    pub path: String,
+    pub vid: Option<u16>,
+    pub pid: Option<u16>,
+    pub serial_number: Option<String>,
+    pub baud: u32,
+    pub last_device: Option<String>,
+    pub updated_at: i64,
+}
+
+// ---------------------------------------------------------------- console detection
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChipInfo {
+    /// e.g. `FTDI`, `Prolific`, `Silicon Labs`, `WCH`, `Cisco`
+    pub vendor: String,
+    /// e.g. `FT232R`, `PL2303`, `CP210x`, `CH340`, `USB Console`
+    pub model: String,
+    pub vid: u16,
+    pub pid: u16,
+    pub driver_name: Option<String>,
+    /// Official driver download page.
+    pub driver_url: Option<String>,
+}
+
+/// One detected serial console (macOS tty/cu pair merged into one entry).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsolePort {
+    /// Stable identity: USB serial number if known, else the port path.
+    pub key: String,
+    /// Path to connect to (`cu.*` on macOS, `COMx` on Windows).
+    pub path: String,
+    /// The merged twin (`tty.*` on macOS).
+    pub alt_path: Option<String>,
+    /// Short human label: `COM4`, `usbserial-A10K3XYZ`.
+    pub display_name: String,
+    pub chip: Option<ChipInfo>,
+    pub manufacturer: Option<String>,
+    pub product: Option<String>,
+    pub serial_number: Option<String>,
+    pub remembered_baud: Option<u32>,
+    pub last_device: Option<String>,
+}
+
+/// A known console chip is on USB but the OS created no serial port → driver missing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriverHint {
+    pub chip: ChipInfo,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsoleSnapshot {
+    pub ports: Vec<ConsolePort>,
+    pub driver_hints: Vec<DriverHint>,
+}
+
+/// Emitted as event [`crate::events::CONSOLE_CHANGED`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsoleChange {
+    pub snapshot: ConsoleSnapshot,
+    /// Keys of ports that appeared.
+    pub attached: Vec<String>,
+    /// Keys of ports that disappeared.
+    pub detached: Vec<String>,
+}
+
+// ---------------------------------------------------------------- live sessions
+
+/// Runtime id of an open (live) session. Distinct from the saved `SessionRecord.id`.
+pub type RuntimeId = u32;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum OpenTarget {
+    Serial { settings: SerialSettings },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenRequest {
+    /// Saved session this tab came from, if any (updates `last_connected_at`).
+    pub session_id: Option<i64>,
+    pub target: OpenTarget,
+    pub cols: u16,
+    pub rows: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConnState {
+    Connecting,
+    /// Autobaud running.
+    Detecting,
+    Connected,
+    Disconnected,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BaudTrial {
+    pub baud: u32,
+    /// 0.0 – 1.0 (+ prompt bonus, capped at 1.0)
+    pub score: f32,
+    pub prompt_match: bool,
+    pub bytes: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HealthKind {
+    /// Port open, nothing received (device off / wrong cable).
+    NoData,
+    /// The USB cable vanished; session kept in `disconnected`.
+    CableRemoved,
+    /// Same cable re-attached.
+    CableReturned,
+}
+
+/// Connection parameters once established (identity bar).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerialLink {
+    pub path: String,
+    pub display_name: String,
+    pub baud: u32,
+    /// e.g. `8N1`
+    pub framing: String,
+    /// e.g. `FTDI FT232R`
+    pub chip: Option<String>,
+    /// Baud found by autobaud (vs. manual / remembered).
+    pub auto_detected: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum SessionEvent {
+    State {
+        state: ConnState,
+        error: Option<AppError>,
+    },
+    /// Autobaud progress: emitted after each trial and once with `result` at the end.
+    Autobaud {
+        trials: Vec<BaudTrial>,
+        current: Option<u32>,
+        result: Option<u32>,
+        /// Best candidate when nothing passed the acceptance threshold.
+        suggestion: Option<u32>,
+    },
+    Link {
+        link: SerialLink,
+    },
+    Health {
+        kind: HealthKind,
+    },
+}

@@ -17,6 +17,18 @@ tauri-build = { version = "2.7", features = [] }
 tauri = { version = "2.12", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
+serialport = { version = "4.10", default-features = false }
+nusb = "0.2"
+rusqlite = { version = "0.41", features = ["bundled"] }
+thiserror = "2"
+tracing = "0.1"
+async-trait = "0.1"
+futures-lite = "2"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"
