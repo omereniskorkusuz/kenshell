@@ -240,7 +240,9 @@
     "useAgent": "SSH agent anahtarlarını kullan",
     "useAgentHint": "Şifreden önce ssh-agent / Pageant içinden en fazla 2 anahtar dener. Ağ cihazları çoğu zaman yalnız 3 denemeye izin verir.",
     "tags": "Etiketler",
-    "tagsHint": "core, dc1, kat-2 (virgülle ayırın)"
+    "tagsHint": "core, dc1, kat-2 (virgülle ayırın)",
+    "autoCommands": "Bağlanınca gönderilecek komutlar",
+    "autoCommandsHint": "Her satıra bir komut; cihaz prompt'ta beklerken (siz giriş yaptıktan sonra) gönderilir. Buraya şifre yazmayın."
   },
   "palette": {
     "placeholder": "Oturum, konsol ve eylem ara…",

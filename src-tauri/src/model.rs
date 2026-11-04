@@ -107,6 +107,8 @@ pub struct SessionRecord {
     pub ssh: Option<SshOptions>,
     /// Shared login (user name + keychain password) instead of the session's own.
     pub credential_profile_id: Option<i64>,
+    /// Commands sent once the device is idle after connecting (empty = off).
+    pub auto_commands: Vec<String>,
     pub sort_order: i64,
     /// Unix epoch milliseconds.
     pub created_at: i64,
@@ -134,6 +136,8 @@ pub struct SessionInput {
     pub ssh: Option<SshOptions>,
     #[serde(default)]
     pub credential_profile_id: Option<i64>,
+    #[serde(default)]
+    pub auto_commands: Vec<String>,
 }
 
 /// Remembered facts about a console cable, keyed by USB serial number (or port path).

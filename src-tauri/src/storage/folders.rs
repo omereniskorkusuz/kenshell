@@ -205,6 +205,7 @@ mod tests {
             favorite: false,
             ssh: None,
             credential_profile_id: None,
+            auto_commands: vec![],
         })
         .unwrap()
         .id

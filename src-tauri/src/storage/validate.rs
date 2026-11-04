@@ -150,9 +150,36 @@ pub(super) struct ValidSession {
     pub serial: Option<SerialSettings>,
     pub ssh: Option<SshOptions>,
     pub credential_profile_id: Option<i64>,
+    pub auto_commands: Vec<String>,
     pub env_tag: Option<String>,
     pub tags: Vec<String>,
     pub favorite: bool,
+}
+
+const MAX_AUTO_COMMANDS: usize = 20;
+const MAX_AUTO_COMMAND_CHARS: usize = 512;
+
+/// Post-connect commands: trimmed, blank lines dropped, no control characters.
+fn auto_commands(raw: &[String]) -> Result<Vec<String>> {
+    let cmds: Vec<String> = raw
+        .iter()
+        .map(|c| c.trim().to_owned())
+        .filter(|c| !c.is_empty())
+        .collect();
+    if cmds.len() > MAX_AUTO_COMMANDS {
+        return Err(AppError::invalid(format!(
+            "at most {MAX_AUTO_COMMANDS} auto commands"
+        )));
+    }
+    if cmds
+        .iter()
+        .any(|c| c.chars().count() > MAX_AUTO_COMMAND_CHARS || c.chars().any(char::is_control))
+    {
+        return Err(AppError::invalid(
+            "auto command is too long or has control characters",
+        ));
+    }
+    Ok(cmds)
 }
 
 /// SSH options only for SSH sessions; blank key paths are dropped.
@@ -189,6 +216,7 @@ pub(super) fn session(input: &SessionInput) -> Result<ValidSession> {
         serial,
         ssh: ssh(input),
         credential_profile_id: input.credential_profile_id,
+        auto_commands: auto_commands(&input.auto_commands)?,
         env_tag: env_tag(input.env_tag.as_deref())?,
         tags: tags(&input.tags)?,
         favorite: input.favorite,
@@ -220,6 +248,7 @@ mod tests {
             favorite: true,
             ssh: None,
             credential_profile_id: None,
+            auto_commands: vec![],
         }
     }
 
@@ -377,5 +406,15 @@ mod tests {
         assert!(setting_key(" theme").is_err());
         assert!(setting_key("a\nb").is_err());
         assert!(setting_key(&"k".repeat(129)).is_err());
+    }
+
+    #[test]
+    fn auto_commands_are_trimmed_and_bounded() {
+        let ok =
+            auto_commands(&[" terminal length 0 ".into(), "".into(), "show clock".into()]).unwrap();
+        assert_eq!(ok, ["terminal length 0", "show clock"]);
+        assert!(auto_commands(&vec!["x".to_string(); 21]).is_err());
+        assert!(auto_commands(&["a\u{1b}[2J".into()]).is_err());
+        assert!(auto_commands(&["y".repeat(513)]).is_err());
     }
 }

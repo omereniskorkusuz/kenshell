@@ -194,6 +194,23 @@ export function SessionEditor({ state }: { state: EditorState }) {
           )}
         </Field>
 
+        <Field label={t('editor.autoCommands')}>
+          {(id) => (
+            <div className="flex flex-col gap-1">
+              <textarea
+                id={id}
+                className="field mono min-h-16"
+                rows={3}
+                value={draft.autoCommands}
+                placeholder={'terminal length 0\nshow clock'}
+                spellCheck={false}
+                onChange={(e) => set('autoCommands', e.target.value)}
+              />
+              <span className="text-xs text-muted">{t('editor.autoCommandsHint')}</span>
+            </div>
+          )}
+        </Field>
+
         <Field label={t('editor.tags')}>
           {(id) => (
             <input

@@ -276,6 +276,7 @@ odd,carrier-pigeon,x,,,,,,,\r\n";
             favorite: false,
             ssh: None,
             credential_profile_id: None,
+            auto_commands: vec![],
             sort_order: 0,
             created_at: 0,
             updated_at: 0,

@@ -143,6 +143,7 @@ mod tests {
             favorite: false,
             ssh: None,
             credential_profile_id: None,
+            auto_commands: vec![],
         }
     }
 
@@ -314,6 +315,7 @@ mod tests {
             favorite: true,
             ssh: None,
             credential_profile_id: None,
+            auto_commands: vec![],
             sort_order: 0,
             created_at: 0,
             updated_at: 0,

@@ -103,6 +103,10 @@ ALTER TABLE sessions ADD COLUMN credential_profile_id INTEGER NULL
     REFERENCES credential_profiles(id) ON DELETE SET NULL;
 "#,
     },
+    Migration {
+        name: "v5 sessions.auto_commands_json (post-connect commands)",
+        sql: "ALTER TABLE sessions ADD COLUMN auto_commands_json TEXT NULL;",
+    },
 ];
 
 /// Schema version this build expects.

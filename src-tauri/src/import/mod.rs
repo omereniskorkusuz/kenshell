@@ -50,6 +50,7 @@ pub(crate) fn blank_input(name: &str, protocol: Protocol) -> SessionInput {
         favorite: false,
         ssh: None,
         credential_profile_id: None,
+        auto_commands: vec![],
     }
 }
 
@@ -156,7 +157,10 @@ pub fn putty_session(raw_name: &str, kv: &HashMap<String, String>) -> Option<Imp
 }
 
 /// Parses `reg query HKCU\Software\SimonTatham\PuTTY\Sessions /s` output.
-#[cfg_attr(not(windows), allow(dead_code, reason = "used on Windows; tested everywhere"))]
+#[cfg_attr(
+    not(windows),
+    allow(dead_code, reason = "used on Windows; tested everywhere")
+)]
 pub fn parse_reg_query(text: &str) -> Vec<(String, HashMap<String, String>)> {
     let mut out: Vec<(String, HashMap<String, String>)> = Vec::new();
     for line in text.lines() {

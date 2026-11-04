@@ -392,6 +392,7 @@ async fn net_e2e_ssh_saved_password_logs_in_without_prompt_and_wrong_one_falls_b
             favorite: false,
             ssh: None,
             credential_profile_id: None,
+            auto_commands: vec![],
         })
         .unwrap();
     secrets

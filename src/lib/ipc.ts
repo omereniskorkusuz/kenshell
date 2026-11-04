@@ -89,6 +89,8 @@ export interface SessionRecord {
   ssh: SshOptions | null;
   /** Shared login profile (its password is in the OS keychain). */
   credentialProfileId: number | null;
+  /** Sent once the device is idle after connecting. */
+  autoCommands: string[];
   sortOrder: number;
   createdAt: number;
   updatedAt: number;
@@ -109,6 +111,7 @@ export type SessionInput = Pick<
   | 'favorite'
   | 'ssh'
   | 'credentialProfileId'
+  | 'autoCommands'
 >;
 
 export type Settings = Record<string, unknown>;

@@ -18,6 +18,7 @@ import {
   type SessionEvent,
   type SessionRecord,
 } from '../lib/ipc';
+import { appendTail, MAX_WAIT_MS, readyToSend } from '../lib/autoCommands';
 import { normalizePaste, pasteChunks, wantsPacing } from '../lib/paste';
 import { feedPrompt, promptIntro, startPrompt } from '../lib/prompt';
 import {
@@ -39,6 +40,8 @@ export interface OpenMeta {
   sessionId?: number | null;
   name?: string;
   envTag?: string | null;
+  /** Post-connect commands of the saved session. */
+  autoCommands?: string[];
 }
 
 interface ClosedTab {
@@ -79,6 +82,10 @@ const sentGrid = new Map<string, string>();
 const resizeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let keySeq = 1;
 const MAX_CLOSED = 10;
+/** Recent output per tab (for auto-command prompt detection) and its last arrival time. */
+const tails = new Map<string, string>();
+const lastData = new Map<string, number>();
+const autoMeta = new Map<string, string[]>();
 const encoder = new TextEncoder();
 const REOPEN_TOAST_MS = 10_000;
 
@@ -128,6 +135,8 @@ export const useTabs = create<TabsState>()((set, get) => {
     const onData = (bytes: Uint8Array) => {
       if (!isCurrent()) return;
       sink?.push(bytes);
+      tails.set(key, appendTail(tails.get(key) ?? '', bytes));
+      lastData.set(key, Date.now());
       if (tab(key)?.health === 'noData') update(key, (x) => ({ ...x, health: null }));
     };
     const onEvent = (ev: SessionEvent) => {
@@ -155,6 +164,9 @@ export const useTabs = create<TabsState>()((set, get) => {
       if (ev.type === 'state' && ev.state === 'connected' && after.sessionId !== null) {
         refreshRecent();
       }
+      if (ev.type === 'state' && ev.state === 'connected' && before.state !== 'connected') {
+        runAutoCommands(key, generation);
+      }
     };
 
     try {
@@ -181,6 +193,31 @@ export const useTabs = create<TabsState>()((set, get) => {
     }
   };
 
+  /** Sends the saved session's post-connect commands, one by one, at a quiet prompt. */
+  const runAutoCommands = (key: string, generation: number) => {
+    const cmds = autoMeta.get(key) ?? [];
+    if (cmds.length === 0) return;
+    const started = Date.now();
+    lastData.set(key, lastData.get(key) ?? started);
+    let i = 0;
+    const tick = () => {
+      const cur = tab(key);
+      if (!cur || cur.generation !== generation || cur.state !== 'connected') return;
+      const now = Date.now();
+      if (now - started > MAX_WAIT_MS) return;
+      if (!readyToSend(tails.get(key) ?? '', lastData.get(key) ?? 0, now)) {
+        setTimeout(tick, 150);
+        return;
+      }
+      const cmd = cmds[i++];
+      if (cmd === undefined) return;
+      lastData.set(key, now); // the echo/output of this command must settle first
+      get().write(key, `${cmd}\r`);
+      if (i < cmds.length) setTimeout(tick, 150);
+    };
+    setTimeout(tick, 150);
+  };
+
   const closeRuntime = (x: LiveTab) => {
     if (x.runtimeId !== null) void api.liveClose(x.runtimeId).catch(() => {});
   };
@@ -189,6 +226,9 @@ export const useTabs = create<TabsState>()((set, get) => {
   const remove = (cur: LiveTab, offerReopen: boolean) => {
     closeRuntime(cur);
     disposeSink(cur.key);
+    tails.delete(cur.key);
+    lastData.delete(cur.key);
+    autoMeta.delete(cur.key);
     sentGrid.delete(cur.key);
     const { tabs, activeKey } = get();
     const i = tabs.findIndex((x) => x.key === cur.key);
@@ -267,13 +307,19 @@ export const useTabs = create<TabsState>()((set, get) => {
         connectedAt: null,
         mode: 'unknown',
       };
+      autoMeta.set(key, meta.autoCommands ?? []);
       set((s) => ({ tabs: [...s.tabs, fresh], activeKey: key }));
       void start(key);
       return key;
     },
 
     openSession(session) {
-      const meta = { sessionId: session.id, name: session.name, envTag: session.envTag };
+      const meta = {
+        sessionId: session.id,
+        name: session.name,
+        envTag: session.envTag,
+        autoCommands: session.autoCommands,
+      };
       if (session.protocol === 'serial') {
         if (!session.serial) {
           toast({ message: t('errors.protocolNotSupported') });

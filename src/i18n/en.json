@@ -240,7 +240,9 @@
     "useAgent": "Use SSH agent keys",
     "useAgentHint": "Tries up to 2 keys from ssh-agent / Pageant before the password. Network devices often allow only 3 attempts.",
     "tags": "Tags",
-    "tagsHint": "core, dc1, floor-2 (comma separated)"
+    "tagsHint": "core, dc1, floor-2 (comma separated)",
+    "autoCommands": "Commands after connecting",
+    "autoCommandsHint": "One per line, sent when the device is idle at its prompt (after you log in). Do not put passwords here."
   },
   "palette": {
     "placeholder": "Search sessions, consoles and actions…",

@@ -44,6 +44,8 @@ export interface Draft {
   credentialProfileId: number | null;
   /** Comma separated. */
   tags: string;
+  /** One command per line. */
+  autoCommands: string;
 }
 
 export function draftFrom(input: Partial<SessionInput> | null | undefined): Draft {
@@ -72,6 +74,7 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     useAgent: input?.ssh?.useAgent ?? false,
     credentialProfileId: input?.credentialProfileId ?? null,
     tags: (input?.tags ?? []).join(', '),
+    autoCommands: (input?.autoCommands ?? []).join('\n'),
   };
 }
 
@@ -147,6 +150,10 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
       .filter(Boolean),
     favorite: base?.favorite ?? false,
     credentialProfileId: d.protocol === 'ssh' ? d.credentialProfileId : null,
+    autoCommands: d.autoCommands
+      .split(/\r?\n/)
+      .map((c) => c.trim())
+      .filter(Boolean),
     ssh:
       d.protocol === 'ssh'
         ? {

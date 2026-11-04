@@ -121,6 +121,7 @@ mod tests {
                 favorite: false,
                 ssh: None,
                 credential_profile_id: Some(p.id),
+                auto_commands: vec![],
             })
             .unwrap();
         assert_eq!(s.credential_profile_id, Some(p.id));
