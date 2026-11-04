@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npx vite build
+      - name: Bundle budget (JS < 500 KB gzip)
+        run: npm run bench:bundle
+
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: 'clippy, rustfmt' }
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      # tauri::generate_context! needs the frontend dist at compile time
+      - run: npx vite build
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  bundle:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    needs: [frontend, rust]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --target universal-apple-darwin
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - os: windows-latest
+            args: ''
+            targets: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: '${{ matrix.targets }}' }
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: npx tauri build ${{ matrix.args }}
+      - name: Installer size budget
+        shell: bash
+        run: |
+          if [ -d target/universal-apple-darwin ]; then mkdir -p target/release && rm -rf target/release/bundle && cp -R target/universal-apple-darwin/release/bundle target/release/bundle; fi
+          node bench/measure-app.mjs --sizes-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kenshell-${{ matrix.os }}
+          path: |
+            target/**/bundle/dmg/*.dmg
+            target/**/bundle/nsis/*.exe
+            target/**/bundle/msi/*.msi
+          if-no-files-found: warn
