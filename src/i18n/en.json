@@ -1,0 +1,33 @@
+{
+  "app": {
+    "name": "KenShell",
+    "tagline": "Lightweight network terminal",
+    "loading": "Starting…"
+  },
+  "shell": {
+    "quickConnect": "Quick connect…",
+    "scanNetwork": "Scan my network",
+    "commandPalette": "Command palette",
+    "settings": "Settings",
+    "sessions": "Sessions",
+    "detectedConsoles": "Detected consoles",
+    "recent": "Recent",
+    "noSessions": "No sessions yet",
+    "emptyTitle": "No open session",
+    "emptyHint": "Plug in a console cable, or press {{shortcut}} to connect.",
+    "statusReady": "Ready",
+    "version": "v{{version}}"
+  },
+  "mode": {
+    "user": "USER",
+    "privileged": "PRIVILEGED",
+    "config": "CONFIG",
+    "boot": "BOOT",
+    "shell": "SHELL",
+    "unknown": "—"
+  },
+  "unit": {
+    "session_one": "{{count}} session",
+    "session_other": "{{count}} sessions"
+  }
+}

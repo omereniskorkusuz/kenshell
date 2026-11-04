@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Map design tokens into Tailwind utilities (bg-surface, text-muted, border-subtle …). */
+@theme inline {
+  --color-app: var(--bg-app);
+  --color-surface: var(--bg-surface);
+  --color-elevated: var(--bg-elevated);
+  --color-terminal: var(--bg-terminal);
+  --color-hover: var(--bg-hover);
+  --color-selected: var(--bg-selected);
+  --color-subtle: var(--border-subtle);
+  --color-strong: var(--border-strong);
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-mode: var(--mode-current);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: var(--leading-ui);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* Double focus ring: stays visible next to any mode stripe. */
+:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg-app),
+    0 0 0 4px var(--focus-ring);
+}
+
+.label-caps {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.mode-stripe {
+  width: var(--mode-stripe-width);
+  background: var(--mode-pattern, none), var(--mode-current);
+  background-color: var(--mode-current);
+  transition: background-color var(--motion-mode) var(--ease-out);
+}
+
+.mode-chip {
+  color: var(--mode-current);
+  background: color-mix(in srgb, var(--mode-current) var(--mode-chip-alpha), var(--bg-surface));
+  border: 1px solid color-mix(in srgb, var(--mode-current) 45%, transparent);
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--motion-mode) var(--ease-out),
+    background-color var(--motion-mode) var(--ease-out),
+    border-color var(--motion-mode) var(--ease-out);
+}

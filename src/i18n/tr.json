@@ -1,0 +1,33 @@
+{
+  "app": {
+    "name": "KenShell",
+    "tagline": "Hafif ağ terminali",
+    "loading": "Başlatılıyor…"
+  },
+  "shell": {
+    "quickConnect": "Hızlı bağlan…",
+    "scanNetwork": "Ağımı tara",
+    "commandPalette": "Komut paleti",
+    "settings": "Ayarlar",
+    "sessions": "Oturumlar",
+    "detectedConsoles": "Algılanan konsollar",
+    "recent": "Son bağlantılar",
+    "noSessions": "Henüz oturum yok",
+    "emptyTitle": "Açık oturum yok",
+    "emptyHint": "Bir konsol kablosu takın veya bağlanmak için {{shortcut}} tuşlarına basın.",
+    "statusReady": "Hazır",
+    "version": "v{{version}}"
+  },
+  "mode": {
+    "user": "USER",
+    "privileged": "PRIVILEGED",
+    "config": "CONFIG",
+    "boot": "BOOT",
+    "shell": "SHELL",
+    "unknown": "—"
+  },
+  "unit": {
+    "session_one": "{{count}} oturum",
+    "session_other": "{{count}} oturum"
+  }
+}
