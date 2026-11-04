@@ -41,6 +41,7 @@ export interface Draft {
   legacyAlgorithms: boolean;
   keyPath: string;
   useAgent: boolean;
+  credentialProfileId: number | null;
 }
 
 export function draftFrom(input: Partial<SessionInput> | null | undefined): Draft {
@@ -67,6 +68,7 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     legacyAlgorithms: input?.ssh?.legacyAlgorithms ?? false,
     keyPath: input?.ssh?.keyPath ?? '',
     useAgent: input?.ssh?.useAgent ?? false,
+    credentialProfileId: input?.credentialProfileId ?? null,
   };
 }
 
@@ -138,6 +140,7 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
     envTag: env,
     tags: base?.tags ?? [],
     favorite: base?.favorite ?? false,
+    credentialProfileId: d.protocol === 'ssh' ? d.credentialProfileId : null,
     ssh:
       d.protocol === 'ssh'
         ? {

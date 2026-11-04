@@ -1,18 +1,21 @@
 /**
  * Settings (lazy chunk). Every change applies instantly and is persisted — no Save/OK.
  */
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode, type FormEvent } from 'react';
 import { Dialog } from '../components/Dialog';
+import { useLibrary } from '../stores/library';
 import { useT, type TKey } from '../i18n';
 import { LIMITS, useSettings, type AppSettings, type SettingKey } from '../stores/settings';
 import { useUi } from '../stores/ui';
 
-type SectionId = 'appearance' | 'language' | 'terminal' | 'connection' | 'logging' | 'console';
+type SectionId =
+  'appearance' | 'language' | 'terminal' | 'connection' | 'credentials' | 'logging' | 'console';
 const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'appearance', label: 'settings.appearance' },
   { id: 'language', label: 'settings.language' },
   { id: 'terminal', label: 'settings.terminal' },
   { id: 'connection', label: 'settings.connection' },
+  { id: 'credentials', label: 'settings.credentials' },
   { id: 'logging', label: 'settings.logging' },
   { id: 'console', label: 'settings.console' },
 ];
@@ -51,6 +54,7 @@ export default function SettingsView() {
           {section === 'language' && <LanguageSection />}
           {section === 'terminal' && <TerminalSection />}
           {section === 'connection' && <ConnectionSection />}
+          {section === 'credentials' && <CredentialsSection />}
           {section === 'logging' && <LoggingSection />}
           {section === 'console' && <ConsoleSection />}
           <p className="mt-auto text-xs text-muted">{t('settings.instantHint')}</p>
@@ -337,6 +341,125 @@ function ConnectionSection() {
     <Row label={t('settings.netAutoReconnect')} hint={t('settings.netAutoReconnectHint')}>
       {(id) => <Toggle id={id} checked={reconnect} onChange={setReconnect} />}
     </Row>
+  );
+}
+
+function CredentialsSection() {
+  const t = useT();
+  const profiles = useLibrary((s) => s.profiles);
+  const [name, setName] = useState('');
+  const [user, setUser] = useState('');
+  const [pw, setPw] = useState('');
+  const lib = useLibrary.getState;
+
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    const ok = await lib().createProfile(name.trim(), user.trim() || null, pw || null);
+    setPw('');
+    if (ok) {
+      setName('');
+      setUser('');
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted">{t('credentials.profilesHint')}</p>
+      {profiles.length === 0 ? (
+        <p className="text-sm text-secondary">{t('credentials.none')}</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-[var(--border-subtle)] rounded-md border border-subtle">
+          {profiles.map((p) => (
+            <ProfileRow
+              key={p.id}
+              id={p.id}
+              name={p.name}
+              username={p.username}
+              hasPassword={p.hasPassword}
+            />
+          ))}
+        </ul>
+      )}
+      <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => void add(e)}>
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          {t('credentials.name')}
+          <input className="field w-40" value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          {t('editor.username')}
+          <input
+            className="field mono w-36"
+            value={user}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(e) => setUser(e.target.value)}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          {t('credentials.password')}
+          <input
+            type="password"
+            className="field w-36"
+            value={pw}
+            autoComplete="new-password"
+            onChange={(e) => setPw(e.target.value)}
+          />
+        </label>
+        <button type="submit" className="btn btn-primary" disabled={!name.trim()}>
+          {t('credentials.add')}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function ProfileRow(p: {
+  id: number;
+  name: string;
+  username: string | null;
+  hasPassword: boolean;
+}) {
+  const t = useT();
+  const [pw, setPw] = useState('');
+  const lib = useLibrary.getState;
+  return (
+    <li className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+      <span className="min-w-28 font-medium">{p.name}</span>
+      <span className="mono min-w-20 text-secondary">{p.username ?? '—'}</span>
+      <span className="text-xs text-muted">
+        {p.hasPassword ? t('credentials.passwordSavedShort') : t('credentials.noPassword')}
+      </span>
+      <input
+        type="password"
+        className="field ml-auto w-32"
+        placeholder={t('credentials.newPassword')}
+        aria-label={t('credentials.newPassword')}
+        autoComplete="new-password"
+        value={pw}
+        onChange={(e) => setPw(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && pw) {
+            e.preventDefault();
+            void lib()
+              .setProfilePassword(p.id, pw)
+              .then(() => setPw(''));
+          }
+        }}
+      />
+      {p.hasPassword && (
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => void lib().setProfilePassword(p.id, null)}
+        >
+          {t('credentials.forget')}
+        </button>
+      )}
+      <button type="button" className="btn btn-sm" onClick={() => void lib().deleteProfile(p.id)}>
+        {t('credentials.delete')}
+      </button>
+    </li>
   );
 }
 

@@ -6,7 +6,13 @@
 import { create } from 'zustand';
 import { t } from '../i18n';
 import { describeError } from '../lib/errors';
-import { api, type Folder, type SessionInput, type SessionRecord } from '../lib/ipc';
+import {
+  api,
+  type CredentialProfile,
+  type Folder,
+  type SessionInput,
+  type SessionRecord,
+} from '../lib/ipc';
 import { toInput } from '../lib/tree';
 import { toast } from './toasts';
 
@@ -15,6 +21,8 @@ export type RenameTarget = { kind: 'folder' | 'session'; id: number } | null;
 interface LibraryState {
   folders: Folder[];
   sessions: SessionRecord[];
+  /** Credential profiles (no passwords, only `hasPassword`). */
+  profiles: CredentialProfile[];
   loaded: boolean;
   renaming: RenameTarget;
   collapsed: Set<number>;
@@ -35,6 +43,12 @@ interface LibraryState {
   moveSession(id: number, folderId: number | null): Promise<void>;
   duplicateSession(id: number): Promise<SessionRecord | null>;
   deleteSession(id: number): Promise<void>;
+
+  reloadProfiles(): Promise<void>;
+  createProfile(name: string, username: string | null, password: string | null): Promise<boolean>;
+  updateProfile(id: number, name: string, username: string | null): Promise<boolean>;
+  setProfilePassword(id: number, password: string | null): Promise<boolean>;
+  deleteProfile(id: number): Promise<boolean>;
 }
 
 function reportError(e: unknown): void {
@@ -44,9 +58,19 @@ function reportError(e: unknown): void {
 
 export const useLibrary = create<LibraryState>()((set, get) => {
   const reload = async () => {
-    const [folders, sessions] = await Promise.all([api.folderList(), api.sessionList()]);
-    set({ folders, sessions, loaded: true });
+    const [folders, sessions, profiles] = await Promise.all([
+      api.folderList(),
+      api.sessionList(),
+      api.profileList().catch(() => [] as CredentialProfile[]),
+    ]);
+    set({ folders, sessions, profiles, loaded: true });
   };
+  /** Profile mutation: reload, report errors; resolves true on success. */
+  const profileOp = async (fn: () => Promise<unknown>): Promise<boolean> =>
+    (await mutate(async () => {
+      await fn();
+      return true;
+    })) === true;
   /** Runs a mutation, reloads, reports errors as toasts. */
   const mutate = async <T>(fn: () => Promise<T>): Promise<T | null> => {
     try {
@@ -63,6 +87,7 @@ export const useLibrary = create<LibraryState>()((set, get) => {
   return {
     folders: [],
     sessions: [],
+    profiles: [],
     loaded: false,
     renaming: null,
     collapsed: new Set<number>(),
@@ -179,5 +204,14 @@ export const useLibrary = create<LibraryState>()((set, get) => {
         ],
       });
     },
+
+    reloadProfiles: async () => {
+      set({ profiles: await api.profileList().catch(() => get().profiles) });
+    },
+    createProfile: (name, username, password) =>
+      profileOp(() => api.profileCreate(name, username, password)),
+    updateProfile: (id, name, username) => profileOp(() => api.profileUpdate(id, name, username)),
+    setProfilePassword: (id, password) => profileOp(() => api.profileSetPassword(id, password)),
+    deleteProfile: (id) => profileOp(() => api.profileDelete(id)),
   };
 });

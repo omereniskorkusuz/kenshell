@@ -132,6 +132,7 @@ function record(
     tags: [],
     favorite: false,
     ssh: null,
+    credentialProfileId: null,
     sortOrder: id,
     createdAt: now() - 30 * 24 * HOUR,
     updatedAt: now() - 2 * HOUR,
@@ -503,6 +504,14 @@ class MockNetLive {
 }
 
 const lives = new Map<RuntimeId, MockLive | MockNetLive>();
+
+// Credential profiles + "keychain" (mock: only whether a password exists).
+let profiles: { id: number; name: string; username: string | null; hasPassword: boolean }[] = [
+  { id: 1, name: 'NOC admin', username: 'admin', hasPassword: true },
+];
+let nextProfile = 2;
+const profilePw = new Set<number>([1]);
+const sessionPw = new Set<number>();
 let nextRuntime: RuntimeId = 1;
 
 function live(id: unknown): MockLive | MockNetLive {
@@ -584,6 +593,7 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         const s: SessionRecord = {
           ...structuredClone(input),
           ssh: input.ssh ?? null,
+          credentialProfileId: input.credentialProfileId ?? null,
           name: validName(input.name),
           id: nextId++,
           sortOrder: sessions.length,
@@ -662,6 +672,45 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         return undefined;
       case 'known_host_forget':
         return undefined;
+      case 'profile_list':
+        return profiles.map((p) => ({ ...p, hasPassword: profilePw.has(p.id) }));
+      case 'profile_create': {
+        const p = {
+          id: nextProfile++,
+          name: validName(a.name as string),
+          username: (a.username as string | null) ?? null,
+          hasPassword: false,
+        };
+        profiles.push(p);
+        if (a.password) profilePw.add(p.id);
+        return { ...p, hasPassword: profilePw.has(p.id) };
+      }
+      case 'profile_update': {
+        const p = need(
+          profiles.find((x) => x.id === a.id),
+          'profile',
+        );
+        p.name = validName(a.name as string);
+        p.username = (a.username as string | null) ?? null;
+        return { ...p, hasPassword: profilePw.has(p.id) };
+      }
+      case 'profile_set_password':
+        if (a.password) profilePw.add(a.id as number);
+        else profilePw.delete(a.id as number);
+        return undefined;
+      case 'profile_delete':
+        profiles = profiles.filter((x) => x.id !== a.id);
+        profilePw.delete(a.id as number);
+        sessions = sessions.map((s) =>
+          s.credentialProfileId === a.id ? { ...s, credentialProfileId: null } : s,
+        );
+        return undefined;
+      case 'session_password_set':
+        if (a.password) sessionPw.add(a.id as number);
+        else sessionPw.delete(a.id as number);
+        return undefined;
+      case 'session_password_exists':
+        return sessionPw.has(a.id as number);
       case 'clipboard_read':
         return navigator.clipboard.readText().catch(() => '');
       case 'clipboard_write':

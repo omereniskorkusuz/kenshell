@@ -156,6 +156,7 @@ export function toInput(s: SessionRecord): SessionInput {
     tags: [...s.tags],
     favorite: s.favorite,
     ssh: s.ssh,
+    credentialProfileId: s.credentialProfileId,
   };
 }
 

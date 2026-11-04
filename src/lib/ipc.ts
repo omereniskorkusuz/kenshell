@@ -87,6 +87,8 @@ export interface SessionRecord {
   favorite: boolean;
   /** SSH options (null for other protocols). */
   ssh: SshOptions | null;
+  /** Shared login profile (its password is in the OS keychain). */
+  credentialProfileId: number | null;
   sortOrder: number;
   createdAt: number;
   updatedAt: number;
@@ -106,9 +108,18 @@ export type SessionInput = Pick<
   | 'tags'
   | 'favorite'
   | 'ssh'
+  | 'credentialProfileId'
 >;
 
 export type Settings = Record<string, unknown>;
+
+/** Reusable login; the password itself stays in the OS keychain. */
+export interface CredentialProfile {
+  id: number;
+  name: string;
+  username: string | null;
+  hasPassword: boolean;
+}
 
 // ------------------------------------------------------------------ consoles
 
@@ -354,6 +365,19 @@ export const api = {
   /** OS clipboard (no webview paste-permission bubble). */
   clipboardRead: () => call<string>('clipboard_read'),
   clipboardWrite: (text: string) => call<undefined>('clipboard_write', { text }),
+
+  // Passwords are written to the OS keychain and never read back by the UI.
+  profileList: () => call<CredentialProfile[]>('profile_list'),
+  profileCreate: (name: string, username: string | null, password: string | null) =>
+    call<CredentialProfile>('profile_create', { name, username, password }),
+  profileUpdate: (id: number, name: string, username: string | null) =>
+    call<CredentialProfile>('profile_update', { id, name, username }),
+  profileSetPassword: (id: number, password: string | null) =>
+    call<undefined>('profile_set_password', { id, password }),
+  profileDelete: (id: number) => call<undefined>('profile_delete', { id }),
+  sessionPasswordSet: (id: number, password: string | null) =>
+    call<undefined>('session_password_set', { id, password }),
+  sessionPasswordExists: (id: number) => call<boolean>('session_password_exists', { id }),
 
   consoleList: () => call<ConsoleSnapshot>('console_list'),
   consoleRescan: () => call<ConsoleSnapshot>('console_rescan'),

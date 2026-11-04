@@ -1,7 +1,8 @@
 /** Saved session editor (a form, not a confirmation). Serial only in this version. */
-import { useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useT, type TKey } from '../i18n';
-import { DEFAULT_PORTS, isMac, type NetProtocol, type Protocol } from '../lib/ipc';
+import { describeError } from '../lib/errors';
+import { api, DEFAULT_PORTS, isMac, type NetProtocol, type Protocol } from '../lib/ipc';
 import { formatChord } from '../lib/shortcuts';
 import {
   BAUD_PRESETS,
@@ -25,6 +26,7 @@ import { folderPath } from '../lib/tree';
 import { chipLabel, useConsoles } from '../stores/consoles';
 import { useLibrary } from '../stores/library';
 import { useTabs } from '../stores/tabs';
+import { toast } from '../stores/toasts';
 import { useUi, type EditorState } from '../stores/ui';
 import { Dialog } from './Dialog';
 
@@ -47,6 +49,22 @@ export function SessionEditor({ state }: { state: EditorState }) {
   const [draft, setDraft] = useState<Draft>(() => draftFrom(base));
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  const profiles = useLibrary((s) => s.profiles);
+  // Session password: written to the OS keychain on save, never read back into the UI.
+  const [password, setPassword] = useState('');
+  const [hasSaved, setHasSaved] = useState(false);
+  const [forget, setForget] = useState(false);
+  useEffect(() => {
+    if (!record) return;
+    let live = true;
+    void api
+      .sessionPasswordExists(record.id)
+      .then((v) => live && setHasSaved(v))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [record]);
   const errors = useMemo(() => validateDraft(draft), [draft]);
   const shown: DraftErrors = touched ? errors : {};
   const portsListId = useId();
@@ -73,6 +91,16 @@ export function SessionEditor({ state }: { state: EditorState }) {
     const saved = record
       ? await lib.updateSession(record.id, input)
       : await lib.createSession(input);
+    if (saved && input.protocol === 'ssh' && input.credentialProfileId === null) {
+      try {
+        if (password) await api.sessionPasswordSet(saved.id, password);
+        else if (forget) await api.sessionPasswordSet(saved.id, null);
+      } catch (e) {
+        const d = describeError(e, t);
+        toast({ kind: 'error', message: t('credentials.saveFailed'), detail: d.detail });
+      }
+    }
+    setPassword('');
     setSaving(false);
     if (!saved) return; // error toast already shown; keep the form open
     close();
@@ -227,6 +255,62 @@ export function SessionEditor({ state }: { state: EditorState }) {
                     autoComplete="off"
                     onChange={(e) => set('username', e.target.value)}
                   />
+                )}
+              </Field>
+            )}
+            {draft.protocol === 'ssh' && (
+              <Field label={t('credentials.login')}>
+                {(id) => (
+                  <div className="flex flex-col gap-2">
+                    <select
+                      id={id}
+                      className="field"
+                      value={draft.credentialProfileId ?? ''}
+                      onChange={(e) =>
+                        set('credentialProfileId', e.target.value ? Number(e.target.value) : null)
+                      }
+                    >
+                      <option value="">{t('credentials.ownLogin')}</option>
+                      {profiles.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.username ? `${p.name} · ${p.username}` : p.name}
+                        </option>
+                      ))}
+                    </select>
+                    {draft.credentialProfileId === null && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="password"
+                          className="field"
+                          autoComplete="new-password"
+                          aria-label={t('credentials.password')}
+                          placeholder={
+                            hasSaved && !forget
+                              ? t('credentials.passwordSaved')
+                              : t('credentials.passwordOptional')
+                          }
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            setForget(false);
+                          }}
+                        />
+                        {hasSaved && !forget && (
+                          <button
+                            type="button"
+                            className="btn btn-sm shrink-0"
+                            onClick={() => {
+                              setForget(true);
+                              setPassword('');
+                            }}
+                          >
+                            {t('credentials.forget')}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <span className="text-xs text-muted">{t('credentials.keychainHint')}</span>
+                  </div>
                 )}
               </Field>
             )}

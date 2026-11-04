@@ -301,7 +301,8 @@
     "charset": "Character set",
     "charsetHint": "How received bytes are shown.",
     "lineTimestamps": "Timestamp each line",
-    "lineTimestampsHint": "Shown in the terminal only; the device output is unchanged."
+    "lineTimestampsHint": "Shown in the terminal only; the device output is unchanged.",
+    "credentials": "Logins"
   },
   "mode": {
     "user": "USER",
@@ -334,5 +335,23 @@
     "badRegex": "Invalid regex",
     "notFound": "No match",
     "close": "Close (Esc)"
+  },
+  "credentials": {
+    "login": "Login",
+    "ownLogin": "This session's own user and password",
+    "password": "Password",
+    "passwordSaved": "Saved in keychain — type to replace",
+    "passwordOptional": "Optional — asked when connecting if empty",
+    "forget": "Forget",
+    "keychainHint": "Passwords are kept only in the system keychain, never in KenShell files or logs.",
+    "saveFailed": "The password could not be saved to the keychain.",
+    "profilesHint": "A login profile (user + password) can be used by many sessions. Changing it here updates all of them.",
+    "none": "No login profiles yet.",
+    "name": "Name",
+    "add": "Add",
+    "passwordSavedShort": "password saved",
+    "noPassword": "no password",
+    "newPassword": "New password ⏎",
+    "delete": "Delete"
   }
 }
