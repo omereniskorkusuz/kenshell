@@ -4,5 +4,6 @@
 pub mod app;
 pub mod clipboard;
 pub mod console;
+pub mod secrets;
 pub mod session;
 pub mod storage;

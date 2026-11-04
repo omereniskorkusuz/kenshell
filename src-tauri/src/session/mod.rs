@@ -94,9 +94,17 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
-    pub fn new(db: Arc<Db>, consoles: Arc<ConsoleRegistry>) -> Self {
+    pub fn new(
+        db: Arc<Db>,
+        consoles: Arc<ConsoleRegistry>,
+        secrets: Arc<dyn crate::secrets::SecretStore>,
+    ) -> Self {
         Self::with_backend(
-            Arc::new(RealBackend { db, consoles }),
+            Arc::new(RealBackend {
+                db,
+                consoles,
+                secrets,
+            }),
             Arc::new(|f| {
                 tauri::async_runtime::spawn(f);
             }),

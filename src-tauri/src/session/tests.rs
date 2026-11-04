@@ -198,6 +198,7 @@ impl Backend for FakeBackend {
         _size: (u16, u16),
         sink: TransportSink,
         _prompter: Arc<dyn crate::transport::Prompter>,
+        _creds: Option<crate::secrets::Credentials>,
     ) -> Result<Box<dyn Transport>> {
         Ok(self.make_transport(&SerialSettings::default(), 0, sink))
     }
@@ -215,6 +216,10 @@ impl Backend for FakeBackend {
     }
 
     fn log_config(&self) -> Option<crate::logging::LogConfig> {
+        None
+    }
+
+    fn credentials(&self, _session_id: i64) -> Option<crate::secrets::Credentials> {
         None
     }
 }

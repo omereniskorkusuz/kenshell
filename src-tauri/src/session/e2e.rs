@@ -92,7 +92,11 @@ async fn autobaud_connects_to_simulated_ruijie_console_and_remembers_speed() {
 
     let db = Arc::new(Db::open_in_memory().unwrap());
     let consoles = Arc::new(ConsoleRegistry::new(Arc::clone(&db)));
-    let manager = SessionManager::new(Arc::clone(&db), Arc::clone(&consoles));
+    let manager = SessionManager::new(
+        Arc::clone(&db),
+        Arc::clone(&consoles),
+        Arc::new(crate::secrets::MemoryStore::default()),
+    );
 
     let open = |out: Arc<Recorder>| {
         manager

@@ -105,6 +105,8 @@ pub struct SessionRecord {
     pub favorite: bool,
     /// SSH options (ssh sessions only).
     pub ssh: Option<SshOptions>,
+    /// Shared login (user name + keychain password) instead of the session's own.
+    pub credential_profile_id: Option<i64>,
     pub sort_order: i64,
     /// Unix epoch milliseconds.
     pub created_at: i64,
@@ -130,6 +132,8 @@ pub struct SessionInput {
     pub favorite: bool,
     #[serde(default)]
     pub ssh: Option<SshOptions>,
+    #[serde(default)]
+    pub credential_profile_id: Option<i64>,
 }
 
 /// Remembered facts about a console cable, keyed by USB serial number (or port path).
@@ -411,4 +415,16 @@ pub struct KnownHost {
     pub public_key: String,
     pub fingerprint: String,
     pub added_at: i64,
+}
+
+/// A reusable login. The password itself is only in the OS keychain.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialProfile {
+    pub id: i64,
+    pub name: String,
+    pub username: Option<String>,
+    /// Filled by the command layer from the keychain (never stored in SQLite).
+    #[serde(default)]
+    pub has_password: bool,
 }

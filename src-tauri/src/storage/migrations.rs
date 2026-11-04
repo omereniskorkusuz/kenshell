@@ -89,6 +89,20 @@ CREATE TABLE known_hosts (
         name: "v3 sessions.ssh_json (SSH options)",
         sql: "ALTER TABLE sessions ADD COLUMN ssh_json TEXT NULL;",
     },
+    Migration {
+        name: "v4 credential_profiles (passwords stay in the OS keychain)",
+        sql: r#"
+CREATE TABLE credential_profiles (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT    NOT NULL,
+    username   TEXT    NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+ALTER TABLE sessions ADD COLUMN credential_profile_id INTEGER NULL
+    REFERENCES credential_profiles(id) ON DELETE SET NULL;
+"#,
+    },
 ];
 
 /// Schema version this build expects.
@@ -170,6 +184,7 @@ mod tests {
         assert_eq!(
             tables(&conn),
             vec![
+                "credential_profiles",
                 "folders",
                 "known_hosts",
                 "port_memory",

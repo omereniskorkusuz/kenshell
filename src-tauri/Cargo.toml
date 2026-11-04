@@ -30,6 +30,8 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["f
 tauri-plugin-opener = "2"
 russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2", "des"] }
 arboard = { version = "3.7", default-features = false }
+keyring = { version = "3.6", default-features = false, features = ["apple-native", "windows-native", "linux-native"] }
+zeroize = "1.8"
 
 [lints]
 workspace = true

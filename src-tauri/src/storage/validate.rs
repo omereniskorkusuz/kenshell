@@ -149,6 +149,7 @@ pub(super) struct ValidSession {
     pub username: Option<String>,
     pub serial: Option<SerialSettings>,
     pub ssh: Option<SshOptions>,
+    pub credential_profile_id: Option<i64>,
     pub env_tag: Option<String>,
     pub tags: Vec<String>,
     pub favorite: bool,
@@ -187,6 +188,7 @@ pub(super) fn session(input: &SessionInput) -> Result<ValidSession> {
         username: optional_text(input.username.as_deref(), "username", MAX_USERNAME_CHARS)?,
         serial,
         ssh: ssh(input),
+        credential_profile_id: input.credential_profile_id,
         env_tag: env_tag(input.env_tag.as_deref())?,
         tags: tags(&input.tags)?,
         favorite: input.favorite,
@@ -217,6 +219,7 @@ mod tests {
             ],
             favorite: true,
             ssh: None,
+            credential_profile_id: None,
         }
     }
 

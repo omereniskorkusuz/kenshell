@@ -204,6 +204,7 @@ mod tests {
             tags: vec![],
             favorite: false,
             ssh: None,
+            credential_profile_id: None,
         })
         .unwrap()
         .id

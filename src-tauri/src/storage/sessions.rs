@@ -15,7 +15,21 @@ use crate::model::{Protocol, SessionInput, SessionRecord};
 
 const SELECT_SESSION: &str = "SELECT id, folder_id, name, protocol, host, port, username, \
      serial_json, env_tag, tags_json, favorite, sort_order, created_at, updated_at, \
-     last_connected_at, ssh_json FROM sessions";
+     last_connected_at, ssh_json, credential_profile_id FROM sessions";
+
+fn require_profile(conn: &Connection, id: Option<i64>) -> Result<()> {
+    let Some(id) = id else { return Ok(()) };
+    let exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM credential_profiles WHERE id = ?1)",
+        [id],
+        |r| r.get(0),
+    )?;
+    if exists {
+        Ok(())
+    } else {
+        Err(AppError::not_found(format!("profile {id}")))
+    }
+}
 
 fn protocol_str(p: Protocol) -> &'static str {
     match p {
@@ -83,6 +97,7 @@ fn row_to_session(r: &Row<'_>) -> rusqlite::Result<SessionRecord> {
         updated_at: r.get(13)?,
         last_connected_at: r.get(14)?,
         ssh: json_col(r, 15)?,
+        credential_profile_id: r.get(16)?,
     })
 }
 
@@ -111,8 +126,9 @@ fn insert(conn: &Connection, v: &ValidSession, sort_order: i64, now: i64) -> Res
     let ssh_json = v.ssh.as_ref().map(to_json).transpose()?;
     conn.execute(
         "INSERT INTO sessions (folder_id, name, protocol, host, port, username, serial_json,
-             env_tag, tags_json, favorite, sort_order, created_at, updated_at, ssh_json)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?13)",
+             env_tag, tags_json, favorite, sort_order, created_at, updated_at, ssh_json,
+             credential_profile_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?13, ?14)",
         params![
             v.folder_id,
             v.name,
@@ -127,6 +143,7 @@ fn insert(conn: &Connection, v: &ValidSession, sort_order: i64, now: i64) -> Res
             sort_order,
             now,
             ssh_json,
+            v.credential_profile_id,
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -172,10 +189,6 @@ impl Db {
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
 
-    #[allow(
-        dead_code,
-        reason = "contract API; first caller is the P2 session editor"
-    )]
     pub fn get_session(&self, id: i64) -> Result<SessionRecord> {
         fetch(&self.conn(), id)
     }
@@ -186,6 +199,7 @@ impl Db {
         let mut conn = self.conn();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         require_folder(&tx, v.folder_id)?;
+        require_profile(&tx, v.credential_profile_id)?;
         let sort_order = next_session_order(&tx, v.folder_id)?;
         let id = insert(&tx, &v, sort_order, now_ms())?;
         let record = fetch(&tx, id)?;
@@ -202,6 +216,7 @@ impl Db {
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let existing = fetch(&tx, id)?;
         require_folder(&tx, v.folder_id)?;
+        require_profile(&tx, v.credential_profile_id)?;
         let sort_order = if existing.folder_id == v.folder_id {
             existing.sort_order
         } else {
@@ -213,7 +228,8 @@ impl Db {
         tx.execute(
             "UPDATE sessions SET folder_id = ?2, name = ?3, protocol = ?4, host = ?5,
                  port = ?6, username = ?7, serial_json = ?8, env_tag = ?9, tags_json = ?10,
-                 favorite = ?11, sort_order = ?12, updated_at = ?13, ssh_json = ?14
+                 favorite = ?11, sort_order = ?12, updated_at = ?13, ssh_json = ?14,
+                 credential_profile_id = ?15
              WHERE id = ?1",
             params![
                 id,
@@ -230,6 +246,7 @@ impl Db {
                 sort_order,
                 updated_at,
                 ssh_json,
+                v.credential_profile_id,
             ],
         )?;
         let record = fetch(&tx, id)?;
@@ -275,6 +292,7 @@ impl Db {
             username: orig.username,
             serial: orig.serial,
             ssh: orig.ssh,
+            credential_profile_id: orig.credential_profile_id,
             env_tag: orig.env_tag,
             tags: orig.tags,
             favorite: orig.favorite,
@@ -321,6 +339,7 @@ mod tests {
             tags: vec!["core".into(), " dc1 ".into(), "CORE".into()],
             favorite: true,
             ssh: None,
+            credential_profile_id: None,
         }
     }
 
@@ -370,6 +389,7 @@ mod tests {
             tags: vec![],
             favorite: false,
             ssh: None,
+            credential_profile_id: None,
         }
     }
 

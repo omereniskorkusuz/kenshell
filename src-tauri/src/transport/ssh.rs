@@ -167,6 +167,8 @@ pub struct SshTransport {
     writer: Option<ChannelWriteHalf<client::Msg>>,
     reader: Option<JoinHandle<()>>,
     host_key: Option<HostKeyInfo>,
+    /// Saved login (keychain). The password is tried once, before asking the user.
+    creds: Option<crate::secrets::Credentials>,
 }
 
 impl SshTransport {
@@ -181,6 +183,7 @@ impl SshTransport {
         keys: Arc<dyn HostKeyStore>,
         cols: u16,
         rows: u16,
+        creds: Option<crate::secrets::Credentials>,
     ) -> Self {
         Self {
             host,
@@ -195,7 +198,13 @@ impl SshTransport {
             writer: None,
             reader: None,
             host_key: None,
+            creds,
         }
+    }
+
+    /// Takes the saved password (it is offered to the server at most once).
+    fn take_saved_password(&mut self) -> Option<crate::secrets::Secret> {
+        self.creds.as_mut().and_then(|c| c.password.take())
     }
 
     fn target(&self) -> String {
@@ -229,6 +238,15 @@ impl SshTransport {
 
     async fn resolve_user(&mut self) -> Result<String> {
         if let Some(u) = self.username.clone().filter(|u| !u.trim().is_empty()) {
+            return Ok(u);
+        }
+        if let Some(u) = self
+            .creds
+            .as_ref()
+            .and_then(|c| c.username.clone())
+            .filter(|u| !u.trim().is_empty())
+        {
+            self.username = Some(u.clone());
             return Ok(u);
         }
         let user = self
@@ -334,8 +352,13 @@ impl SshTransport {
                         instructions,
                         prompts,
                     } => {
+                        let saved = (prompts.len() == 1 && prompts.iter().all(|p| !p.echo))
+                            .then(|| self.take_saved_password())
+                            .flatten();
                         let answers = if prompts.is_empty() {
                             Vec::new()
+                        } else if let Some(pw) = saved {
+                            vec![pw.to_string()]
                         } else {
                             let instruction = [name, instructions]
                                 .into_iter()
@@ -362,6 +385,14 @@ impl SshTransport {
 
         // 3. password
         if allowed(&methods, MethodKind::Password) {
+            if let Some(pw) = self.take_saved_password()
+                && let AuthResult::Success = handle
+                    .authenticate_password(user, pw.as_str())
+                    .await
+                    .map_err(ssh_err)?
+            {
+                return Ok(());
+            }
             for attempt in 0..PASSWORD_ATTEMPTS {
                 let text = if attempt == 0 {
                     format!("{user}@{}'s password: ", self.host)

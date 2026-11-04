@@ -7,6 +7,7 @@ mod events;
 mod logging;
 mod model;
 mod platform;
+mod secrets;
 mod session;
 mod state;
 mod storage;
@@ -68,13 +69,25 @@ pub fn run() {
             commands::session::live_reconnect,
             commands::session::live_answer,
             commands::session::known_host_forget,
+            commands::secrets::profile_list,
+            commands::secrets::profile_create,
+            commands::secrets::profile_update,
+            commands::secrets::profile_set_password,
+            commands::secrets::profile_delete,
+            commands::secrets::session_password_set,
+            commands::secrets::session_password_exists,
         ])
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let db = Arc::new(Db::open(&dir.join(DB_FILE))?);
             let consoles = Arc::new(ConsoleRegistry::new(Arc::clone(&db)));
-            let sessions = Arc::new(SessionManager::new(Arc::clone(&db), Arc::clone(&consoles)));
+            let secrets: Arc<dyn secrets::SecretStore> = Arc::new(secrets::Keychain);
+            let sessions = Arc::new(SessionManager::new(
+                Arc::clone(&db),
+                Arc::clone(&consoles),
+                Arc::clone(&secrets),
+            ));
 
             let handle = app.handle().clone();
             let sessions_for_watch = Arc::clone(&sessions);
@@ -89,6 +102,7 @@ pub fn run() {
                 db,
                 consoles,
                 sessions,
+                secrets,
             });
 
             let handle = app.handle().clone();

@@ -291,9 +291,13 @@ impl Ctx {
             slot: Arc::clone(&self.prompt),
         });
         let size = self.size.lock().map(|s| *s).unwrap_or((80, 24));
+        let creds = match self.session_id {
+            Some(sid) => self.call(move |b| b.credentials(sid)).await?,
+            None => None,
+        };
         let mut transport =
             self.backend
-                .make_network_transport(&self.target, size, tx, prompter)?;
+                .make_network_transport(&self.target, size, tx, prompter, creds)?;
         transport.connect().await?;
         // Size may have changed while we were logging in.
         let now = self.size.lock().map(|s| *s).unwrap_or(size);

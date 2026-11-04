@@ -23,6 +23,7 @@ mod folders;
 mod known_hosts;
 mod migrations;
 mod port_memory;
+mod profiles;
 mod sessions;
 mod settings;
 mod validate;
@@ -141,6 +142,7 @@ mod tests {
             tags: vec![],
             favorite: false,
             ssh: None,
+            credential_profile_id: None,
         }
     }
 
@@ -311,6 +313,7 @@ mod tests {
             tags: input.tags.clone(),
             favorite: true,
             ssh: None,
+            credential_profile_id: None,
             sort_order: 0,
             created_at: 0,
             updated_at: 0,
@@ -333,7 +336,9 @@ mod tests {
         assert!(cols.len() > 10, "sessions table introspection failed");
         keys.extend(cols.into_iter().map(|c| c.to_ascii_lowercase()));
 
-        for key in &keys {
+        // A *reference* to a credential profile is fine: the secret lives in the keychain.
+        const ALLOWED: &[&str] = &["credentialprofileid", "credential_profile_id"];
+        for key in keys.iter().filter(|k| !ALLOWED.contains(&k.as_str())) {
             for bad in FORBIDDEN {
                 assert!(!key.contains(bad), "field `{key}` looks like a secret");
             }

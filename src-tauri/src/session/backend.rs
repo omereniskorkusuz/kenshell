@@ -54,6 +54,7 @@ pub(crate) trait Backend: Send + Sync + 'static {
         size: (u16, u16),
         sink: TransportSink,
         prompter: Arc<dyn Prompter>,
+        creds: Option<crate::secrets::Credentials>,
     ) -> Result<Box<dyn Transport>>;
     fn touch_session(&self, id: i64) -> Result<()>;
     fn auto_reconnect_enabled(&self) -> bool;
@@ -61,6 +62,9 @@ pub(crate) trait Backend: Send + Sync + 'static {
     fn net_auto_reconnect_enabled(&self) -> bool;
     /// Session logging config when `log.enabled` is on (default off).
     fn log_config(&self) -> Option<crate::logging::LogConfig>;
+    /// Saved login of a saved session: its credential profile, else its own user name
+    /// and keychain password. Blocking (keychain).
+    fn credentials(&self, session_id: i64) -> Option<crate::secrets::Credentials>;
 }
 
 /// SQLite-backed SSH host key store.
@@ -83,6 +87,7 @@ pub(crate) fn network_transport(
     sink: TransportSink,
     prompter: Arc<dyn Prompter>,
     keys: Arc<dyn HostKeyStore>,
+    creds: Option<crate::secrets::Credentials>,
 ) -> Result<Box<dyn Transport>> {
     let OpenTarget::Network {
         protocol,
@@ -110,6 +115,7 @@ pub(crate) fn network_transport(
             keys,
             cols,
             rows,
+            creds,
         )),
         Protocol::Telnet => Box::new(TcpTransport::new(
             *protocol,
@@ -149,6 +155,7 @@ pub(crate) fn network_transport(
 pub(crate) struct RealBackend {
     pub db: Arc<Db>,
     pub consoles: Arc<ConsoleRegistry>,
+    pub secrets: Arc<dyn crate::secrets::SecretStore>,
 }
 
 impl Backend for RealBackend {
@@ -204,13 +211,40 @@ impl Backend for RealBackend {
         size: (u16, u16),
         sink: TransportSink,
         prompter: Arc<dyn Prompter>,
+        creds: Option<crate::secrets::Credentials>,
     ) -> Result<Box<dyn Transport>> {
         let keys = Arc::new(DbHostKeys(Arc::clone(&self.db)));
-        network_transport(target, size, sink, prompter, keys)
+        network_transport(target, size, sink, prompter, keys, creds)
     }
 
     fn touch_session(&self, id: i64) -> Result<()> {
         self.db.touch_session(id)
+    }
+
+    fn credentials(&self, session_id: i64) -> Option<crate::secrets::Credentials> {
+        use crate::secrets::{Credentials, profile_account, session_account};
+        let rec = self.db.get_session(session_id).ok()?;
+        let secret = |acc: String| match self.secrets.get(&acc) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!("keychain read for session {session_id}: {e}");
+                None
+            }
+        };
+        let creds = match rec.credential_profile_id {
+            Some(pid) => {
+                let p = self.db.get_profile(pid).ok()?;
+                Credentials {
+                    username: p.username.or(rec.username),
+                    password: secret(profile_account(pid)),
+                }
+            }
+            None => Credentials {
+                username: rec.username,
+                password: secret(session_account(session_id)),
+            },
+        };
+        (creds.username.is_some() || creds.password.is_some()).then_some(creds)
     }
 
     fn log_config(&self) -> Option<crate::logging::LogConfig> {

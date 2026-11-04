@@ -124,9 +124,20 @@ async fn until(what: &str, mut f: impl FnMut() -> bool) {
 }
 
 fn manager() -> (SessionManager, Arc<Db>) {
+    let (m, db, _) = manager_with_secrets();
+    (m, db)
+}
+
+fn manager_with_secrets() -> (SessionManager, Arc<Db>, Arc<crate::secrets::MemoryStore>) {
     let db = Arc::new(Db::open_in_memory().unwrap());
     let consoles = Arc::new(ConsoleRegistry::new(Arc::clone(&db)));
-    (SessionManager::new(Arc::clone(&db), consoles), db)
+    let secrets = Arc::new(crate::secrets::MemoryStore::default());
+    let store: Arc<dyn crate::secrets::SecretStore> = secrets.clone();
+    (
+        SessionManager::new(Arc::clone(&db), consoles, store),
+        db,
+        secrets,
+    )
 }
 
 fn net(protocol: Protocol, port: u16, user: Option<&str>, legacy: bool) -> OpenRequest {
@@ -358,4 +369,52 @@ async fn net_e2e_session_log_has_output_but_never_typed_passwords() {
             "typed secret {secret:?} leaked into the log:\n{log}"
         );
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs target/debug/device-simulator"]
+async fn net_e2e_ssh_saved_password_logs_in_without_prompt_and_wrong_one_falls_back() {
+    use crate::secrets::SecretStore;
+    let port = free_port();
+    let _sim = sim(&["--ssh", "--host-key-seed", "7"], port);
+    let (m, db, secrets) = manager_with_secrets();
+    let rec = db
+        .create_session(&crate::model::SessionInput {
+            folder_id: None,
+            name: "core".into(),
+            protocol: Protocol::Ssh,
+            host: Some("127.0.0.1".into()),
+            port: Some(port),
+            username: Some("admin".into()),
+            serial: None,
+            env_tag: None,
+            tags: vec![],
+            favorite: false,
+            ssh: None,
+            credential_profile_id: None,
+        })
+        .unwrap();
+    secrets
+        .set(&crate::secrets::session_account(rec.id), "admin")
+        .unwrap();
+    let mut req = net(Protocol::Ssh, port, None, false);
+    req.session_id = Some(rec.id);
+
+    let out = Arc::new(Rec::default());
+    let id = m.open(req.clone(), out.clone()).unwrap();
+    until("connected", || connected(&out)).await;
+    assert!(out.prompts().is_empty(), "saved password must not prompt");
+    until("prompt", || out.text().contains("core-sw-01>")).await;
+    m.close(id).unwrap();
+
+    // Wrong saved password: tried once, then the user is asked.
+    secrets
+        .set(&crate::secrets::session_account(rec.id), "wrong")
+        .unwrap();
+    let out = Arc::new(Rec::default());
+    let id = m.open(req, out.clone()).unwrap();
+    until("asked", || !out.prompts().is_empty()).await;
+    m.answer(id, vec!["admin".into()]).unwrap();
+    until("connected after prompt", || connected(&out)).await;
+    m.close(id).unwrap();
 }
