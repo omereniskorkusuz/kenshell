@@ -351,3 +351,9 @@
     box-shadow: none;
   }
 }
+
+/* xterm: its stylesheet paints the viewport #000 and only the canvas follows the theme, which
+   leaves a black band (fit remainder) at the right/bottom in the light theme. */
+.xterm .xterm-viewport {
+  background-color: var(--bg-terminal) !important;
+}
