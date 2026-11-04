@@ -38,9 +38,11 @@ pub fn run() {
     init_logging();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::app::app_ready,
             commands::app::app_info,
+            commands::app::open_external,
             commands::storage::folder_list,
             commands::storage::folder_create,
             commands::storage::folder_rename,
