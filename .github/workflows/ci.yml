@@ -1,8 +1,12 @@
 name: CI
 
+# Private repo: GitHub bills macOS minutes x10 and Windows x2. Only the cheap Linux
+# frontend job runs on every push; the macOS/Windows/e2e/bundle jobs run when started
+# by hand (Actions → CI → Run workflow) or for a version tag (v*).
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -30,6 +34,7 @@ jobs:
         run: npm run bench:bundle
 
   rust:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     strategy:
       fail-fast: false
       matrix:
@@ -54,6 +59,7 @@ jobs:
           cargo test -p kenshell net_e2e -- --ignored --test-threads 1
 
   e2e-linux:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     # Real SessionManager + autobaud + serial transport against the device simulator on a
     # pseudo-terminal (not possible on macOS: ptys reject IOSSIOSPEED).
     runs-on: ubuntu-latest
@@ -73,7 +79,7 @@ jobs:
       - run: cargo test -p kenshell e2e -- --ignored
 
   bundle:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     needs: [frontend, rust]
     strategy:
       fail-fast: false
