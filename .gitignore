@@ -1,0 +1,11 @@
+# deps / build
+node_modules/
+dist/
+target/
+src-tauri/gen/schemas/
+*.log
+.DS_Store
+
+
+# bench output
+bench/results/*.local.json
