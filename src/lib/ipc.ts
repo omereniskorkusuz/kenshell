@@ -215,36 +215,69 @@ export function isMac(): boolean {
   return /Mac|iPhone|iPad/.test(navigator.platform);
 }
 
+// ------------------------------------------------------------------ transport (Tauri or browser mock)
+
+/**
+ * Outside Tauri (plain `vite` dev server in a browser) every command is answered by an
+ * in-memory mock so the UI can be demoed. The mock is a separate, dynamically imported chunk
+ * that the Tauri app never loads.
+ */
+let mockModule: Promise<typeof import('./mock')> | null = null;
+function loadMock(): Promise<typeof import('./mock')> {
+  mockModule ??= import('./mock');
+  return mockModule;
+}
+
+function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (inTauri()) return invoke<T>(cmd, args);
+  return loadMock().then((m) => m.mockInvoke(cmd, args) as Promise<T>);
+}
+
+/**
+ * Opens an http(s) URL in the system browser. Other schemes are refused.
+ * TODO(lead): route through the Tauri opener plugin once it is wired.
+ */
+export function openExternal(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+  window.open(parsed.href, '_blank', 'noopener,noreferrer');
+  return true;
+}
+
 // ------------------------------------------------------------------ storage API
 
 export const api = {
-  folderList: () => invoke<Folder[]>('folder_list'),
+  folderList: () => call<Folder[]>('folder_list'),
   folderCreate: (name: string, parentId: number | null) =>
-    invoke<Folder>('folder_create', { name, parentId }),
-  folderRename: (id: number, name: string) => invoke<void>('folder_rename', { id, name }),
-  folderMove: (id: number, parentId: number | null) =>
-    invoke<void>('folder_move', { id, parentId }),
-  folderDelete: (id: number) => invoke<void>('folder_delete', { id }),
+    call<Folder>('folder_create', { name, parentId }),
+  folderRename: (id: number, name: string) => call<void>('folder_rename', { id, name }),
+  folderMove: (id: number, parentId: number | null) => call<void>('folder_move', { id, parentId }),
+  folderDelete: (id: number) => call<void>('folder_delete', { id }),
 
-  sessionList: () => invoke<SessionRecord[]>('session_list'),
-  sessionCreate: (input: SessionInput) => invoke<SessionRecord>('session_create', { input }),
+  sessionList: () => call<SessionRecord[]>('session_list'),
+  sessionCreate: (input: SessionInput) => call<SessionRecord>('session_create', { input }),
   sessionUpdate: (id: number, input: SessionInput) =>
-    invoke<SessionRecord>('session_update', { id, input }),
-  sessionDelete: (id: number) => invoke<void>('session_delete', { id }),
-  sessionDuplicate: (id: number) => invoke<SessionRecord>('session_duplicate', { id }),
+    call<SessionRecord>('session_update', { id, input }),
+  sessionDelete: (id: number) => call<void>('session_delete', { id }),
+  sessionDuplicate: (id: number) => call<SessionRecord>('session_duplicate', { id }),
 
-  settingsAll: () => invoke<Settings>('settings_all'),
-  settingSet: (key: string, value: unknown) => invoke<void>('setting_set', { key, value }),
+  settingsAll: () => call<Settings>('settings_all'),
+  settingSet: (key: string, value: unknown) => call<void>('setting_set', { key, value }),
 
-  consoleList: () => invoke<ConsoleSnapshot>('console_list'),
-  consoleRescan: () => invoke<ConsoleSnapshot>('console_rescan'),
+  consoleList: () => call<ConsoleSnapshot>('console_list'),
+  consoleRescan: () => call<ConsoleSnapshot>('console_rescan'),
 
-  liveWrite: (id: RuntimeId, data: string) => invoke<void>('live_write', { id, data }),
+  liveWrite: (id: RuntimeId, data: string) => call<void>('live_write', { id, data }),
   liveResize: (id: RuntimeId, cols: number, rows: number) =>
-    invoke<void>('live_resize', { id, cols, rows }),
-  liveBreak: (id: RuntimeId) => invoke<void>('live_break', { id }),
-  liveClose: (id: RuntimeId) => invoke<void>('live_close', { id }),
-  liveReconnect: (id: RuntimeId) => invoke<void>('live_reconnect', { id }),
+    call<void>('live_resize', { id, cols, rows }),
+  liveBreak: (id: RuntimeId) => call<void>('live_break', { id }),
+  liveClose: (id: RuntimeId) => call<void>('live_close', { id }),
+  liveReconnect: (id: RuntimeId) => call<void>('live_reconnect', { id }),
 };
 
 /**
@@ -256,6 +289,7 @@ export async function liveOpen(
   onData: (bytes: Uint8Array) => void,
   onEvent: (event: SessionEvent) => void,
 ): Promise<RuntimeId> {
+  if (!inTauri()) return (await loadMock()).liveOpen(request, onData, onEvent);
   const data = new Channel<ArrayBuffer>();
   data.onmessage = (buf) => onData(new Uint8Array(buf));
   const events = new Channel<SessionEvent>();
@@ -263,6 +297,7 @@ export async function liveOpen(
   return invoke<RuntimeId>('live_open', { request, onData: data, onEvent: events });
 }
 
-export function onConsoleChanged(cb: (change: ConsoleChange) => void): Promise<UnlistenFn> {
+export async function onConsoleChanged(cb: (change: ConsoleChange) => void): Promise<UnlistenFn> {
+  if (!inTauri()) return (await loadMock()).onConsoleChanged(cb);
   return listen<ConsoleChange>(EVENTS.consoleChanged, (e) => cb(e.payload));
 }

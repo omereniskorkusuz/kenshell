@@ -1,0 +1,22 @@
+/* Terminal host (terminal chunk). Colors come from tokens via readTerminalTheme(). */
+.terminal-host {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-terminal);
+}
+
+.terminal-host .xterm {
+  height: 100%;
+  /* FitAddon subtracts this padding from the available size. */
+  padding: 6px 0 0 10px;
+  /* Ligatures off: "->" and "!=" must stay as typed (DOM renderer). */
+  font-variant-ligatures: none;
+  font-feature-settings:
+    'calt' 0,
+    'liga' 0;
+}
+
+.terminal-host .xterm:focus,
+.terminal-host .xterm-helper-textarea:focus {
+  box-shadow: none;
+}

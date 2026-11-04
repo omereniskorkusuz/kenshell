@@ -41,8 +41,12 @@
   --status-bar-height: 24px;
   --toast-width: 360px;
   --palette-width: 560px;
+  --editor-width: 520px;
+  --resize-handle: 6px;
+  --env-rail-width: 3px;
 
   --z-panel: 20;
+  --z-overlay: 30;
   --z-toast: 40;
   --z-palette: 50;
 }
@@ -88,6 +92,24 @@
   --cursor-terminal: #e6e8eb;
   --scrollbar-thumb: #3a4049;
   --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px #2a2e35;
+
+  /* terminal ANSI palette (16 colors) */
+  --ansi-black: #1c2026;
+  --ansi-red: #f2737a;
+  --ansi-green: #46c08a;
+  --ansi-yellow: #e8b341;
+  --ansi-blue: #5aa2ff;
+  --ansi-magenta: #e08fd6;
+  --ansi-cyan: #3cc6a6;
+  --ansi-white: #d9dde2;
+  --ansi-bright-black: #6b7380;
+  --ansi-bright-red: #ff9aa0;
+  --ansi-bright-green: #74d9a9;
+  --ansi-bright-yellow: #f5cc72;
+  --ansi-bright-blue: #8bbcff;
+  --ansi-bright-magenta: #efb1e7;
+  --ansi-bright-cyan: #6fdcc2;
+  --ansi-bright-white: #f5f7fa;
 }
 
 /* ---------- light ---------- */
@@ -130,6 +152,23 @@
   --cursor-terminal: #1b1f24;
   --scrollbar-thumb: #c2c7cf;
   --shadow-elevated: 0 8px 24px rgba(20, 24, 30, 0.12), 0 0 0 1px #dde0e5;
+
+  --ansi-black: #1f2328;
+  --ansi-red: #c42b34;
+  --ansi-green: #1b7a4c;
+  --ansi-yellow: #835c00;
+  --ansi-blue: #1f62d0;
+  --ansi-magenta: #8e2f78;
+  --ansi-cyan: #0a6656;
+  --ansi-white: #5a626c;
+  --ansi-bright-black: #6e7681;
+  --ansi-bright-red: #a8232b;
+  --ansi-bright-green: #146038;
+  --ansi-bright-yellow: #6b4a00;
+  --ansi-bright-blue: #1a56b8;
+  --ansi-bright-magenta: #73245f;
+  --ansi-bright-cyan: #084f43;
+  --ansi-bright-white: #1b1f24;
 }
 
 /* ---------- mode → current color (one attribute swap, no React re-render) ---------- */
@@ -167,6 +206,9 @@
 }
 [data-env='test'] {
   --env-current: var(--env-test);
+}
+[data-env='custom'] {
+  --env-current: var(--text-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {
