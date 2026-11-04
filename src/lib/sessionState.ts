@@ -10,11 +10,16 @@ import type {
   AppError,
   ConnState,
   HealthKind,
+  NetLink,
+  OpenTarget,
+  Protocol,
   RuntimeId,
   SerialLink,
   SerialSettings,
   SessionEvent,
 } from './ipc';
+import { DEFAULT_PORTS } from './ipc';
+import type { PendingPrompt } from './prompt';
 
 /** CLI mode. Detected in Phase 3; Phase 1 always shows `unknown` (neutral chip "—"). */
 export type CliMode = 'unknown' | 'user' | 'privileged' | 'config' | 'boot' | 'shell';
@@ -28,11 +33,14 @@ export interface LiveTab {
   sessionId: number | null;
   name: string;
   envTag: string | null;
-  settings: SerialSettings;
+  target: OpenTarget;
   state: ConnState;
   error: AppError | null;
   autobaud: AutobaudProgress | null;
   link: SerialLink | null;
+  netLink: NetLink | null;
+  /** Login questions being answered in the terminal (network sessions). */
+  prompt: PendingPrompt | null;
   health: HealthKind | null;
   connectedAt: number | null;
   mode: CliMode;
@@ -66,6 +74,7 @@ export function applySessionEvent(tab: LiveTab, ev: SessionEvent, now: number): 
         case 'disconnected':
           return {
             ...tab,
+            prompt: null,
             state: 'disconnected',
             error: ev.error,
             connectedAt: null,
@@ -85,6 +94,11 @@ export function applySessionEvent(tab: LiveTab, ev: SessionEvent, now: number): 
       };
     case 'link':
       return { ...tab, link: ev.link };
+    case 'netLink':
+      return { ...tab, netLink: ev.link };
+    case 'prompt':
+      // Handled by the tabs store (it also writes the question into the terminal).
+      return tab;
     case 'health':
       if (ev.kind === 'noData' && tab.state !== 'connected') return tab;
       return { ...tab, health: ev.kind };
@@ -103,8 +117,28 @@ export interface TabStatus {
   suggestion: number | null;
 }
 
+export function serialOf(tab: LiveTab): SerialSettings | null {
+  return tab.target.type === 'serial' ? tab.target.settings : null;
+}
+
+export function protocolOf(tab: LiveTab): Protocol {
+  return tab.target.type === 'serial' ? 'serial' : tab.target.protocol;
+}
+
+/** "admin@10.0.0.1:22" for network targets. */
+export function endpointLabel(target: OpenTarget, link?: NetLink | null): string {
+  if (target.type === 'serial') return shortPortName(target.settings.port);
+  const host = link?.host ?? target.host;
+  const port = link?.port ?? target.port ?? DEFAULT_PORTS[target.protocol];
+  const user = link?.username ?? target.username;
+  const h = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+  return `${user ? `${user}@` : ''}${h}${port ? `:${port}` : ''}`;
+}
+
+/** Port / host the user recognizes (used in messages: "COM4 …", "10.0.0.1:22 …"). */
 export function portLabel(tab: LiveTab): string {
-  return tab.link?.displayName || shortPortName(tab.settings.port);
+  if (tab.target.type === 'network') return endpointLabel(tab.target, tab.netLink);
+  return tab.link?.displayName || shortPortName(tab.target.settings.port);
 }
 
 export function tabStatus(tab: LiveTab, t: Translate): TabStatus {
@@ -112,6 +146,7 @@ export function tabStatus(tab: LiveTab, t: Translate): TabStatus {
   const none = { detail: null, suggestion: null };
   switch (tab.state) {
     case 'connecting':
+      if (tab.prompt) return { text: t('status.loggingIn'), tone: 'busy', ...none };
       return tab.health === 'cableReturned'
         ? { text: t('health.cableReturned'), tone: 'busy', ...none }
         : { text: t('status.connecting'), tone: 'busy', ...none };
@@ -147,7 +182,8 @@ export function tabStatus(tab: LiveTab, t: Translate): TabStatus {
 
 /** "COM4 @ 9600 8N1 · FTDI FT232R" (link known) or "COM4 @ Auto 8N1" (requested). */
 export function targetLabel(tab: LiveTab, t: Translate, withChip = true): string {
-  const s = tab.settings;
+  if (tab.target.type === 'network') return endpointLabel(tab.target, tab.netLink);
+  const s = tab.target.settings;
   if (tab.link) {
     const l = tab.link;
     const chip = withChip && l.chip ? ` · ${l.chip}` : '';

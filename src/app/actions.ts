@@ -31,7 +31,7 @@ const activeTab = () => {
   return tabs.find((x) => x.key === activeKey) ?? null;
 };
 const hasActiveTab = () => activeTab() !== null;
-const isSerialTab = () => activeTab()?.settings !== undefined;
+const isSerialTab = () => activeTab()?.target.type === 'serial';
 
 export function newSerialSession(): void {
   useUi.getState().openEditor({

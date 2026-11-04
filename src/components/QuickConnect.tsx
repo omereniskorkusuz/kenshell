@@ -5,7 +5,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CornerDownLeft } from 'lucide-react';
 import { useT } from '../i18n';
-import { DEFAULT_SERIAL, isMac } from '../lib/ipc';
+import { DEFAULT_PORTS, DEFAULT_SERIAL, DEFAULT_SSH, isMac } from '../lib/ipc';
 import {
   MAX_BAUD,
   MIN_BAUD,
@@ -34,11 +34,18 @@ function preview(intent: Intent, t: Translate): { text: string; actionable: bool
         }),
         actionable: true,
       };
-    case 'unsupported':
+    case 'network':
       return {
-        text: t('quick.unsupported', { protocol: intent.protocol.toUpperCase() }),
-        actionable: false,
+        text: t('quick.previewNetwork', {
+          protocol: intent.protocol.toUpperCase(),
+          target: `${intent.username ? `${intent.username}@` : ''}${intent.host}:${
+            intent.port ?? DEFAULT_PORTS[intent.protocol] ?? ''
+          }`,
+        }),
+        actionable: true,
       };
+    case 'invalidPort':
+      return { text: t('quick.invalidPort'), actionable: false };
     case 'invalidBaud':
       return { text: t('quick.invalidBaud', { min: MIN_BAUD, max: MAX_BAUD }), actionable: false };
     case 'noMatch':
@@ -71,6 +78,15 @@ export function QuickConnect() {
       if (s) tabs.openSession(s);
     } else if (intent.kind === 'serial') {
       tabs.openSerial({ ...DEFAULT_SERIAL, port: intent.port, baud: intent.baud });
+    } else if (intent.kind === 'network') {
+      tabs.openTarget({
+        type: 'network',
+        protocol: intent.protocol,
+        host: intent.host,
+        port: intent.port ?? DEFAULT_PORTS[intent.protocol],
+        username: intent.username,
+        ssh: DEFAULT_SSH,
+      });
     } else {
       return;
     }

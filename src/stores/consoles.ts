@@ -1,6 +1,7 @@
 /** Detected USB/serial consoles + driver hints, kept live via `console://changed`. */
 import { create } from 'zustand';
 import { t } from '../i18n';
+import { serialOf } from '../lib/sessionState';
 import { describeError } from '../lib/errors';
 import {
   api,
@@ -82,7 +83,7 @@ export const useConsoles = create<ConsolesState>()((set, get) => ({
       // A tab that is waiting for this cable reconnects on its own; no toast needed.
       const waiting = useTabs
         .getState()
-        .tabs.some((x) => x.settings.port === port.path && x.health === 'cableRemoved');
+        .tabs.some((x) => serialOf(x)?.port === port.path && x.health === 'cableRemoved');
       if (waiting) continue;
       toast({
         message: t('consoles.detectedToast', { chip: chipLabel(port), port: port.displayName }),

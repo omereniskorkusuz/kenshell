@@ -13,6 +13,13 @@ export type ErrorCode =
   | 'portNotFound'
   | 'permissionDenied'
   | 'deviceGone'
+  | 'hostNotFound'
+  | 'connectionRefused'
+  | 'timeout'
+  | 'authFailed'
+  | 'hostKeyChanged'
+  | 'noCommonAlgorithm'
+  | 'connectionClosed'
   | 'notFound'
   | 'invalid'
   | 'unsupported'
@@ -78,6 +85,8 @@ export interface SessionRecord {
   envTag: string | null;
   tags: string[];
   favorite: boolean;
+  /** SSH options (null for other protocols). */
+  ssh: SshOptions | null;
   sortOrder: number;
   createdAt: number;
   updatedAt: number;
@@ -96,6 +105,7 @@ export type SessionInput = Pick<
   | 'envTag'
   | 'tags'
   | 'favorite'
+  | 'ssh'
 >;
 
 export type Settings = Record<string, unknown>;
@@ -143,7 +153,66 @@ export interface ConsoleChange {
 
 export type RuntimeId = number;
 
-export type OpenTarget = { type: 'serial'; settings: SerialSettings };
+export interface SshOptions {
+  /** Also offer diffie-hellman-group1/14-sha1, ssh-rsa, *-cbc, 3des, hmac-sha1. */
+  legacyAlgorithms: boolean;
+  keyPath: string | null;
+  /** Seconds; null = 30, 0 = off. */
+  keepaliveSecs: number | null;
+}
+
+export const DEFAULT_SSH: SshOptions = {
+  legacyAlgorithms: false,
+  keyPath: null,
+  keepaliveSecs: null,
+};
+
+export type NetProtocol = Exclude<Protocol, 'serial'>;
+
+export const DEFAULT_PORTS: Record<NetProtocol, number | null> = {
+  ssh: 22,
+  telnet: 23,
+  rlogin: 513,
+  raw: null,
+};
+
+export type OpenTarget =
+  | { type: 'serial'; settings: SerialSettings }
+  | {
+      type: 'network';
+      protocol: NetProtocol;
+      host: string;
+      port: number | null;
+      username: string | null;
+      ssh: SshOptions;
+    };
+
+export interface HostKeyInfo {
+  algorithm: string;
+  /** "SHA256:…" */
+  fingerprint: string;
+  /** First connection: the key was learned and stored just now. */
+  firstSeen: boolean;
+}
+
+export interface NetLink {
+  protocol: Protocol;
+  host: string;
+  port: number;
+  username: string | null;
+  hostKey: HostKeyInfo | null;
+}
+
+export interface PromptItem {
+  text: string;
+  /** false = secret (password): never echoed. */
+  echo: boolean;
+}
+
+export interface PromptRequest {
+  instruction: string;
+  items: PromptItem[];
+}
 
 export interface OpenRequest {
   sessionId: number | null;
@@ -182,6 +251,8 @@ export type SessionEvent =
       suggestion: number | null;
     }
   | { type: 'link'; link: SerialLink }
+  | { type: 'netLink'; link: NetLink }
+  | { type: 'prompt'; request: PromptRequest }
   | { type: 'health'; kind: HealthKind };
 
 // ------------------------------------------------------------------ plumbing
@@ -285,6 +356,10 @@ export const api = {
   liveBreak: (id: RuntimeId) => call<undefined>('live_break', { id }),
   liveClose: (id: RuntimeId) => call<undefined>('live_close', { id }),
   liveReconnect: (id: RuntimeId) => call<undefined>('live_reconnect', { id }),
+  /** Login answers (may contain passwords — never log). */
+  liveAnswer: (id: RuntimeId, answers: string[]) => call<undefined>('live_answer', { id, answers }),
+  knownHostForget: (host: string, port: number) =>
+    call<undefined>('known_host_forget', { host, port }),
 };
 
 /**

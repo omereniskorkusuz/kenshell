@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::ops::RangeInclusive;
 
 use crate::error::{AppError, Result};
-use crate::model::{Protocol, SerialSettings, SessionInput};
+use crate::model::{Protocol, SerialSettings, SessionInput, SshOptions};
 
 pub(super) const MAX_NAME_CHARS: usize = 200;
 const MAX_HOST_CHARS: usize = 255;
@@ -148,9 +148,23 @@ pub(super) struct ValidSession {
     pub port: Option<u16>,
     pub username: Option<String>,
     pub serial: Option<SerialSettings>,
+    pub ssh: Option<SshOptions>,
     pub env_tag: Option<String>,
     pub tags: Vec<String>,
     pub favorite: bool,
+}
+
+/// SSH options only for SSH sessions; blank key paths are dropped.
+fn ssh(input: &SessionInput) -> Option<SshOptions> {
+    if input.protocol != Protocol::Ssh {
+        return None;
+    }
+    let mut o = input.ssh.clone().unwrap_or_default();
+    o.key_path = o
+        .key_path
+        .map(|p| p.trim().to_owned())
+        .filter(|p| !p.is_empty());
+    Some(o)
 }
 
 pub(super) fn session(input: &SessionInput) -> Result<ValidSession> {
@@ -172,6 +186,7 @@ pub(super) fn session(input: &SessionInput) -> Result<ValidSession> {
         port,
         username: optional_text(input.username.as_deref(), "username", MAX_USERNAME_CHARS)?,
         serial,
+        ssh: ssh(input),
         env_tag: env_tag(input.env_tag.as_deref())?,
         tags: tags(&input.tags)?,
         favorite: input.favorite,
@@ -201,6 +216,7 @@ mod tests {
                 "dc1".into(),
             ],
             favorite: true,
+            ssh: None,
         }
     }
 

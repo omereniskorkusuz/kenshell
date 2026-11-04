@@ -64,18 +64,44 @@ describe('quick connect parser', () => {
     });
   });
 
-  it('recognises network syntax as not yet supported', () => {
+  it('parses network targets', () => {
     expect(parseQuickConnect('ssh admin@10.0.0.1', saved)).toEqual({
-      kind: 'unsupported',
+      kind: 'network',
       protocol: 'ssh',
+      host: '10.0.0.1',
+      port: null,
+      username: 'admin',
     });
+    expect(parseQuickConnect('ssh admin@10.0.0.1:2222', saved)).toMatchObject({ port: 2222 });
     expect(parseQuickConnect('telnet 10.0.0.5 2001', saved)).toEqual({
-      kind: 'unsupported',
+      kind: 'network',
       protocol: 'telnet',
+      host: '10.0.0.5',
+      port: 2001,
+      username: null,
     });
-    expect(parseQuickConnect('10.0.0.5 2001', saved)).toEqual({
-      kind: 'unsupported',
+    expect(parseQuickConnect('10.0.0.5 2001', saved)).toMatchObject({
       protocol: 'telnet',
+      port: 2001,
+    });
+    expect(parseQuickConnect('10.0.0.1', saved)).toMatchObject({
+      protocol: 'ssh',
+      host: '10.0.0.1',
+    });
+    expect(parseQuickConnect('ssh://root@[fe80::1]:22', saved)).toMatchObject({
+      protocol: 'ssh',
+      host: 'fe80::1',
+      port: 22,
+      username: 'root',
+    });
+    expect(parseQuickConnect('raw 10.0.0.9 4001', saved)).toMatchObject({
+      protocol: 'raw',
+      port: 4001,
+    });
+    expect(parseQuickConnect('raw 10.0.0.9', saved)).toEqual({ kind: 'invalidPort', value: '' });
+    expect(parseQuickConnect('ssh 10.0.0.1:99999', saved)).toEqual({
+      kind: 'invalidPort',
+      value: '99999',
     });
     expect(parseQuickConnect('', saved)).toEqual({ kind: 'empty' });
     expect(parseQuickConnect('hello world foo', saved).kind).toBe('noMatch');

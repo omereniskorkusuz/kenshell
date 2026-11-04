@@ -1,6 +1,8 @@
 /** Session editor form model (pure): record ⇄ draft, validation. */
 import {
+  DEFAULT_PORTS,
   DEFAULT_SERIAL,
+  DEFAULT_SSH,
   type FlowControl,
   type Parity,
   type Protocol,
@@ -32,6 +34,12 @@ export interface Draft {
   flowControl: FlowControl;
   envChoice: EnvChoice;
   envCustom: string;
+  /** Network protocols. */
+  host: string;
+  netPort: string;
+  username: string;
+  legacyAlgorithms: boolean;
+  keyPath: string;
 }
 
 export function draftFrom(input: Partial<SessionInput> | null | undefined): Draft {
@@ -52,11 +60,16 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     flowControl: serial.flowControl,
     envChoice: kind === null ? 'none' : kind,
     envCustom: kind === 'custom' ? (normalizeEnv(input?.envTag) ?? '') : '',
+    host: input?.host ?? '',
+    netPort: input?.port != null ? String(input.port) : '',
+    username: input?.username ?? '',
+    legacyAlgorithms: input?.ssh?.legacyAlgorithms ?? false,
+    keyPath: input?.ssh?.keyPath ?? '',
   };
 }
 
 export type DraftErrors = Partial<
-  Record<'name' | 'port' | 'baud' | 'env', 'required' | 'range' | 'tooLong'>
+  Record<'name' | 'port' | 'baud' | 'env' | 'host' | 'netPort', 'required' | 'range' | 'tooLong'>
 >;
 
 export function draftBaud(d: Draft): number | null {
@@ -71,6 +84,17 @@ export function validateDraft(d: Draft): DraftErrors {
   if (!name) errors.name = 'required';
   else if (name.length > MAX_NAME) errors.name = 'tooLong';
   if (d.protocol === 'serial' && !d.port.trim()) errors.port = 'required';
+  if (d.protocol !== 'serial') {
+    const host = d.host.trim();
+    if (!host || /\s/.test(host)) errors.host = 'required';
+    else if (host.length > 255) errors.host = 'tooLong';
+    const raw = d.netPort.trim();
+    if (raw === '') {
+      if (DEFAULT_PORTS[d.protocol] === null) errors.netPort = 'required';
+    } else if (!/^\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > 65535) {
+      errors.netPort = 'range';
+    }
+  }
   if (d.baudChoice === 'custom') {
     const raw = d.customBaud.trim();
     if (!/^\d+$/.test(raw) || !isValidBaud(Number(raw))) errors.baud = 'range';
@@ -93,9 +117,9 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
     folderId: d.folderId,
     name: d.name.trim(),
     protocol: d.protocol,
-    host: base?.host ?? null,
-    port: base?.port ?? null,
-    username: base?.username ?? null,
+    host: d.protocol === 'serial' ? null : d.host.trim(),
+    port: d.protocol === 'serial' || d.netPort.trim() === '' ? null : Number(d.netPort.trim()),
+    username: d.protocol === 'serial' || !d.username.trim() ? null : d.username.trim(),
     serial:
       d.protocol === 'serial'
         ? {
@@ -112,6 +136,15 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
     envTag: env,
     tags: base?.tags ?? [],
     favorite: base?.favorite ?? false,
+    ssh:
+      d.protocol === 'ssh'
+        ? {
+            ...DEFAULT_SSH,
+            ...(base?.ssh ?? {}),
+            legacyAlgorithms: d.legacyAlgorithms,
+            keyPath: d.keyPath.trim() || null,
+          }
+        : null,
   };
 }
 

@@ -54,19 +54,20 @@
   },
   "quick": {
     "label": "Hızlı bağlan",
-    "hint": "COM4, bir port yolu veya kayıtlı bir oturum adı yazın",
+    "hint": "ssh admin@10.0.0.1, telnet 10.0.0.5 2001, COM4 veya kayıtlı bir oturum adı yazın",
     "previewSession": "Oturumu aç · {{name}}",
     "previewSerial": "Seri · {{port}} · {{baud}}",
-    "unsupported": "{{protocol}} henüz desteklenmiyor — seri konsollar şimdiden çalışıyor.",
     "invalidBaud": "Hız {{min}} ile {{max}} arasında olmalı.",
-    "noMatch": "“{{text}}” adında kayıtlı oturum veya seri port yok."
+    "noMatch": "“{{text}}” adında kayıtlı oturum veya seri port yok.",
+    "previewNetwork": "{{protocol}} · {{target}}",
+    "invalidPort": "Port 1–65535 arasında olmalı."
   },
   "protocol": {
     "serial": "Seri",
     "ssh": "SSH",
-    "telnet": "Telnet",
-    "rlogin": "Rlogin",
-    "raw": "Ham TCP"
+    "telnet": "TELNET",
+    "rlogin": "RLOGIN",
+    "raw": "RAW"
   },
   "serial": {
     "autoBaud": "Otomatik hız",
@@ -89,7 +90,8 @@
     "prodCount_one": "{{count}} PROD",
     "prodCount_other": "{{count}} PROD",
     "breakSent": "BREAK gönderildi",
-    "breakNeedsConnection": "BREAK için bağlı bir oturum gerekir."
+    "breakNeedsConnection": "BREAK için bağlı bir oturum gerekir.",
+    "loggingIn": "Giriş yapılıyor…"
   },
   "autobaud": {
     "detecting": "Hız algılanıyor…",
@@ -114,7 +116,14 @@
     "io": "Cihazla iletişim başarısız oldu.",
     "db": "Kaydedilemedi: yerel veritabanına erişilemiyor.",
     "internal": "Bir şeyler ters gitti.",
-    "protocolNotSupported": "Bu sürümde yalnızca seri oturumlar açılabilir."
+    "protocolNotSupported": "Bu sürümde yalnızca seri oturumlar açılabilir.",
+    "hostNotFound": "{{port}} adresi bulunamadı (DNS).",
+    "connectionRefused": "{{port}} bağlantıyı reddetti. O portta servis açık mı?",
+    "timeout": "{{port}} zamanında yanıt vermedi. Cihaz kapalı ya da erişim engelli olabilir.",
+    "authFailed": "Giriş başarısız: kullanıcı adı veya şifre kabul edilmedi.",
+    "hostKeyChanged": "Bağlantı engellendi: {{port}} cihazının SSH host anahtarı değişmiş. Cihaz değiştiyse kayıtlı anahtarı unutun.",
+    "noCommonAlgorithm": "{{port}} ile ortak SSH algoritması yok. Eski cihazlar için oturumda “Eski algoritmalar” seçeneğini açın.",
+    "connectionClosed": "{{port}} bağlantıyı kapattı."
   },
   "identity": {
     "protocol": "Protokol",
@@ -206,7 +215,16 @@
     "tooLong": "En fazla {{max}} karakter.",
     "save": "Kaydet",
     "saveConnect": "Kaydet ve bağlan",
-    "saveConnectHint": "{{shortcut}} kaydeder ve bağlanır"
+    "saveConnectHint": "{{shortcut}} kaydeder ve bağlanır",
+    "host": "Adres",
+    "netPort": "Port",
+    "username": "Kullanıcı adı",
+    "usernameHint": "Boşsa bağlanırken sorulur",
+    "advanced": "Gelişmiş",
+    "legacyAlgorithms": "Eski algoritmalar",
+    "legacyAlgorithmsHint": "Eski Cisco/Ruijie/Juniper cihazları için: diffie-hellman-group1/14-sha1, ssh-rsa, CBC şifreleri ve hmac-sha1 de önerilir.",
+    "keyPath": "Özel anahtar dosyası",
+    "portRange": "Port 1–65535 arasında olmalı."
   },
   "palette": {
     "placeholder": "Oturum, konsol ve eylem ara…",
@@ -266,5 +284,12 @@
   "unit": {
     "session_one": "{{count}} oturum",
     "session_other": "{{count}} oturum"
+  },
+  "ssh": {
+    "hostKeyLearned": "Host anahtarı kaydedildi: {{fingerprint}}",
+    "hostKeyForgotten": "Kayıtlı host anahtarı unutuldu. Yeniden bağlanılıyor…",
+    "forgetHostKey": "Kayıtlı anahtarı unut",
+    "forgetHostKeyHint": "Yalnızca cihazın değiştiğini ya da anahtarının yenilendiğini biliyorsanız. Sonraki bağlantı yeni anahtarı kaydeder.",
+    "hostKeyTitle": "Host anahtarı {{algorithm}} {{fingerprint}}"
   }
 }

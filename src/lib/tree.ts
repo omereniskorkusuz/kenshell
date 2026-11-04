@@ -155,6 +155,7 @@ export function toInput(s: SessionRecord): SessionInput {
     envTag: s.envTag,
     tags: [...s.tags],
     favorite: s.favorite,
+    ssh: s.ssh,
   };
 }
 

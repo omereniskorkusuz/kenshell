@@ -2,6 +2,7 @@
 import { Copy, ExternalLink, RefreshCw, Usb } from 'lucide-react';
 import { useT } from '../i18n';
 import { copyText } from '../lib/clipboard';
+import { serialOf } from '../lib/sessionState';
 import { DEFAULT_SERIAL, openExternal, type ConsolePort, type DriverHint } from '../lib/ipc';
 import { chipLabel, useConsoles } from '../stores/consoles';
 import { useTabs } from '../stores/tabs';
@@ -55,7 +56,10 @@ function ConsoleRow({ port }: { port: ConsolePort }) {
   const t = useT();
   const fresh = useConsoles((s) => s.highlighted.has(port.key));
   const open = useTabs((s) =>
-    s.tabs.find((x) => x.settings.port === port.path || x.settings.port === port.altPath),
+    s.tabs.find((x) => {
+      const p = serialOf(x)?.port;
+      return p !== undefined && (p === port.path || p === port.altPath);
+    }),
   );
   const menu = useMenu();
   const connect = () => useTabs.getState().openConsole(port);

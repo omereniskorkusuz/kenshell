@@ -1,7 +1,7 @@
 /** Saved session editor (a form, not a confirmation). Serial only in this version. */
 import { useId, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useT, type TKey } from '../i18n';
-import { isMac, type Protocol } from '../lib/ipc';
+import { DEFAULT_PORTS, isMac, type NetProtocol, type Protocol } from '../lib/ipc';
 import { formatChord } from '../lib/shortcuts';
 import {
   BAUD_PRESETS,
@@ -88,6 +88,7 @@ export function SessionEditor({ state }: { state: EditorState }) {
     const code = shown[field];
     if (!code) return null;
     if (field === 'baud') return t('editor.baudRange', { min: MIN_BAUD, max: MAX_BAUD });
+    if (field === 'netPort' && code === 'range') return t('editor.portRange');
     if (code === 'tooLong')
       return t('editor.tooLong', { max: field === 'env' ? MAX_ENV : MAX_NAME });
     return t('editor.required');
@@ -174,15 +175,98 @@ export function SessionEditor({ state }: { state: EditorState }) {
               onChange={(e) => set('protocol', e.target.value as Protocol)}
             >
               {PROTOCOLS.map((p) => (
-                <option key={p.id} value={p.id} disabled={p.id !== 'serial'}>
-                  {p.id === 'serial'
-                    ? t(p.label)
-                    : t('editor.notSupported', { protocol: t(p.label) })}
+                <option key={p.id} value={p.id}>
+                  {t(p.label)}
                 </option>
               ))}
             </select>
           )}
         </Field>
+
+        {!serial && (
+          <>
+            <Field label={t('editor.host')} error={errorText('host')}>
+              {(id, describedBy) => (
+                <input
+                  id={id}
+                  className="field mono"
+                  value={draft.host}
+                  aria-invalid={!!shown.host}
+                  aria-describedby={describedBy}
+                  placeholder="10.0.0.1"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  onChange={(e) => set('host', e.target.value)}
+                />
+              )}
+            </Field>
+            <Field label={t('editor.netPort')} error={errorText('netPort')}>
+              {(id, describedBy) => (
+                <input
+                  id={id}
+                  className="field mono w-32"
+                  inputMode="numeric"
+                  value={draft.netPort}
+                  aria-invalid={!!shown.netPort}
+                  aria-describedby={describedBy}
+                  placeholder={String(DEFAULT_PORTS[draft.protocol as NetProtocol] ?? '')}
+                  onChange={(e) => set('netPort', e.target.value.replace(/[^\d]/g, ''))}
+                />
+              )}
+            </Field>
+            {draft.protocol !== 'raw' && (
+              <Field label={t('editor.username')}>
+                {(id) => (
+                  <input
+                    id={id}
+                    className="field mono"
+                    value={draft.username}
+                    placeholder={t('editor.usernameHint')}
+                    spellCheck={false}
+                    autoCapitalize="off"
+                    autoComplete="off"
+                    onChange={(e) => set('username', e.target.value)}
+                  />
+                )}
+              </Field>
+            )}
+            {draft.protocol === 'ssh' && (
+              <details className="col-span-full">
+                <summary className="cursor-pointer text-sm text-secondary">
+                  {t('editor.advanced')}
+                </summary>
+                <div className="mt-2 flex flex-col gap-3">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={draft.legacyAlgorithms}
+                      onChange={(e) => set('legacyAlgorithms', e.target.checked)}
+                    />
+                    <span>
+                      {t('editor.legacyAlgorithms')}
+                      <span className="block text-xs text-muted">
+                        {t('editor.legacyAlgorithmsHint')}
+                      </span>
+                    </span>
+                  </label>
+                  <Field label={t('editor.keyPath')}>
+                    {(id) => (
+                      <input
+                        id={id}
+                        className="field mono"
+                        value={draft.keyPath}
+                        placeholder="~/.ssh/id_ed25519"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        onChange={(e) => set('keyPath', e.target.value)}
+                      />
+                    )}
+                  </Field>
+                </div>
+              </details>
+            )}
+          </>
+        )}
 
         {serial && (
           <>

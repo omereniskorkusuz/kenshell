@@ -131,6 +131,7 @@ function record(
     envTag,
     tags: [],
     favorite: false,
+    ssh: null,
     sortOrder: id,
     createdAt: now() - 30 * 24 * HOUR,
     updatedAt: now() - 2 * HOUR,
@@ -237,11 +238,20 @@ class MockLive {
   ) {
     const s = sessions.find((x) => x.id === request.sessionId);
     this.cli = new FakeCli((s?.name ?? 'Switch').replace(/[^\w-]/g, '') || 'Switch');
-    this.baud = request.target.settings.baud;
+    this.baud = this.serial.baud;
+  }
+
+  private get serial() {
+    if (this.request.target.type !== 'serial') throw new Error('serial only');
+    return this.request.target.settings;
   }
 
   get path(): string {
-    return this.request.target.settings.port;
+    return this.serial.port;
+  }
+
+  answer(): void {
+    fail('invalid', 'no prompt pending');
   }
 
   start(): void {
@@ -310,7 +320,7 @@ class MockLive {
   }
 
   private connect(auto: boolean, garbled = false): void {
-    const s = this.request.target.settings;
+    const s = this.serial;
     const port = portExists(this.path);
     this.onEvent({
       type: 'link',
@@ -388,10 +398,114 @@ class MockLive {
   }
 }
 
-const lives = new Map<RuntimeId, MockLive>();
+/** SSH/Telnet demo: password prompt in the terminal, then a fake Cisco CLI. */
+class MockNetLive {
+  private timers: ReturnType<typeof setTimeout>[] = [];
+  private cli: FakeCli;
+  private state: 'connecting' | 'connected' | 'disconnected' = 'connecting';
+
+  constructor(
+    readonly id: RuntimeId,
+    private readonly request: OpenRequest,
+    private readonly onData: (bytes: Uint8Array) => void,
+    private readonly onEvent: (e: SessionEvent) => void,
+  ) {
+    const t = request.target;
+    const host = t.type === 'network' ? t.host : 'device';
+    this.cli = new FakeCli(host.replace(/[^\w-]/g, '-') || 'device');
+  }
+
+  private get net() {
+    if (this.request.target.type !== 'network') throw new Error('network only');
+    return this.request.target;
+  }
+
+  start(): void {
+    this.state = 'connecting';
+    this.onEvent({ type: 'state', state: 'connecting', error: null });
+    const t = this.net;
+    if (/fail|unreachable/i.test(t.host)) {
+      this.later(900, () => {
+        this.state = 'disconnected';
+        this.onEvent({
+          type: 'state',
+          state: 'disconnected',
+          error: { code: 'timeout', detail: `${t.host}: connect` },
+        });
+      });
+      return;
+    }
+    if (t.protocol === 'ssh') {
+      const items = [
+        ...(t.username ? [] : [{ text: 'login as: ', echo: true }]),
+        { text: `${t.username ?? 'admin'}@${t.host}'s password: `, echo: false },
+      ];
+      this.later(400, () => this.onEvent({ type: 'prompt', request: { instruction: '', items } }));
+    } else {
+      this.later(300, () => this.connected());
+    }
+  }
+
+  answer(): void {
+    if (this.state !== 'connecting') fail('invalid', 'no prompt pending');
+    this.later(250, () => this.connected());
+  }
+
+  private connected(): void {
+    const t = this.net;
+    this.state = 'connected';
+    this.onEvent({
+      type: 'netLink',
+      link: {
+        protocol: t.protocol,
+        host: t.host,
+        port: t.port ?? 22,
+        username: t.username,
+        hostKey:
+          t.protocol === 'ssh'
+            ? {
+                algorithm: 'ssh-ed25519',
+                fingerprint: 'SHA256:mockmockmockmockmockmockmockmockmockmockmo',
+                firstSeen: true,
+              }
+            : null,
+      },
+    });
+    this.onEvent({ type: 'state', state: 'connected', error: null });
+    this.later(100, () => this.onData(enc.encode(this.cli.banner())));
+  }
+
+  write(data: string): void {
+    if (this.state !== 'connected') return;
+    const out = this.cli.input(data);
+    if (out) this.later(8, () => this.onData(enc.encode(out)));
+  }
+
+  sendBreak(): void {
+    if (this.net.protocol !== 'telnet') fail('unsupported', 'no BREAK');
+  }
+
+  close(): void {
+    this.timers.forEach(clearTimeout);
+    this.state = 'disconnected';
+  }
+
+  reconnect(): void {
+    if (this.state !== 'disconnected') return;
+    this.start();
+  }
+
+  onConsoleChange(): void {}
+
+  private later(ms: number, fn: () => void): void {
+    this.timers.push(setTimeout(fn, ms));
+  }
+}
+
+const lives = new Map<RuntimeId, MockLive | MockNetLive>();
 let nextRuntime: RuntimeId = 1;
 
-function live(id: unknown): MockLive {
+function live(id: unknown): MockLive | MockNetLive {
   return need(lives.get(id as RuntimeId), `runtime ${String(id)}`);
 }
 
@@ -469,6 +583,7 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         const t = now();
         const s: SessionRecord = {
           ...structuredClone(input),
+          ssh: input.ssh ?? null,
           name: validName(input.name),
           id: nextId++,
           sortOrder: sessions.length,
@@ -542,6 +657,11 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
       case 'live_reconnect':
         live(a.id).reconnect();
         return undefined;
+      case 'live_answer':
+        live(a.id).answer();
+        return undefined;
+      case 'known_host_forget':
+        return undefined;
       default:
         return fail('unsupported', cmd);
     }
@@ -553,9 +673,14 @@ export async function liveOpen(
   onData: (bytes: Uint8Array) => void,
   onEvent: (event: SessionEvent) => void,
 ): Promise<RuntimeId> {
-  if (!request.target.settings.port.trim()) fail('invalid', 'empty port');
+  const target = request.target;
+  if (target.type === 'serial' && !target.settings.port.trim()) fail('invalid', 'empty port');
+  if (target.type === 'network' && !target.host.trim()) fail('invalid', 'empty host');
   const id = nextRuntime++;
-  const l = new MockLive(id, request, onData, onEvent);
+  const l =
+    target.type === 'serial'
+      ? new MockLive(id, request, onData, onEvent)
+      : new MockNetLive(id, request, onData, onEvent);
   lives.set(id, l);
   const s = sessions.find((x) => x.id === request.sessionId);
   if (s) s.lastConnectedAt = now();

@@ -54,19 +54,20 @@
   },
   "quick": {
     "label": "Quick connect",
-    "hint": "Type COM4, a port path or a saved session name",
+    "hint": "Type ssh admin@10.0.0.1, telnet 10.0.0.5 2001, COM4 or a saved session name",
     "previewSession": "Open session · {{name}}",
     "previewSerial": "Serial · {{port}} · {{baud}}",
-    "unsupported": "{{protocol}} is not supported yet — serial consoles work today.",
     "invalidBaud": "Speed must be between {{min}} and {{max}}.",
-    "noMatch": "No saved session or serial port named “{{text}}”."
+    "noMatch": "No saved session or serial port named “{{text}}”.",
+    "previewNetwork": "{{protocol}} · {{target}}",
+    "invalidPort": "Port must be 1–65535."
   },
   "protocol": {
     "serial": "Serial",
     "ssh": "SSH",
-    "telnet": "Telnet",
-    "rlogin": "Rlogin",
-    "raw": "Raw TCP"
+    "telnet": "TELNET",
+    "rlogin": "RLOGIN",
+    "raw": "RAW"
   },
   "serial": {
     "autoBaud": "Auto baud",
@@ -89,7 +90,8 @@
     "prodCount_one": "{{count}} PROD",
     "prodCount_other": "{{count}} PROD",
     "breakSent": "BREAK sent",
-    "breakNeedsConnection": "BREAK needs a connected session."
+    "breakNeedsConnection": "BREAK needs a connected session.",
+    "loggingIn": "Logging in…"
   },
   "autobaud": {
     "detecting": "Detecting speed…",
@@ -114,7 +116,14 @@
     "io": "Talking to the device failed.",
     "db": "Could not save: the local database is unavailable.",
     "internal": "Something went wrong.",
-    "protocolNotSupported": "Only serial sessions can be opened in this version."
+    "protocolNotSupported": "Only serial sessions can be opened in this version.",
+    "hostNotFound": "Host {{port}} could not be found (DNS).",
+    "connectionRefused": "{{port}} refused the connection. Is the service enabled on that port?",
+    "timeout": "{{port}} did not answer in time. The host may be down or filtered.",
+    "authFailed": "Login failed: user name or password was rejected.",
+    "hostKeyChanged": "Connection blocked: the SSH host key of {{port}} has changed. If the device was replaced, forget the stored key.",
+    "noCommonAlgorithm": "No common SSH algorithm with {{port}}. For older devices enable “Legacy algorithms” in the session.",
+    "connectionClosed": "{{port}} closed the connection."
   },
   "identity": {
     "protocol": "Protocol",
@@ -206,7 +215,16 @@
     "tooLong": "At most {{max}} characters.",
     "save": "Save",
     "saveConnect": "Save & connect",
-    "saveConnectHint": "{{shortcut}} saves and connects"
+    "saveConnectHint": "{{shortcut}} saves and connects",
+    "host": "Host",
+    "netPort": "Port",
+    "username": "User name",
+    "usernameHint": "Asked when connecting if empty",
+    "advanced": "Advanced",
+    "legacyAlgorithms": "Legacy algorithms",
+    "legacyAlgorithmsHint": "For old Cisco/Ruijie/Juniper devices: also offers diffie-hellman-group1/14-sha1, ssh-rsa, CBC ciphers and hmac-sha1.",
+    "keyPath": "Private key file",
+    "portRange": "Port must be 1–65535."
   },
   "palette": {
     "placeholder": "Search sessions, consoles and actions…",
@@ -266,5 +284,12 @@
   "unit": {
     "session_one": "{{count}} session",
     "session_other": "{{count}} sessions"
+  },
+  "ssh": {
+    "hostKeyLearned": "Host key stored: {{fingerprint}}",
+    "hostKeyForgotten": "Stored host key forgotten. Reconnecting…",
+    "forgetHostKey": "Forget stored key",
+    "forgetHostKeyHint": "Only if you know the device was replaced or re-keyed. The next connection stores the new key.",
+    "hostKeyTitle": "Host key {{algorithm}} {{fingerprint}}"
   }
 }

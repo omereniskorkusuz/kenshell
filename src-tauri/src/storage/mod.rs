@@ -140,6 +140,7 @@ mod tests {
             env_tag: None,
             tags: vec![],
             favorite: false,
+            ssh: None,
         }
     }
 
@@ -309,6 +310,7 @@ mod tests {
             env_tag: input.env_tag.clone(),
             tags: input.tags.clone(),
             favorite: true,
+            ssh: None,
             sort_order: 0,
             created_at: 0,
             updated_at: 0,

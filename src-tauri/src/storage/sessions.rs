@@ -15,7 +15,7 @@ use crate::model::{Protocol, SessionInput, SessionRecord};
 
 const SELECT_SESSION: &str = "SELECT id, folder_id, name, protocol, host, port, username, \
      serial_json, env_tag, tags_json, favorite, sort_order, created_at, updated_at, \
-     last_connected_at FROM sessions";
+     last_connected_at, ssh_json FROM sessions";
 
 fn protocol_str(p: Protocol) -> &'static str {
     match p {
@@ -82,6 +82,7 @@ fn row_to_session(r: &Row<'_>) -> rusqlite::Result<SessionRecord> {
         created_at: r.get(12)?,
         updated_at: r.get(13)?,
         last_connected_at: r.get(14)?,
+        ssh: json_col(r, 15)?,
     })
 }
 
@@ -107,10 +108,11 @@ pub(super) fn next_session_order(conn: &Connection, folder: Option<i64>) -> Resu
 
 fn insert(conn: &Connection, v: &ValidSession, sort_order: i64, now: i64) -> Result<i64> {
     let serial_json = v.serial.as_ref().map(to_json).transpose()?;
+    let ssh_json = v.ssh.as_ref().map(to_json).transpose()?;
     conn.execute(
         "INSERT INTO sessions (folder_id, name, protocol, host, port, username, serial_json,
-             env_tag, tags_json, favorite, sort_order, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)",
+             env_tag, tags_json, favorite, sort_order, created_at, updated_at, ssh_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?13)",
         params![
             v.folder_id,
             v.name,
@@ -124,6 +126,7 @@ fn insert(conn: &Connection, v: &ValidSession, sort_order: i64, now: i64) -> Res
             v.favorite,
             sort_order,
             now,
+            ssh_json,
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -206,10 +209,11 @@ impl Db {
         };
         let updated_at = now_ms().max(existing.updated_at + 1);
         let serial_json = v.serial.as_ref().map(to_json).transpose()?;
+        let ssh_json = v.ssh.as_ref().map(to_json).transpose()?;
         tx.execute(
             "UPDATE sessions SET folder_id = ?2, name = ?3, protocol = ?4, host = ?5,
                  port = ?6, username = ?7, serial_json = ?8, env_tag = ?9, tags_json = ?10,
-                 favorite = ?11, sort_order = ?12, updated_at = ?13
+                 favorite = ?11, sort_order = ?12, updated_at = ?13, ssh_json = ?14
              WHERE id = ?1",
             params![
                 id,
@@ -225,6 +229,7 @@ impl Db {
                 v.favorite,
                 sort_order,
                 updated_at,
+                ssh_json,
             ],
         )?;
         let record = fetch(&tx, id)?;
@@ -269,6 +274,7 @@ impl Db {
             port: orig.port,
             username: orig.username,
             serial: orig.serial,
+            ssh: orig.ssh,
             env_tag: orig.env_tag,
             tags: orig.tags,
             favorite: orig.favorite,
@@ -314,7 +320,31 @@ mod tests {
             env_tag: Some("Lab".into()),
             tags: vec!["core".into(), " dc1 ".into(), "CORE".into()],
             favorite: true,
+            ssh: None,
         }
+    }
+
+    #[test]
+    fn ssh_options_round_trip_and_are_ssh_only() {
+        let db = db();
+        let mut input = ssh("legacy-box", None);
+        input.ssh = Some(crate::model::SshOptions {
+            legacy_algorithms: true,
+            key_path: Some("  ~/.ssh/id_ed25519 ".into()),
+            keepalive_secs: Some(15),
+        });
+        let rec = db.create_session(&input).unwrap();
+        let o = rec.ssh.clone().unwrap();
+        assert!(o.legacy_algorithms);
+        assert_eq!(o.key_path.as_deref(), Some("~/.ssh/id_ed25519"));
+        assert_eq!(db.list_sessions().unwrap()[0].ssh, rec.ssh);
+        let dup = db.duplicate_session(rec.id).unwrap();
+        assert_eq!(dup.ssh, rec.ssh);
+
+        let mut telnet = input.clone();
+        telnet.protocol = Protocol::Telnet;
+        let rec = db.update_session(rec.id, &telnet).unwrap();
+        assert_eq!(rec.ssh, None, "non-SSH sessions keep no SSH options");
     }
 
     fn serial(name: &str) -> SessionInput {
@@ -338,6 +368,7 @@ mod tests {
             env_tag: None,
             tags: vec![],
             favorite: false,
+            ssh: None,
         }
     }
 

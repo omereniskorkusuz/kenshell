@@ -8,14 +8,25 @@ import { describeError } from '../lib/errors';
 import { formatBytes } from '../lib/format';
 import {
   api,
+  DEFAULT_PORTS,
   DEFAULT_SERIAL,
+  DEFAULT_SSH,
   liveOpen,
   type ConsolePort,
+  type OpenTarget,
   type SerialSettings,
   type SessionEvent,
   type SessionRecord,
 } from '../lib/ipc';
-import { applySessionEvent, portLabel, tabStatus, type LiveTab } from '../lib/sessionState';
+import { feedPrompt, promptIntro, startPrompt } from '../lib/prompt';
+import {
+  applySessionEvent,
+  endpointLabel,
+  portLabel,
+  serialOf,
+  tabStatus,
+  type LiveTab,
+} from '../lib/sessionState';
 import { normalizeEnv } from '../lib/tree';
 import { createSink, disposeSink, getSink } from '../terminal/sink';
 import { useLibrary } from './library';
@@ -29,7 +40,7 @@ export interface OpenMeta {
 }
 
 interface ClosedTab {
-  settings: SerialSettings;
+  target: OpenTarget;
   meta: OpenMeta;
 }
 
@@ -39,6 +50,8 @@ interface TabsState {
   closed: ClosedTab[];
 
   openSerial(settings: SerialSettings, meta?: OpenMeta): string;
+  /** Opens any target (serial reuses the tab owning the port). */
+  openTarget(target: OpenTarget, meta?: OpenMeta): string;
   openSession(session: SessionRecord): void;
   openConsole(port: ConsolePort): void;
   activate(key: string): void;
@@ -51,6 +64,8 @@ interface TabsState {
   sendBreak(key?: string | null): void;
   changeBaud(key: string, baud: number | null): void;
   write(key: string, data: string): void;
+  /** Forgets the stored SSH host key of this tab's host and reconnects. */
+  forgetHostKey(key?: string | null): void;
   resize(key: string, cols: number, rows: number): void;
 }
 
@@ -60,6 +75,7 @@ const sentGrid = new Map<string, string>();
 const resizeTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let keySeq = 1;
 const MAX_CLOSED = 10;
+const encoder = new TextEncoder();
 const REOPEN_TOAST_MS = 10_000;
 
 const samePort = (a: string, b: string) =>
@@ -95,6 +111,8 @@ export const useTabs = create<TabsState>()((set, get) => {
       error: null,
       autobaud: null,
       link: null,
+      netLink: null,
+      prompt: null,
       connectedAt: null,
       health: x.health === 'cableReturned' ? x.health : null,
     }));
@@ -111,6 +129,17 @@ export const useTabs = create<TabsState>()((set, get) => {
       if (!isCurrent()) return;
       const before = tab(key);
       if (!before) return;
+      if (ev.type === 'prompt') {
+        sink?.push(encoder.encode(promptIntro(ev.request)));
+        update(key, (x) => ({ ...x, prompt: startPrompt(ev.request) }));
+        announce(key);
+        return;
+      }
+      if (ev.type === 'netLink' && ev.link.hostKey?.firstSeen) {
+        useUi
+          .getState()
+          .flash(t('ssh.hostKeyLearned', { fingerprint: ev.link.hostKey.fingerprint }));
+      }
       const after = applySessionEvent(before, ev, Date.now());
       update(key, () => after);
       if (before.state !== after.state || before.health !== after.health) announce(key);
@@ -123,7 +152,7 @@ export const useTabs = create<TabsState>()((set, get) => {
       const runtimeId = await liveOpen(
         {
           sessionId: cur.sessionId,
-          target: { type: 'serial', settings: cur.settings },
+          target: cur.target,
           cols: lastGrid.cols,
           rows: lastGrid.rows,
         },
@@ -158,7 +187,7 @@ export const useTabs = create<TabsState>()((set, get) => {
     const nextActive =
       activeKey === cur.key ? (rest[Math.min(i, rest.length - 1)]?.key ?? null) : activeKey;
     const closed: ClosedTab = {
-      settings: cur.settings,
+      target: cur.target,
       meta: { sessionId: cur.sessionId, name: cur.name, envTag: cur.envTag },
     };
     set((s) => ({
@@ -181,11 +210,22 @@ export const useTabs = create<TabsState>()((set, get) => {
     closed: [],
 
     openSerial(settings, meta = {}) {
+      return get().openTarget({ type: 'serial', settings }, meta);
+    },
+
+    openTarget(target, meta = {}) {
       // A serial port is exclusive: reuse a tab that already owns it.
-      const existing = get().tabs.find((x) => samePort(x.settings.port, settings.port));
+      const settings = target.type === 'serial' ? target.settings : null;
+      const existing = settings
+        ? get().tabs.find((x) => {
+            const s = serialOf(x);
+            return s !== null && samePort(s.port, settings.port);
+          })
+        : undefined;
       if (
         existing &&
-        (existing.state !== 'disconnected' || existing.settings.baud === settings.baud)
+        settings &&
+        (existing.state !== 'disconnected' || serialOf(existing)?.baud === settings.baud)
       ) {
         get().activate(existing.key);
         if (existing.state === 'disconnected') get().reconnect(existing.key);
@@ -204,13 +244,15 @@ export const useTabs = create<TabsState>()((set, get) => {
         runtimeId: null,
         generation: 0,
         sessionId: meta.sessionId ?? null,
-        name: meta.name?.trim() || settings.port.replace(/^\/dev\//, ''),
+        name: meta.name?.trim() || endpointLabel(target),
         envTag: normalizeEnv(meta.envTag),
-        settings: { ...settings },
+        target: structuredClone(target),
         state: 'connecting',
         error: null,
         autobaud: null,
         link: null,
+        netLink: null,
+        prompt: null,
         health: null,
         connectedAt: null,
         mode: 'unknown',
@@ -221,15 +263,30 @@ export const useTabs = create<TabsState>()((set, get) => {
     },
 
     openSession(session) {
-      if (session.protocol !== 'serial' || !session.serial) {
-        toast({ message: t('errors.protocolNotSupported') });
+      const meta = { sessionId: session.id, name: session.name, envTag: session.envTag };
+      if (session.protocol === 'serial') {
+        if (!session.serial) {
+          toast({ message: t('errors.protocolNotSupported') });
+          return;
+        }
+        get().openSerial(session.serial, meta);
         return;
       }
-      get().openSerial(session.serial, {
-        sessionId: session.id,
-        name: session.name,
-        envTag: session.envTag,
-      });
+      if (!session.host) {
+        toast({ message: t('errors.invalid') });
+        return;
+      }
+      get().openTarget(
+        {
+          type: 'network',
+          protocol: session.protocol,
+          host: session.host,
+          port: session.port ?? DEFAULT_PORTS[session.protocol],
+          username: session.username,
+          ssh: { ...DEFAULT_SSH, ...(session.ssh ?? {}) },
+        },
+        meta,
+      );
     },
 
     openConsole(port) {
@@ -270,7 +327,7 @@ export const useTabs = create<TabsState>()((set, get) => {
       const last = closed.pop();
       if (!last) return;
       set({ closed });
-      get().openSerial(last.settings, last.meta);
+      get().openTarget(last.target, last.meta);
     },
 
     reconnect(key) {
@@ -310,15 +367,52 @@ export const useTabs = create<TabsState>()((set, get) => {
 
     changeBaud(key, baud) {
       const cur = tab(key);
-      if (!cur) return;
+      if (!cur || cur.target.type !== 'serial') return;
       closeRuntime(cur);
-      update(key, (x) => ({ ...x, settings: { ...x.settings, baud } }));
+      update(key, (x) =>
+        x.target.type === 'serial'
+          ? { ...x, target: { ...x.target, settings: { ...x.target.settings, baud } } }
+          : x,
+      );
       void start(key);
+    },
+
+    forgetHostKey(key) {
+      const k = resolveKey(key);
+      const cur = k ? tab(k) : undefined;
+      if (!cur || cur.target.type !== 'network') return;
+      const host = cur.target.host;
+      const port = cur.target.port ?? DEFAULT_PORTS[cur.target.protocol] ?? 22;
+      api
+        .knownHostForget(host, port)
+        .then(() => {
+          useUi.getState().flash(t('ssh.hostKeyForgotten'));
+          get().reconnect(cur.key);
+        })
+        .catch((e: unknown) => {
+          const d = describeError(e, t);
+          toast({ kind: 'error', message: d.message, detail: d.detail });
+        });
     },
 
     write(key, data) {
       const cur = tab(key);
       if (!cur) return;
+      if (cur.prompt) {
+        // Login answers stay local until complete; secrets are never echoed or logged.
+        const step = feedPrompt(cur.prompt, data);
+        if (step.echo) getSink(key)?.push(encoder.encode(step.echo));
+        update(key, (x) => ({ ...x, prompt: step.prompt }));
+        if (cur.runtimeId === null) return;
+        if (step.submit) {
+          void api.liveAnswer(cur.runtimeId, step.submit).catch(() => {});
+        } else if (step.cancel) {
+          closeRuntime(cur);
+          update(key, (x) => ({ ...x, runtimeId: null, state: 'disconnected', prompt: null }));
+          announce(key);
+        }
+        return;
+      }
       if (cur.state === 'disconnected') {
         // Enter on a dead session reconnects instead of being swallowed.
         if (data.includes('\r')) get().reconnect(key);

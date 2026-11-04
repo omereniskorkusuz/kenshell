@@ -103,6 +103,8 @@ pub struct SessionRecord {
     pub env_tag: Option<String>,
     pub tags: Vec<String>,
     pub favorite: bool,
+    /// SSH options (ssh sessions only).
+    pub ssh: Option<SshOptions>,
     pub sort_order: i64,
     /// Unix epoch milliseconds.
     pub created_at: i64,
@@ -126,6 +128,8 @@ pub struct SessionInput {
     pub tags: Vec<String>,
     #[serde(default)]
     pub favorite: bool,
+    #[serde(default)]
+    pub ssh: Option<SshOptions>,
 }
 
 /// Remembered facts about a console cable, keyed by USB serial number (or port path).

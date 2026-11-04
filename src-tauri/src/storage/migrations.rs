@@ -85,6 +85,10 @@ CREATE TABLE known_hosts (
 );
 "#,
     },
+    Migration {
+        name: "v3 sessions.ssh_json (SSH options)",
+        sql: "ALTER TABLE sessions ADD COLUMN ssh_json TEXT NULL;",
+    },
 ];
 
 /// Schema version this build expects.

@@ -203,6 +203,7 @@ mod tests {
             env_tag: None,
             tags: vec![],
             favorite: false,
+            ssh: None,
         })
         .unwrap()
         .id

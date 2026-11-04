@@ -8,12 +8,12 @@
  * Mode/env colors come from data-mode/data-env on the pane (CSS variables), never React state.
  */
 import { useEffect, useState } from 'react';
-import { PanelRight, RotateCw } from 'lucide-react';
+import { KeyRound, PanelRight, RotateCw } from 'lucide-react';
 import { useT, type TKey } from '../i18n';
 import { compactParts } from '../lib/compact';
 import { formatUptime } from '../lib/format';
 import { isMac } from '../lib/ipc';
-import { tabStatus, targetLabel, type LiveTab } from '../lib/sessionState';
+import { protocolOf, serialOf, tabStatus, targetLabel, type LiveTab } from '../lib/sessionState';
 import { formatChord } from '../lib/shortcuts';
 import { envLabel } from '../lib/tree';
 import { useTabs } from '../stores/tabs';
@@ -40,26 +40,32 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
   const connected = tab.state === 'connected';
   const busy = tab.state === 'connecting' || tab.state === 'detecting';
 
-  const baudEntries: MenuEntry[] = [
-    { kind: 'label', label: t('serial.changeBaud') },
-    {
-      label: t('serial.autoBaud'),
-      checked: tab.settings.baud === null,
-      onSelect: () => useTabs.getState().changeBaud(tab.key, null),
-    },
-    ...COMMON_BAUDS.map((b) => ({
-      label: String(b),
-      checked: (tab.link?.baud ?? tab.settings.baud) === b,
-      onSelect: () => useTabs.getState().changeBaud(tab.key, b),
-    })),
-  ];
+  const serial = serialOf(tab);
+  const proto = protocolOf(tab);
+  const baudEntries: MenuEntry[] = serial
+    ? [
+        { kind: 'label', label: t('serial.changeBaud') },
+        {
+          label: t('serial.autoBaud'),
+          checked: serial.baud === null,
+          onSelect: () => useTabs.getState().changeBaud(tab.key, null),
+        },
+        ...COMMON_BAUDS.map((b) => ({
+          label: String(b),
+          checked: (tab.link?.baud ?? serial.baud) === b,
+          onSelect: () => useTabs.getState().changeBaud(tab.key, b),
+        })),
+      ]
+    : [];
+  const hostKey = tab.netLink?.hostKey ?? null;
+  const breakable = proto === 'serial' || proto === 'telnet';
 
   const protocol = parts.protocol && (
     <span className="label-caps shrink-0" title={t('identity.protocol')}>
-      {t('protocol.serial')}
+      {t(`protocol.${proto}` as TKey)}
     </span>
   );
-  const target = (
+  const target = serial ? (
     <button
       type="button"
       className="mono min-w-0 truncate rounded-sm px-0.5 text-left text-secondary hover:bg-hover hover:text-primary"
@@ -69,6 +75,20 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
     >
       {targetLabel(tab, t, parts.chip)}
     </button>
+  ) : (
+    <span
+      className="mono min-w-0 truncate px-0.5 text-secondary"
+      title={
+        hostKey
+          ? t('ssh.hostKeyTitle', {
+              algorithm: hostKey.algorithm,
+              fingerprint: hostKey.fingerprint,
+            })
+          : undefined
+      }
+    >
+      {targetLabel(tab, t, parts.chip)}
+    </span>
   );
   const name = (
     <span className="mono min-w-0 shrink truncate font-semibold text-primary" title={tab.name}>
@@ -113,6 +133,17 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
   );
   const actions = (
     <div className="ml-auto flex shrink-0 items-center gap-1 pl-2">
+      {tab.state === 'disconnected' && tab.error?.code === 'hostKeyChanged' && (
+        <button
+          type="button"
+          className="btn btn-sm"
+          title={t('ssh.forgetHostKeyHint')}
+          onClick={() => useTabs.getState().forgetHostKey(tab.key)}
+        >
+          <KeyRound size={12} aria-hidden />
+          {t('ssh.forgetHostKey')}
+        </button>
+      )}
       {tab.state === 'disconnected' && (
         <button
           type="button"
@@ -124,16 +155,18 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
           {t('actions.reconnect')}
         </button>
       )}
-      <button
-        type="button"
-        className="btn btn-sm mono"
-        disabled={!connected}
-        title={`${t('identity.breakHint')} (${formatChord('mod+shift+b', mac)})`}
-        aria-label={t('actions.sendBreak')}
-        onClick={() => useTabs.getState().sendBreak(tab.key)}
-      >
-        {t('identity.break')}
-      </button>
+      {breakable && (
+        <button
+          type="button"
+          className="btn btn-sm mono"
+          disabled={!connected}
+          title={`${t('identity.breakHint')} (${formatChord('mod+shift+b', mac)})`}
+          aria-label={t('actions.sendBreak')}
+          onClick={() => useTabs.getState().sendBreak(tab.key)}
+        >
+          {t('identity.break')}
+        </button>
+      )}
       <button
         type="button"
         className="icon-btn"
