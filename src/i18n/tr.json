@@ -50,7 +50,9 @@
     "themeSystem": "Tema: sistemi izle",
     "languageTr": "Dil: Türkçe",
     "languageEn": "Dil: English",
-    "openSettings": "Ayarları aç"
+    "openSettings": "Ayarları aç",
+    "find": "Geçmişte ara",
+    "toggleTimestamps": "Satır zaman damgası aç/kapat"
   },
   "quick": {
     "label": "Hızlı bağlan",
@@ -142,7 +144,8 @@
     "alreadyOpen": "{{port}} zaten bir sekmede açık."
   },
   "terminal": {
-    "dropped": "— Sekme gizliyken {{size}} eski çıktı atlandı —"
+    "dropped": "— Sekme gizliyken {{size}} eski çıktı atlandı —",
+    "pasted": "{{count}} satır yapıştırıldı"
   },
   "library": {
     "add": "Ekle",
@@ -289,7 +292,16 @@
     "logModePrintable": "Okunur metin",
     "logModeAll": "Ham çıktı (tüm baytlar)",
     "logTimestamps": "Her satıra zaman damgası",
-    "logTimestampsHint": "Yalnız okunur metin modunda."
+    "logTimestampsHint": "Yalnız okunur metin modunda.",
+    "copyOnSelect": "Seçince kopyala",
+    "rightClickPaste": "Sağ tık yapıştırır",
+    "pasteDelay": "Yapıştırma satır gecikmesi (ms)",
+    "pasteDelayHint": "Yalnız seri ve Telnet; cihaz arabelleği taşmasın diye. 0 = kapalı.",
+    "backspace": "Backspace gönderir",
+    "charset": "Karakter seti",
+    "charsetHint": "Gelen baytların nasıl gösterileceği.",
+    "lineTimestamps": "Her satıra zaman damgası",
+    "lineTimestampsHint": "Yalnız terminalde gösterilir; cihaz çıktısı değişmez."
   },
   "mode": {
     "user": "USER",
@@ -312,5 +324,15 @@
   },
   "log": {
     "openFailed": "Oturum logu oluşturulamadı; oturum log olmadan devam ediyor."
+  },
+  "search": {
+    "placeholder": "Geçmişte ara",
+    "caseSensitive": "Büyük/küçük harf",
+    "regex": "Düzenli ifade (regex)",
+    "previous": "Önceki (Shift+Enter)",
+    "next": "Sonraki (Enter)",
+    "badRegex": "Geçersiz regex",
+    "notFound": "Bulunamadı",
+    "close": "Kapat (Esc)"
   }
 }

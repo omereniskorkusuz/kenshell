@@ -8,7 +8,9 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { compactParts, isCompact } from '../lib/compact';
 import type { LiveTab } from '../lib/sessionState';
 import { envKind } from '../lib/tree';
+import { useUi } from '../stores/ui';
 import { IdentityBar } from './IdentityBar';
+import { SearchBar } from './SearchBar';
 
 export const loadTerminalView = () => import('../terminal/TerminalView');
 const TerminalView = lazy(loadTerminalView);
@@ -36,6 +38,7 @@ function layoutFor(width: number, height: number): Layout {
 export function Pane({ tab, visible }: Props) {
   const ref = useRef<HTMLElement>(null);
   const [layout, setLayout] = useState<Layout>({ compact: false, width: 0 });
+  const searching = useUi((s) => s.findKey === tab.key);
 
   useEffect(() => {
     const el = ref.current;
@@ -68,9 +71,12 @@ export function Pane({ tab, visible }: Props) {
       <div className="mode-stripe shrink-0" aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col">
         <IdentityBar tab={tab} compact={layout.compact} width={layout.width} visible={visible} />
-        <Suspense fallback={<div className="min-h-0 flex-1 bg-terminal" />}>
-          <TerminalView tabKey={tab.key} visible={visible} />
-        </Suspense>
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {searching && visible && <SearchBar tabKey={tab.key} />}
+          <Suspense fallback={<div className="min-h-0 flex-1 bg-terminal" />}>
+            <TerminalView tabKey={tab.key} visible={visible} />
+          </Suspense>
+        </div>
       </div>
     </section>
   );

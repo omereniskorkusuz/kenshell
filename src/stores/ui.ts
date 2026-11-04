@@ -24,6 +24,10 @@ interface UiState {
   statusMessage: { id: number; text: string } | null;
   announcement: { id: number; text: string } | null;
   quickConnectFocus: number;
+  /** Tab whose scrollback search bar is open. */
+  findKey: string | null;
+  openFind(key: string): void;
+  closeFind(): void;
 
   openPalette(query?: string, scope?: PaletteScope): void;
   closePalette(): void;
@@ -54,6 +58,9 @@ export const useUi = create<UiState>()((set, get) => ({
   statusMessage: null,
   announcement: null,
   quickConnectFocus: 0,
+  findKey: null,
+  openFind: (key) => set({ findKey: key }),
+  closeFind: () => set({ findKey: null }),
 
   openPalette: (query = '', scope = 'all') =>
     set({ paletteOpen: true, paletteQuery: query, paletteScope: scope }),

@@ -44,6 +44,8 @@ pub fn run() {
             commands::app::app_ready,
             commands::app::app_info,
             commands::app::open_external,
+            commands::clipboard::clipboard_read,
+            commands::clipboard::clipboard_write,
             commands::storage::folder_list,
             commands::storage::folder_create,
             commands::storage::folder_rename,

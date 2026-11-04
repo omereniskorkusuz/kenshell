@@ -247,6 +247,12 @@ function TerminalSection() {
   const t = useT();
   const [fontSize, setFontSize] = useSetting('terminal.fontSize');
   const [scrollback, setScrollback] = useSetting('terminal.scrollback');
+  const [copySel, setCopySel] = useSetting('terminal.copyOnSelect');
+  const [rcPaste, setRcPaste] = useSetting('terminal.rightClickPaste');
+  const [backspace, setBackspace] = useSetting('terminal.backspace');
+  const [charset, setCharset] = useSetting('terminal.charset');
+  const [stamps, setStamps] = useSetting('terminal.timestamps');
+  const [pasteDelay, setPasteDelay] = useSetting('terminal.pasteDelayMs');
   return (
     <>
       <Row label={t('settings.fontSize')} hint={t('settings.rangeHint', LIMITS.fontSize)}>
@@ -270,6 +276,55 @@ function TerminalSection() {
             onCommit={setScrollback}
           />
         )}
+      </Row>
+      <Row label={t('settings.copyOnSelect')}>
+        {(id) => <Toggle id={id} checked={copySel} onChange={setCopySel} />}
+      </Row>
+      <Row label={t('settings.rightClickPaste')}>
+        {(id) => <Toggle id={id} checked={rcPaste} onChange={setRcPaste} />}
+      </Row>
+      <Row label={t('settings.pasteDelay')} hint={t('settings.pasteDelayHint')}>
+        {(id) => (
+          <NumberField
+            id={id}
+            value={pasteDelay}
+            step={10}
+            min={0}
+            max={1000}
+            onCommit={setPasteDelay}
+          />
+        )}
+      </Row>
+      <Row label={t('settings.backspace')}>
+        {(id) => (
+          <select
+            id={id}
+            className="field w-48"
+            value={backspace}
+            onChange={(e) => setBackspace(e.target.value as 'del' | 'ctrlH')}
+          >
+            <option value="del">DEL (0x7F)</option>
+            <option value="ctrlH">Ctrl-H (0x08)</option>
+          </select>
+        )}
+      </Row>
+      <Row label={t('settings.charset')} hint={t('settings.charsetHint')}>
+        {(id) => (
+          <select
+            id={id}
+            className="field w-48"
+            value={charset}
+            onChange={(e) => setCharset(e.target.value as typeof charset)}
+          >
+            <option value="utf-8">UTF-8</option>
+            <option value="iso-8859-9">ISO-8859-9 (Latin-5)</option>
+            <option value="windows-1254">Windows-1254</option>
+            <option value="cp437">CP437</option>
+          </select>
+        )}
+      </Row>
+      <Row label={t('settings.lineTimestamps')} hint={t('settings.lineTimestampsHint')}>
+        {(id) => <Toggle id={id} checked={stamps} onChange={setStamps} />}
       </Row>
     </>
   );

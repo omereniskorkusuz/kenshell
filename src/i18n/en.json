@@ -50,7 +50,9 @@
     "themeSystem": "Theme: follow system",
     "languageTr": "Language: Türkçe",
     "languageEn": "Language: English",
-    "openSettings": "Open settings"
+    "openSettings": "Open settings",
+    "find": "Find in scrollback",
+    "toggleTimestamps": "Line timestamps on/off"
   },
   "quick": {
     "label": "Quick connect",
@@ -142,7 +144,8 @@
     "alreadyOpen": "{{port}} is already open in a tab."
   },
   "terminal": {
-    "dropped": "— {{size}} of older output skipped while this tab was hidden —"
+    "dropped": "— {{size}} of older output skipped while this tab was hidden —",
+    "pasted": "Pasted {{count}} lines"
   },
   "library": {
     "add": "Add",
@@ -289,7 +292,16 @@
     "logModePrintable": "Readable text",
     "logModeAll": "Raw output (all bytes)",
     "logTimestamps": "Timestamp each line",
-    "logTimestampsHint": "Readable text mode only."
+    "logTimestampsHint": "Readable text mode only.",
+    "copyOnSelect": "Copy on select",
+    "rightClickPaste": "Right-click pastes",
+    "pasteDelay": "Paste line delay (ms)",
+    "pasteDelayHint": "Serial and Telnet only, so the device buffer does not overflow. 0 = off.",
+    "backspace": "Backspace sends",
+    "charset": "Character set",
+    "charsetHint": "How received bytes are shown.",
+    "lineTimestamps": "Timestamp each line",
+    "lineTimestampsHint": "Shown in the terminal only; the device output is unchanged."
   },
   "mode": {
     "user": "USER",
@@ -312,5 +324,15 @@
   },
   "log": {
     "openFailed": "The session log could not be created; the session continues without it."
+  },
+  "search": {
+    "placeholder": "Search scrollback",
+    "caseSensitive": "Match case",
+    "regex": "Regular expression",
+    "previous": "Previous match (Shift+Enter)",
+    "next": "Next match (Enter)",
+    "badRegex": "Invalid regex",
+    "notFound": "No match",
+    "close": "Close (Esc)"
   }
 }

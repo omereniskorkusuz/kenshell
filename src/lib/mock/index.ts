@@ -662,6 +662,10 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         return undefined;
       case 'known_host_forget':
         return undefined;
+      case 'clipboard_read':
+        return navigator.clipboard.readText().catch(() => '');
+      case 'clipboard_write':
+        return navigator.clipboard.writeText(a.text as string).catch(() => undefined);
       default:
         return fail('unsupported', cmd);
     }

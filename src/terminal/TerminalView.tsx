@@ -4,12 +4,18 @@
  * tab's TerminalSink; input goes to the tabs store.
  */
 import { FitAddon } from '@xterm/addon-fit';
+import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef } from 'react';
+import { copyText, readText } from '../lib/clipboard';
+import { isMac } from '../lib/ipc';
 import { useSettings } from '../stores/settings';
+import { useUi } from '../stores/ui';
+import { registerTerminal, unregisterTerminal, type SearchOptions } from './registry';
+import { cleanCopy, makeDecoder, Timestamper, type Charset } from './transform';
 import { useTabs } from '../stores/tabs';
 import { getSink } from './sink';
 import { readLineHeight, readMonoFont, readTerminalTheme } from './theme';
@@ -78,6 +84,8 @@ export default function TerminalView({ tabKey, visible }: Props) {
       });
       const fit = new FitAddon();
       term.loadAddon(fit);
+      const search = new SearchAddon();
+      term.loadAddon(search);
       term.loadAddon(new Unicode11Addon());
       term.unicode.activeVersion = '11';
       term.open(host);
@@ -105,7 +113,84 @@ export default function TerminalView({ tabKey, visible }: Props) {
       doFit();
 
       const input = term.onData((data) => useTabs.getState().write(tabKey, data));
-      sink.attach((data) => term.write(data));
+
+      // ---- output: charset decoding + optional line timestamps
+      let decode = makeDecoder(s['terminal.charset'] as Charset);
+      let stamper: Timestamper | null = s['terminal.timestamps'] ? new Timestamper() : null;
+      sink.attach((data) => {
+        const decoded = typeof data === 'string' ? data : decode(data);
+        term.write(stamper ? stamper.feed(decoded) : decoded);
+      });
+
+      // ---- clipboard
+      const mac = isMac();
+      const copySelection = () => {
+        if (term.hasSelection()) void copyText(cleanCopy(term.getSelection()));
+      };
+      const paste = () => {
+        void readText().then((text) => {
+          if (text) useTabs.getState().paste(tabKey, text);
+        });
+      };
+      term.attachCustomKeyEventHandler((e) => {
+        if (e.type !== 'keydown') return true;
+        const k = e.key.toLowerCase();
+        const copyKey = mac
+          ? e.metaKey && !e.shiftKey && k === 'c'
+          : (e.ctrlKey && e.shiftKey && k === 'c') || (e.ctrlKey && k === 'insert');
+        const pasteKey = mac
+          ? e.metaKey && !e.shiftKey && k === 'v'
+          : (e.ctrlKey && e.shiftKey && k === 'v') || (e.shiftKey && k === 'insert');
+        if (copyKey) {
+          copySelection();
+          return false;
+        }
+        if (pasteKey) {
+          e.preventDefault();
+          paste();
+          return false;
+        }
+        if (
+          k === 'backspace' &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          useSettings.getState().values['terminal.backspace'] === 'ctrlH'
+        ) {
+          useTabs.getState().write(tabKey, '\x08');
+          return false;
+        }
+        return true;
+      });
+      let selTimer = 0;
+      const selection = term.onSelectionChange(() => {
+        if (!useSettings.getState().values['terminal.copyOnSelect']) return;
+        window.clearTimeout(selTimer);
+        selTimer = window.setTimeout(copySelection, 150);
+      });
+      const onContextMenu = (e: MouseEvent) => {
+        if (!useSettings.getState().values['terminal.rightClickPaste']) return;
+        e.preventDefault();
+        paste();
+      };
+      host.addEventListener('contextmenu', onContextMenu);
+
+      // ---- search (Cmd/Ctrl+F bar)
+      const decorations = readSearchDecorations();
+      const searchOpts = (o: SearchOptions) => ({
+        regex: o.regex,
+        caseSensitive: o.caseSensitive,
+        decorations,
+      });
+      registerTerminal(tabKey, {
+        findNext: (q, o) => search.findNext(q, searchOpts(o)),
+        findPrevious: (q, o) => search.findPrevious(q, searchOpts(o)),
+        clearSearch: () => {
+          search.clearDecorations();
+          term.clearSelection();
+        },
+        focus: () => term.focus(),
+      });
 
       // Theme changes: re-read tokens whenever <html data-theme> flips.
       const mo = new MutationObserver(() => {
@@ -123,11 +208,22 @@ export default function TerminalView({ tabKey, visible }: Props) {
         if (v['terminal.scrollback'] !== p['terminal.scrollback']) {
           term.options.scrollback = v['terminal.scrollback'];
         }
+        if (v['terminal.charset'] !== p['terminal.charset']) {
+          decode = makeDecoder(v['terminal.charset'] as Charset);
+        }
+        if (v['terminal.timestamps'] !== p['terminal.timestamps']) {
+          stamper = v['terminal.timestamps'] ? new Timestamper() : null;
+        }
       });
 
       if (visibleRef.current) term.focus();
 
       cleanups.push(() => {
+        window.clearTimeout(selTimer);
+        selection.dispose();
+        host.removeEventListener('contextmenu', onContextMenu);
+        unregisterTerminal(tabKey);
+        if (useUi.getState().findKey === tabKey) useUi.getState().closeFind();
         cancelAnimationFrame(fitFrame);
         ro.disconnect();
         mo.disconnect();
@@ -160,4 +256,16 @@ export default function TerminalView({ tabKey, visible }: Props) {
   }, [tabKey, visible]);
 
   return <div ref={hostRef} className="terminal-host min-h-0 flex-1" />;
+}
+
+/** Search highlight colors from the design tokens (warning = all matches, accent = current). */
+function readSearchDecorations() {
+  const css = getComputedStyle(document.documentElement);
+  const v = (name: string, fb: string) => css.getPropertyValue(name).trim() || fb;
+  return {
+    matchBackground: v('--warning', '#e8b341') + '55',
+    matchOverviewRuler: v('--warning', '#e8b341'),
+    activeMatchBackground: v('--warning', '#e8b341'),
+    activeMatchColorOverviewRuler: v('--accent', '#d5dce6'),
+  };
 }

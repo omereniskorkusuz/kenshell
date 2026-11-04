@@ -29,6 +29,7 @@ futures-lite = "2"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
 tauri-plugin-opener = "2"
 russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2", "des"] }
+arboard = { version = "3.7", default-features = false }
 
 [lints]
 workspace = true

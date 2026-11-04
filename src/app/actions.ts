@@ -168,6 +168,28 @@ export const ACTIONS: readonly AppAction[] = [
     run: () => useTabs.getState().reconnect(),
   },
   {
+    id: 'terminal.find',
+    title: 'actions.find',
+    group: 'actions',
+    shortcut: 'mod+f',
+    keywords: ['search', 'find', 'ara', 'bul', 'scrollback'],
+    enabled: hasActiveTab,
+    run: () => {
+      const tab = activeTab();
+      if (tab) useUi.getState().openFind(tab.key);
+    },
+  },
+  {
+    id: 'terminal.timestamps',
+    title: 'actions.toggleTimestamps',
+    group: 'actions',
+    keywords: ['timestamp', 'time', 'zaman', 'damga'],
+    run: () => {
+      const s = useSettings.getState();
+      s.set('terminal.timestamps', !s.values['terminal.timestamps']);
+    },
+  },
+  {
     id: 'sidebar.toggle',
     title: 'actions.toggleSidebar',
     group: 'actions',

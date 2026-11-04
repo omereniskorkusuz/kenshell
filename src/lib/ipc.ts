@@ -351,6 +351,10 @@ export const api = {
   settingsAll: () => call<Settings>('settings_all'),
   settingSet: (key: string, value: unknown) => call<undefined>('setting_set', { key, value }),
 
+  /** OS clipboard (no webview paste-permission bubble). */
+  clipboardRead: () => call<string>('clipboard_read'),
+  clipboardWrite: (text: string) => call<undefined>('clipboard_write', { text }),
+
   consoleList: () => call<ConsoleSnapshot>('console_list'),
   consoleRescan: () => call<ConsoleSnapshot>('console_rescan'),
 

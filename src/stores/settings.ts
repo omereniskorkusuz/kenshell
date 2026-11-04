@@ -22,6 +22,14 @@ export interface AppSettings {
   'ui.sidebarCollapsed': boolean;
   'ui.sidePanelWidth': number;
   'ui.sidePanelPinned': boolean;
+  'terminal.copyOnSelect': boolean;
+  'terminal.rightClickPaste': boolean;
+  /** What Backspace sends: DEL (0x7f, default) or ^H (0x08, some old devices). */
+  'terminal.backspace': 'del' | 'ctrlH';
+  'terminal.charset': 'utf-8' | 'iso-8859-9' | 'windows-1254' | 'cp437';
+  'terminal.timestamps': boolean;
+  /** Delay between lines when pasting into serial/telnet sessions (0 = off). */
+  'terminal.pasteDelayMs': number;
   'log.enabled': boolean;
   /** Empty = ~/Documents/KenShell Logs (decided by the backend). */
   'log.dir': string;
@@ -45,6 +53,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'ui.sidebarCollapsed': false,
   'ui.sidePanelWidth': 320,
   'ui.sidePanelPinned': false,
+  'terminal.copyOnSelect': true,
+  'terminal.rightClickPaste': true,
+  'terminal.backspace': 'del',
+  'terminal.charset': 'utf-8',
+  'terminal.timestamps': false,
+  'terminal.pasteDelayMs': 50,
   'log.enabled': false,
   'log.dir': '',
   'log.template': '{name}_{date}_{time}.log',
@@ -95,8 +109,17 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'ui.sidebarCollapsed':
       case 'ui.sidePanelPinned':
       case 'log.enabled':
+      case 'terminal.copyOnSelect':
+      case 'terminal.rightClickPaste':
+      case 'terminal.timestamps':
       case 'log.timestamps':
         return bool(value, d[k]);
+      case 'terminal.backspace':
+        return oneOf(value, ['del', 'ctrlH'] as const, d[k]);
+      case 'terminal.charset':
+        return oneOf(value, ['utf-8', 'iso-8859-9', 'windows-1254', 'cp437'] as const, d[k]);
+      case 'terminal.pasteDelayMs':
+        return clampInt(value, 0, 1000, d[k]);
       case 'log.mode':
         return oneOf(value, ['printable', 'all'] as const, d[k]);
       case 'log.dir':

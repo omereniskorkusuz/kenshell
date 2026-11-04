@@ -18,6 +18,7 @@ import {
   type SessionEvent,
   type SessionRecord,
 } from '../lib/ipc';
+import { normalizePaste, pasteChunks, wantsPacing } from '../lib/paste';
 import { feedPrompt, promptIntro, startPrompt } from '../lib/prompt';
 import {
   applySessionEvent,
@@ -30,6 +31,7 @@ import {
 import { normalizeEnv } from '../lib/tree';
 import { createSink, disposeSink, getSink } from '../terminal/sink';
 import { useLibrary } from './library';
+import { useSettings } from './settings';
 import { toast } from './toasts';
 import { useUi } from './ui';
 
@@ -64,6 +66,8 @@ interface TabsState {
   sendBreak(key?: string | null): void;
   changeBaud(key: string, baud: number | null): void;
   write(key: string, data: string): void;
+  /** Pastes text: CR line ends; serial/telnet multi-line pastes are paced per line. */
+  paste(key: string, text: string): void;
   /** Forgets the stored SSH host key of this tab's host and reconnects. */
   forgetHostKey(key?: string | null): void;
   resize(key: string, cols: number, rows: number): void;
@@ -430,6 +434,36 @@ export const useTabs = create<TabsState>()((set, get) => {
       api.liveWrite(cur.runtimeId, data).catch(() => {
         // Write failures surface through the session's state events (deviceGone etc.).
       });
+    },
+
+    paste(key, text) {
+      const cur = tab(key);
+      if (!cur || !text) return;
+      if (cur.prompt) {
+        // Pasting a password into a login prompt: feed it like typing (first line only).
+        get().write(key, normalizePaste(text).split('\r')[0] ?? '');
+        return;
+      }
+      const chunks = pasteChunks(text);
+      const delay = useSettings.getState().values['terminal.pasteDelayMs'];
+      const protocol = cur.target.type === 'serial' ? 'serial' : cur.target.protocol;
+      if (!wantsPacing(protocol, chunks.length, delay)) {
+        get().write(key, normalizePaste(text));
+        return;
+      }
+      const generation = cur.generation;
+      let i = 0;
+      const step = () => {
+        const now = tab(key);
+        // Stop if the tab closed, reconnected or dropped meanwhile.
+        if (!now || now.generation !== generation || now.state !== 'connected') return;
+        const chunk = chunks[i++];
+        if (chunk === undefined) return;
+        get().write(key, chunk);
+        if (i < chunks.length) setTimeout(step, delay);
+        else useUi.getState().flash(t('terminal.pasted', { count: chunks.length }));
+      };
+      step();
     },
 
     resize(key, cols, rows) {
