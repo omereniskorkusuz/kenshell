@@ -194,14 +194,17 @@ mod tests {
     fn burst_is_debounced_then_rechecked() {
         let (n, rescan) = counting();
         let tx = spawn_scheduler(test_schedule(), rescan).unwrap();
+        // A burst well inside the debounce window (no sleeps: CI timers are coarse).
         for _ in 0..5 {
             tx.send(()).unwrap();
-            std::thread::sleep(ms(5));
         }
-        std::thread::sleep(ms(20));
         assert_eq!(n.load(Ordering::SeqCst), 0, "still debouncing");
-        std::thread::sleep(ms(700));
-        // first scan + 2 rechecks, not one per event
+        // first scan + 2 rechecks, not one per event — wait generously on slow runners
+        let start = Instant::now();
+        while n.load(Ordering::SeqCst) < 3 && start.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(ms(20));
+        }
+        std::thread::sleep(ms(400));
         assert_eq!(n.load(Ordering::SeqCst), 3);
         drop(tx);
     }

@@ -232,8 +232,18 @@ fn serve(mut stream: TcpStream, profile: &Profile, raw: bool) -> std::io::Result
     Ok(())
 }
 
-#[cfg(unix)]
-fn line_speed(tty: &std::fs::File) -> Option<u32> {
+/// Speed the client set on the pty (termios is per device, so any fd shows it).
+/// Linux: serialport sets it via termios2/BOTHER, which only `TTYPort::baud_rate`
+/// (TCGETS2) reads back correctly. macOS: serialport caches the IOSSIOSPEED value,
+/// so read the termios of a second fd instead.
+#[cfg(target_os = "linux")]
+fn line_speed(slave: &serialport::TTYPort, _tty: &std::fs::File) -> Option<u32> {
+    use serialport::SerialPort;
+    slave.baud_rate().ok()
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+fn line_speed(_slave: &serialport::TTYPort, tty: &std::fs::File) -> Option<u32> {
     use std::os::fd::AsRawFd;
     let t = nix::sys::termios::tcgetattr(tty.as_raw_fd()).ok()?;
     u32::try_from(nix::sys::termios::cfgetospeed(&t) as u64).ok()
@@ -248,7 +258,7 @@ fn run_pty(profile: &Profile, baud: Option<u32>) -> std::io::Result<()> {
     let (mut master, slave) = TTYPort::pair().map_err(std::io::Error::other)?;
     let path = slave.name().unwrap_or_default();
     // Keep the slave end alive so the device node stays valid while KenShell (re)opens it.
-    let _slave = slave;
+    let slave = slave;
     // Termios is per tty device: a second fd on the slave reveals the speed KenShell set.
     let probe = std::fs::OpenOptions::new()
         .read(true)
@@ -292,7 +302,7 @@ fn run_pty(profile: &Profile, baud: Option<u32>) -> std::io::Result<()> {
             started = false;
         }
         let speed_ok = match baud {
-            Some(want) => line_speed(&probe).is_none_or(|b| b == want),
+            Some(want) => line_speed(&slave, &probe).is_none_or(|b| b == want),
             None => true,
         };
         if !speed_ok {
@@ -310,6 +320,7 @@ fn run_pty(_profile: &Profile, _baud: Option<u32>) -> std::io::Result<()> {
 }
 
 /// What a terminal sees when the line speed is wrong: framing noise, high bytes.
+#[cfg(unix)]
 fn garble(data: &[u8]) -> Vec<u8> {
     data.iter().map(|b| b.rotate_left(3) | 0x80).collect()
 }
