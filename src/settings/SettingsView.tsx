@@ -3,6 +3,7 @@
  */
 import { useEffect, useId, useState, type ReactNode, type FormEvent } from 'react';
 import { Dialog } from '../components/Dialog';
+import KeysSection from './KeysSection';
 import { api, type ImportReport, type ImportSource, type ImportSources } from '../lib/ipc';
 import { describeError } from '../lib/errors';
 import { toast } from '../stores/toasts';
@@ -17,6 +18,7 @@ type SectionId =
   | 'terminal'
   | 'connection'
   | 'credentials'
+  | 'keys'
   | 'logging'
   | 'console'
   | 'data';
@@ -26,6 +28,7 @@ const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'terminal', label: 'settings.terminal' },
   { id: 'connection', label: 'settings.connection' },
   { id: 'credentials', label: 'settings.credentials' },
+  { id: 'keys', label: 'settings.keys' },
   { id: 'logging', label: 'settings.logging' },
   { id: 'console', label: 'settings.console' },
   { id: 'data', label: 'settings.data' },
@@ -66,6 +69,7 @@ export default function SettingsView() {
           {section === 'terminal' && <TerminalSection />}
           {section === 'connection' && <ConnectionSection />}
           {section === 'credentials' && <CredentialsSection />}
+          {section === 'keys' && <KeysSection />}
           {section === 'logging' && <LoggingSection />}
           {section === 'console' && <ConsoleSection />}
           {section === 'data' && <DataSection />}

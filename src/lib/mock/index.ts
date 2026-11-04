@@ -714,6 +714,17 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
       case 'export_sessions':
       case 'vault_export':
         return undefined;
+      case 'key_generate':
+      case 'key_inspect':
+      case 'key_convert':
+        return {
+          algorithm: 'ssh-ed25519',
+          bits: 256,
+          comment: 'admin@laptop',
+          fingerprint: 'SHA256:mock0fingerprint0000000000000000000000000',
+          publicLine: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAImockmockmockmock admin@laptop',
+          encrypted: a.passphrase ? true : false,
+        };
       case 'vault_import':
         if (a.password !== 'mock-master') throw { code: 'badPassword', detail: null };
         return {

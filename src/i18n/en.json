@@ -328,7 +328,8 @@
     "lineTimestampsHint": "Shown in the terminal only; the device output is unchanged.",
     "credentials": "Logins",
     "data": "Import / export",
-    "choose": "Choose…"
+    "choose": "Choose…",
+    "keys": "SSH keys"
   },
   "mode": {
     "user": "USER",
@@ -405,5 +406,31 @@
     "vaultImport": "Restore…",
     "vaultSaved": "Encrypted backup saved: {{path}}",
     "restored": "Restored: {{sessions}} · {{passwords}} passwords · {{hosts}} host keys"
+  },
+  "keys": {
+    "generate": "Generate a key",
+    "type": "Type",
+    "format": "Format",
+    "comment": "Comment",
+    "passphrase": "Passphrase",
+    "repeat": "Repeat passphrase",
+    "optional": "Optional",
+    "mismatch": "The two passphrases differ.",
+    "generateHint": "Ed25519 is recommended; older devices may need RSA. OpenSSH keys also get a .pub file next to them. Private key files are readable only by you.",
+    "generateSave": "Generate and save…",
+    "working": "Working…",
+    "saved": "Saved: {{path}}",
+    "convert": "Convert or view a key",
+    "convertHint": "Opens OpenSSH, PuTTY (.ppk v2/v3) and PEM keys. The public key is shown without the passphrase.",
+    "open": "Open key file…",
+    "currentPassphrase": "Current passphrase",
+    "saveAs": "Save as",
+    "newPassphrase": "New passphrase",
+    "convertSave": "Save copy…",
+    "encrypted": "encrypted",
+    "publicKey": "Public key",
+    "copyPublic": "Copy public key",
+    "copied": "Public key copied",
+    "copyFailed": "Could not copy to the clipboard"
   }
 }

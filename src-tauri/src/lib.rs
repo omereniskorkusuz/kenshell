@@ -5,6 +5,7 @@ mod console_detect;
 mod error;
 mod events;
 mod import;
+mod keys;
 mod logging;
 mod model;
 mod platform;
@@ -80,6 +81,9 @@ pub fn run() {
             commands::secrets::profile_create,
             commands::secrets::vault_export,
             commands::secrets::vault_import,
+            commands::keys::key_generate,
+            commands::keys::key_inspect,
+            commands::keys::key_convert,
             commands::secrets::profile_update,
             commands::secrets::profile_set_password,
             commands::secrets::profile_delete,

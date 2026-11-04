@@ -130,6 +130,19 @@ export interface ImportReport {
   folder: string | null;
 }
 
+export type KeyKind = 'ed25519' | 'rsa3072' | 'rsa4096';
+export type KeyFormat = 'openssh' | 'ppk';
+
+/** Public information of a key (never private material). */
+export interface KeyInfo {
+  algorithm: string;
+  bits: number | null;
+  comment: string;
+  fingerprint: string;
+  publicLine: string;
+  encrypted: boolean;
+}
+
 /** Result of restoring an encrypted backup. */
 export interface RestoreReport {
   sessions: ImportReport;
@@ -451,6 +464,22 @@ export const api = {
     call<undefined>('vault_export', { path, password }),
   vaultImport: (path: string, password: string) =>
     call<RestoreReport>('vault_import', { path, password }),
+  /** Empty passphrase = unencrypted key. OpenSSH also writes `<path>.pub`. */
+  keyGenerate: (
+    kind: KeyKind,
+    comment: string,
+    format: KeyFormat,
+    passphrase: string,
+    path: string,
+  ) => call<KeyInfo>('key_generate', { kind, comment, format, passphrase, path }),
+  keyInspect: (path: string) => call<KeyInfo>('key_inspect', { path }),
+  keyConvert: (
+    path: string,
+    passphrase: string,
+    format: KeyFormat,
+    newPassphrase: string,
+    dest: string,
+  ) => call<KeyInfo>('key_convert', { path, passphrase, format, newPassphrase, dest }),
   /** Native dialog; resolves null when cancelled. */
   pickPath: (kind: 'file' | 'folder' | 'save', extensions?: string[], name?: string) =>
     call<string | null>('pick_path', { kind, extensions: extensions ?? null, name: name ?? null }),

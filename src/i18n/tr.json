@@ -328,7 +328,8 @@
     "lineTimestampsHint": "Yalnız terminalde gösterilir; cihaz çıktısı değişmez.",
     "credentials": "Kimlik profilleri",
     "data": "İçe / dışa aktar",
-    "choose": "Seç…"
+    "choose": "Seç…",
+    "keys": "SSH anahtarları"
   },
   "mode": {
     "user": "USER",
@@ -405,5 +406,31 @@
     "vaultImport": "Geri yükle…",
     "vaultSaved": "Şifreli yedek kaydedildi: {{path}}",
     "restored": "Geri yüklendi: {{sessions}} · {{passwords}} şifre · {{hosts}} sunucu anahtarı"
+  },
+  "keys": {
+    "generate": "Anahtar üret",
+    "type": "Tür",
+    "format": "Biçim",
+    "comment": "Açıklama",
+    "passphrase": "Parola",
+    "repeat": "Parola tekrar",
+    "optional": "İsteğe bağlı",
+    "mismatch": "İki parola aynı değil.",
+    "generateHint": "Ed25519 önerilir; eski cihazlar RSA isteyebilir. OpenSSH anahtarının yanına .pub dosyası da yazılır. Özel anahtar dosyasını yalnız siz okuyabilirsiniz.",
+    "generateSave": "Üret ve kaydet…",
+    "working": "Çalışıyor…",
+    "saved": "Kaydedildi: {{path}}",
+    "convert": "Anahtar dönüştür veya görüntüle",
+    "convertHint": "OpenSSH, PuTTY (.ppk v2/v3) ve PEM anahtarlarını açar. Açık anahtar parola sorulmadan gösterilir.",
+    "open": "Anahtar dosyası aç…",
+    "currentPassphrase": "Mevcut parola",
+    "saveAs": "Farklı kaydet",
+    "newPassphrase": "Yeni parola",
+    "convertSave": "Kopyayı kaydet…",
+    "encrypted": "şifreli",
+    "publicKey": "Açık anahtar",
+    "copyPublic": "Açık anahtarı kopyala",
+    "copied": "Açık anahtar kopyalandı",
+    "copyFailed": "Panoya kopyalanamadı"
   }
 }
