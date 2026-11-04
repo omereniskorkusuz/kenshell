@@ -40,6 +40,7 @@ export interface Draft {
   username: string;
   legacyAlgorithms: boolean;
   keyPath: string;
+  useAgent: boolean;
 }
 
 export function draftFrom(input: Partial<SessionInput> | null | undefined): Draft {
@@ -65,6 +66,7 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     username: input?.username ?? '',
     legacyAlgorithms: input?.ssh?.legacyAlgorithms ?? false,
     keyPath: input?.ssh?.keyPath ?? '',
+    useAgent: input?.ssh?.useAgent ?? false,
   };
 }
 
@@ -143,6 +145,7 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
             ...(base?.ssh ?? {}),
             legacyAlgorithms: d.legacyAlgorithms,
             keyPath: d.keyPath.trim() || null,
+            useAgent: d.useAgent,
           }
         : null,
   };

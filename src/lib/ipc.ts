@@ -159,12 +159,15 @@ export interface SshOptions {
   keyPath: string | null;
   /** Seconds; null = 30, 0 = off. */
   keepaliveSecs: number | null;
+  /** Try SSH agent keys first (off: devices often allow only ~3 attempts). */
+  useAgent: boolean;
 }
 
 export const DEFAULT_SSH: SshOptions = {
   legacyAlgorithms: false,
   keyPath: null,
   keepaliveSecs: null,
+  useAgent: false,
 };
 
 export type NetProtocol = Exclude<Protocol, 'serial'>;

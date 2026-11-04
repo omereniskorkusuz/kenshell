@@ -1044,7 +1044,10 @@ async fn net_drop(auto: bool, err: Option<AppError>) -> (Arc<FakeBackend>, Arc<R
         .sink(0)
         .try_send(TransportEvent::Closed(err))
         .unwrap();
-    until("disconnected", || out.count_state(ConnState::Disconnected) >= 1).await;
+    until("disconnected", || {
+        out.count_state(ConnState::Disconnected) >= 1
+    })
+    .await;
     tokio::time::sleep(Duration::from_millis(50)).await;
     std::mem::forget(mgr); // keep the session task alive for the assertions
     (backend, out)
@@ -1052,7 +1055,8 @@ async fn net_drop(auto: bool, err: Option<AppError>) -> (Arc<FakeBackend>, Arc<R
 
 #[tokio::test]
 async fn network_drop_reconnects_automatically_when_enabled() {
-    let (backend, out) = net_drop(true, Some(AppError::with(ErrorCode::Timeout, "keepalive"))).await;
+    let (backend, out) =
+        net_drop(true, Some(AppError::with(ErrorCode::Timeout, "keepalive"))).await;
     until("reconnected", || out.count_state(ConnState::Connected) == 2).await;
     assert_eq!(backend.transport_count(), 2);
 }

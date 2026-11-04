@@ -224,7 +224,9 @@
     "legacyAlgorithms": "Legacy algorithms",
     "legacyAlgorithmsHint": "For old Cisco/Ruijie/Juniper devices: also offers diffie-hellman-group1/14-sha1, ssh-rsa, CBC ciphers and hmac-sha1.",
     "keyPath": "Private key file",
-    "portRange": "Port must be 1–65535."
+    "portRange": "Port must be 1–65535.",
+    "useAgent": "Use SSH agent keys",
+    "useAgentHint": "Tries up to 2 keys from ssh-agent / Pageant before the password. Network devices often allow only 3 attempts."
   },
   "palette": {
     "placeholder": "Search sessions, consoles and actions…",

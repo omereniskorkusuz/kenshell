@@ -224,7 +224,9 @@
     "legacyAlgorithms": "Eski algoritmalar",
     "legacyAlgorithmsHint": "Eski Cisco/Ruijie/Juniper cihazları için: diffie-hellman-group1/14-sha1, ssh-rsa, CBC şifreleri ve hmac-sha1 de önerilir.",
     "keyPath": "Özel anahtar dosyası",
-    "portRange": "Port 1–65535 arasında olmalı."
+    "portRange": "Port 1–65535 arasında olmalı.",
+    "useAgent": "SSH agent anahtarlarını kullan",
+    "useAgentHint": "Şifreden önce ssh-agent / Pageant içinden en fazla 2 anahtar dener. Ağ cihazları çoğu zaman yalnız 3 denemeye izin verir."
   },
   "palette": {
     "placeholder": "Oturum, konsol ve eylem ara…",

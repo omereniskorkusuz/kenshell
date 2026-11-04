@@ -332,6 +332,7 @@ mod tests {
             legacy_algorithms: true,
             key_path: Some("  ~/.ssh/id_ed25519 ".into()),
             keepalive_secs: Some(15),
+            use_agent: true,
         });
         let rec = db.create_session(&input).unwrap();
         let o = rec.ssh.clone().unwrap();

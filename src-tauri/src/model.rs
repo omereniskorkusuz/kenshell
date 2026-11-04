@@ -337,6 +337,10 @@ pub struct SshOptions {
     pub key_path: Option<String>,
     /// SSH keepalive interval in seconds (`None` = 30, `Some(0)` = off).
     pub keepalive_secs: Option<u32>,
+    /// Try keys from the SSH agent (macOS/Linux ssh-agent, Windows OpenSSH agent or
+    /// Pageant). Off by default: network devices often allow only ~3 auth attempts,
+    /// which agent keys could use up before the password is asked.
+    pub use_agent: bool,
 }
 
 impl Protocol {

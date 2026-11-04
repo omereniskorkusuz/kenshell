@@ -258,6 +258,15 @@ impl SshTransport {
             m.as_ref().is_none_or(|set| set.contains(&k))
         };
 
+        // 0. SSH agent (opt-in, see SshOptions::use_agent)
+        if self.opts.use_agent {
+            match agent::authenticate(handle, user).await {
+                agent::Outcome::Success => return Ok(()),
+                agent::Outcome::Failed(Some(remaining)) => methods = Some(remaining),
+                agent::Outcome::Failed(None) | agent::Outcome::Unavailable => {}
+            }
+        }
+
         // 1. private key file
         if let Some(path) = self.opts.key_path.clone().filter(|p| !p.trim().is_empty()) {
             let key = match russh::keys::load_secret_key(&path, None) {
@@ -556,5 +565,95 @@ mod tests {
         let n = k.len();
         dedup(&mut k);
         assert_eq!(k.len(), n, "no duplicates");
+    }
+}
+
+/// SSH agent authentication (P2-T05): macOS/Linux `SSH_AUTH_SOCK`, Windows OpenSSH
+/// agent named pipe, then Pageant.
+mod agent {
+    use russh::client::{AuthResult, Handle};
+    use russh::keys::agent::client::AgentClient;
+    use tokio::io::{AsyncRead, AsyncWrite};
+
+    use super::Client;
+
+    /// Each identity costs one server-side auth attempt; stay well below the usual
+    /// network-device limit so the password still gets its turn.
+    const MAX_AGENT_KEYS: usize = 2;
+
+    pub enum Outcome {
+        Success,
+        /// Remaining methods from the last failure (if any key was tried).
+        Failed(Option<russh::MethodSet>),
+        Unavailable,
+    }
+
+    pub async fn authenticate(handle: &mut Handle<Client>, user: &str) -> Outcome {
+        #[cfg(unix)]
+        {
+            match AgentClient::connect_env().await {
+                Ok(mut a) => try_keys(handle, user, &mut a).await,
+                Err(e) => {
+                    tracing::debug!("ssh agent unavailable: {e}");
+                    Outcome::Unavailable
+                }
+            }
+        }
+        #[cfg(windows)]
+        {
+            if let Ok(mut a) = AgentClient::connect_named_pipe(r"\\.\pipe\openssh-ssh-agent").await
+            {
+                return try_keys(handle, user, &mut a).await;
+            }
+            match AgentClient::connect_pageant().await {
+                Ok(mut a) => try_keys(handle, user, &mut a).await,
+                Err(e) => {
+                    tracing::debug!("ssh agent unavailable: {e}");
+                    Outcome::Unavailable
+                }
+            }
+        }
+    }
+
+    async fn try_keys<S>(
+        handle: &mut Handle<Client>,
+        user: &str,
+        agent: &mut AgentClient<S>,
+    ) -> Outcome
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let ids = match agent.request_identities().await {
+            Ok(ids) => ids,
+            Err(e) => {
+                tracing::debug!("ssh agent identities: {e}");
+                return Outcome::Unavailable;
+            }
+        };
+        if ids.is_empty() {
+            return Outcome::Unavailable;
+        }
+        let hash = handle
+            .best_supported_rsa_hash()
+            .await
+            .ok()
+            .flatten()
+            .flatten();
+        let mut last = None;
+        for id in ids.iter().take(MAX_AGENT_KEYS) {
+            let key = id.public_key().into_owned();
+            let hash = key.algorithm().is_rsa().then_some(hash).flatten();
+            match handle
+                .authenticate_publickey_with(user, key, hash, agent)
+                .await
+            {
+                Ok(AuthResult::Success) => return Outcome::Success,
+                Ok(AuthResult::Failure {
+                    remaining_methods, ..
+                }) => last = Some(remaining_methods),
+                Err(e) => tracing::debug!("ssh agent key rejected: {e}"),
+            }
+        }
+        Outcome::Failed(last)
     }
 }

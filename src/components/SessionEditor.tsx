@@ -249,6 +249,17 @@ export function SessionEditor({ state }: { state: EditorState }) {
                       </span>
                     </span>
                   </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={draft.useAgent}
+                      onChange={(e) => set('useAgent', e.target.checked)}
+                    />
+                    <span>
+                      {t('editor.useAgent')}
+                      <span className="block text-xs text-muted">{t('editor.useAgentHint')}</span>
+                    </span>
+                  </label>
                   <Field label={t('editor.keyPath')}>
                     {(id) => (
                       <input
