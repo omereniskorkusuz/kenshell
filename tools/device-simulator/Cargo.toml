@@ -1,0 +1,16 @@
+[package]
+name = "device-simulator"
+version = "0.1.0"
+description = "Local Telnet/stdio network-device simulator (Cisco, Ruijie profiles) for KenShell tests"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+# Dev tool only — never bundled into the app. Kept dependency-light on purpose.
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = { version = "1", default-features = false, features = ["parse", "serde"] }
+
+[lints]
+workspace = true

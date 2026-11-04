@@ -1,0 +1,175 @@
+# Ruijie RG-S5750 / RGOS 11.4 — synthetic but format-faithful outputs.
+# Note interface names with a space ("GigabitEthernet 0/1") and "AggregatePort".
+name = "ruijie-rgos"
+vendor = "Ruijie"
+hostname = "access-sw-02"
+banner = ""
+motd = ""
+username = "admin"
+password = "admin"
+enable_password = "ruijie"
+username_prompt = "\r\nUser Access Verification\r\n\r\nUsername:"
+password_prompt = "Password:"
+more_prompt = " --More-- "
+terminal_length = 24
+iface_space = true
+iface_types = ["GigabitEthernet", "TenGigabitEthernet", "FastEthernet", "FortyGigabitEthernet", "AggregatePort", "VLAN", "Loopback", "Mgmt"]
+reload_text = """
+Reload system?(Y/N)y
+
+*Nov  4 12:00:01: %SYS-5-RELOAD: Reload requested by admin.
+
+Ruijie BootLoader 1.3.8 (Build Mar 10 2021)
+Press Ctrl+C to enter Boot Menu ...
+Loading main program.....
+Starting system, please wait...
+Press RETURN to get started
+"""
+
+[prompts]
+user = "{host}>"
+privileged = "{host}#"
+config = "{host}(config)#"
+interface = "{host}(config-if-{iface})#"
+submode = "{host}({sub})#"
+
+[messages]
+invalid_input = "% Invalid input detected at '^' marker."
+ambiguous = "% Ambiguous command: \"{cmd}\""
+incomplete = "% Incomplete command."
+login_failed = "% Login invalid."
+enable_failed = "% Password incorrect."
+
+[[submodes]]
+keyword = "vlan"
+suffix = "config-vlan"
+
+[[submodes]]
+keyword = "line"
+suffix = "config-line"
+
+[[submodes]]
+keyword = "router"
+suffix = "config-router"
+
+[[commands]]
+words = ["show", "version"]
+output = """
+System description      : Ruijie Full Gigabit Security & Intelligence Access Switch(S5750-48GT4XS-E) By Ruijie Networks
+System start time       : 2026-09-16 08:12:44
+System uptime           : 49:03:47:16
+System hardware version : 1.10
+System software version : S5750_RGOS 11.4(1)B12P10S2
+System patch number     : NA
+System serial number    : G1MQ3K8000123
+System boot version     : 1.3.8
+Module information:
+  Slot 0 : S5750-48GT4XS-E
+    Hardware version    : 1.10
+    Boot version        : 1.3.8
+    Software version    : S5750_RGOS 11.4(1)B12P10S2
+    Serial number       : G1MQ3K8000123
+"""
+
+[[commands]]
+words = ["show", "interfaces", "status"]
+output = """
+Interface                        Status    Vlan   Duplex   Speed     Type
+-------------------------------- --------  ----   -------  --------- ------
+GigabitEthernet 0/1              up        10     Full     1000M     copper
+GigabitEthernet 0/2              down      10     Unknown  Unknown   copper
+GigabitEthernet 0/3              up        10     Full     100M      copper
+GigabitEthernet 0/4              disabled  1      Unknown  Unknown   copper
+GigabitEthernet 0/24             up        20     Full     1000M     copper
+TenGigabitEthernet 0/49          up        Trunk  Full     10G       fiber
+TenGigabitEthernet 0/50          up        Trunk  Full     10G       fiber
+AggregatePort 1                  up        Trunk  Full     10G
+"""
+
+[[commands]]
+words = ["show", "ip", "interface", "brief"]
+output = """
+Interface                        IP-Address(Pri)      IP-Address(Sec)      Status                 Protocol
+VLAN 10                          10.10.10.3/24        no address           up                     up
+VLAN 99                          192.168.99.3/24      no address           up                     up
+Mgmt 0                           no address           no address           down                   down
+"""
+
+[[commands]]
+words = ["show", "vlan"]
+output = """
+VLAN Name                             Status    Ports
+---- -------------------------------- --------- -----------------------------------
+   1 VLAN0001                         STATIC    Gi0/4
+  10 USERS                            STATIC    Gi0/1, Gi0/2, Gi0/3, Ag1
+  20 CCTV                             STATIC    Gi0/24, Ag1
+  99 MGMT                             STATIC    Ag1
+"""
+
+[[commands]]
+words = ["show", "lldp", "neighbors"]
+output = """
+Capability codes:
+    (R) Router, (B) Bridge, (C) DOCSIS Cable Device, (T) Telephone
+    (W) WLAN Access Point, (P) Repeater, (S) Station, (O) Other
+System Name          Local Intf               Port ID              Capability Aging-time
+core-sw-01           TenGigabitEthernet 0/49  Te1/0/5              B, R       1min 38s
+core-sw-01           TenGigabitEthernet 0/50  Te1/0/6              B, R       1min 38s
+"""
+
+[[commands]]
+words = ["show", "clock"]
+output = "12:00:00 UTC Wed, Nov 4, 2026"
+
+[[commands]]
+words = ["show", "running-config"]
+min_mode = "privileged"
+output = """
+
+Building configuration...
+Current configuration: 2140 bytes
+
+!
+version S5750_RGOS 11.4(1)B12P10S2
+hostname {host}
+!
+vlan 10
+ name USERS
+!
+vlan 20
+ name CCTV
+!
+vlan 99
+ name MGMT
+!
+enable secret 5 $1$abcd$efghijklmnopqrstuvwxyz
+username admin privilege 15 password 7 0237362c2b2e
+!
+interface GigabitEthernet 0/1
+ description AP-Floor1
+ switchport access vlan 10
+!
+interface GigabitEthernet 0/24
+ description Kamera
+ switchport access vlan 20
+!
+interface TenGigabitEthernet 0/49
+ port-group 1 mode active
+!
+interface TenGigabitEthernet 0/50
+ port-group 1 mode active
+!
+interface AggregatePort 1
+ switchport mode trunk
+!
+interface VLAN 99
+ ip address 192.168.99.3 255.255.255.0
+!
+ip route 0.0.0.0 0.0.0.0 192.168.99.1
+!
+line con 0
+line vty 0 4
+ login local
+!
+end
+"""
