@@ -259,14 +259,13 @@ impl SerialProbe {
             FlowControl::XonXoff => serialport::FlowControl::Software,
         };
         let first = settings.baud.unwrap_or(DEFAULT_CANDIDATES[0]);
-        let mut port = serialport::new(path, first)
+        let builder = serialport::new(path, first)
             .data_bits(data_bits)
             .stop_bits(stop_bits)
             .parity(parity)
             .flow_control(flow)
-            .timeout(READ_TIMEOUT)
-            .open()
-            .map_err(|e| crate::platform::classify_open_error(path, &e))?;
+            .timeout(READ_TIMEOUT);
+        let mut port = crate::platform::open_serial(&builder, path)?;
         // Line states are best effort: some drivers reject them and consoles do not care.
         if let Some(dtr) = settings.dtr
             && let Err(e) = port.write_data_terminal_ready(dtr)

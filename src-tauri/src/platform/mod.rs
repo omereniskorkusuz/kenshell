@@ -16,6 +16,35 @@ mod imp;
 
 pub use imp::port_exists;
 
+/// How long a just-closed port may still be held by our own previous session (its
+/// reader thread exits within the serial read timeout).
+const BUSY_RETRY: std::time::Duration = std::time::Duration::from_millis(150);
+const BUSY_ATTEMPTS: u32 = 5;
+
+/// Opens a serial port, retrying briefly while it is busy: closing a tab and opening
+/// the same port again right away must not fail just because the old session's reader
+/// thread has not let go yet. A port really held by another app still fails (~0.6 s).
+/// Blocking — call from a blocking context.
+pub fn open_serial(
+    builder: &serialport::SerialPortBuilder,
+    path: &str,
+) -> Result<Box<dyn serialport::SerialPort>, AppError> {
+    let mut attempt = 1;
+    loop {
+        match builder.clone().open() {
+            Ok(p) => return Ok(p),
+            Err(e) => {
+                let err = classify_open_error(path, &e);
+                if err.code != ErrorCode::PortBusy || attempt >= BUSY_ATTEMPTS {
+                    return Err(err);
+                }
+                attempt += 1;
+                std::thread::sleep(BUSY_RETRY);
+            }
+        }
+    }
+}
+
 /// Maps a serial-port open error to a friendly [`AppError`] (P1-T11).
 ///
 /// serialport reports a locked port as `NoDevice` (unix: EBUSY from TIOCEXCL/flock;

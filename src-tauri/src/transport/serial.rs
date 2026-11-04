@@ -158,9 +158,7 @@ impl Transport for SerialTransport {
         let path = self.settings.port.clone();
         let rts = self.settings.rts;
         let port = blocking(move || {
-            let mut port = builder
-                .open()
-                .map_err(|e| crate::platform::classify_open_error(&path, &e))?;
+            let mut port = crate::platform::open_serial(&builder, &path)?;
             if let Some(level) = rts
                 && let Err(e) = port.write_request_to_send(level)
             {
