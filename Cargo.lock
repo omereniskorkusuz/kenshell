@@ -111,6 +111,7 @@ dependencies = [
  "blake2",
  "cpufeatures 0.3.1",
  "password-hash",
+ "zeroize",
 ]
 
 [[package]]
@@ -2523,11 +2524,13 @@ name = "kenshell"
 version = "0.1.0"
 dependencies = [
  "arboard",
+ "argon2",
  "async-trait",
  "chrono",
  "futures-lite",
  "keyring",
  "nusb",
+ "ring",
  "rusqlite",
  "russh",
  "serde",

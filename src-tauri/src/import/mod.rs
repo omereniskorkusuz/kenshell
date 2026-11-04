@@ -14,7 +14,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::model::{FlowControl, Parity, Protocol, SerialSettings, SessionInput};
+use crate::model::{FlowControl, Parity, Protocol, SerialSettings, SessionInput, SessionRecord};
 
 /// One parsed session plus the folder path it should live in (relative to the
 /// import's root folder).
@@ -488,7 +488,11 @@ use crate::storage::Db;
 /// Max size of an import file (protects against picking a huge wrong file).
 pub const MAX_FILE_BYTES: u64 = 10 * 1024 * 1024;
 
-fn find_or_create_folder(db: &Db, parent: Option<i64>, name: &str) -> crate::error::Result<i64> {
+pub(crate) fn find_or_create_folder(
+    db: &Db,
+    parent: Option<i64>,
+    name: &str,
+) -> crate::error::Result<i64> {
     let existing = db
         .list_folders()?
         .into_iter()
@@ -501,24 +505,39 @@ fn find_or_create_folder(db: &Db, parent: Option<i64>, name: &str) -> crate::err
 
 /// Creates the sessions under a top-level folder `root` (reused if it exists),
 /// mirroring their folder paths. Same name in the same folder → skipped.
-pub fn apply(db: &Db, root: &str, items: Vec<Imported>, mut report: ImportReport) -> ImportReport {
+pub fn apply(db: &Db, root: &str, items: Vec<Imported>, report: ImportReport) -> ImportReport {
+    apply_with(db, Some(root), items, report, |_, _| {})
+}
+
+/// Like [`apply`]; `root: None` recreates the folder paths at the top level (backup
+/// restore). `on_created(index, session)` runs for every newly created session.
+pub fn apply_with(
+    db: &Db,
+    root: Option<&str>,
+    items: Vec<Imported>,
+    mut report: ImportReport,
+    mut on_created: impl FnMut(usize, &SessionRecord),
+) -> ImportReport {
     if items.is_empty() {
         return report;
     }
-    let root_id = match find_or_create_folder(db, None, root) {
-        Ok(id) => id,
-        Err(e) => {
-            report.errors.push(format!("{root}: {e}"));
+    let root_id = match root.map(|r| find_or_create_folder(db, None, r)) {
+        None => None,
+        Some(Ok(id)) => Some(id),
+        Some(Err(e)) => {
+            report
+                .errors
+                .push(format!("{}: {e}", root.unwrap_or_default()));
             return report;
         }
     };
-    report.folder = Some(root.to_owned());
-    for item in items {
+    report.folder = root.map(str::to_owned);
+    for (index, item) in items.into_iter().enumerate() {
         let mut parent = root_id;
         let mut failed = false;
         for part in &item.folders {
-            match find_or_create_folder(db, Some(parent), part) {
-                Ok(id) => parent = id,
+            match find_or_create_folder(db, parent, part) {
+                Ok(id) => parent = Some(id),
                 Err(e) => {
                     report.errors.push(format!("{}: {e}", item.input.name));
                     failed = true;
@@ -531,7 +550,7 @@ pub fn apply(db: &Db, root: &str, items: Vec<Imported>, mut report: ImportReport
         }
         let exists = db.list_sessions().is_ok_and(|all| {
             all.iter().any(|s| {
-                s.folder_id == Some(parent) && s.name.eq_ignore_ascii_case(item.input.name.trim())
+                s.folder_id == parent && s.name.eq_ignore_ascii_case(item.input.name.trim())
             })
         });
         if exists {
@@ -539,9 +558,12 @@ pub fn apply(db: &Db, root: &str, items: Vec<Imported>, mut report: ImportReport
             continue;
         }
         let mut input = item.input;
-        input.folder_id = Some(parent);
+        input.folder_id = parent;
         match db.create_session(&input) {
-            Ok(_) => report.created += 1,
+            Ok(s) => {
+                report.created += 1;
+                on_created(index, &s);
+            }
             Err(e) => report.errors.push(format!("{}: {e}", input.name)),
         }
     }

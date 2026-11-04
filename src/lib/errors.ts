@@ -18,6 +18,7 @@ const KEYS: Record<ErrorCode, TKey> = {
   hostKeyChanged: 'errors.hostKeyChanged',
   noCommonAlgorithm: 'errors.noCommonAlgorithm',
   connectionClosed: 'errors.connectionClosed',
+  badPassword: 'errors.badPassword',
   notFound: 'errors.notFound',
   invalid: 'errors.invalid',
   unsupported: 'errors.unsupported',

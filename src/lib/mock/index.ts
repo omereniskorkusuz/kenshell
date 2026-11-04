@@ -712,7 +712,16 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
       case 'import_sessions':
         return { created: 3, skipped: 0, errors: [], folder: 'PuTTY' };
       case 'export_sessions':
+      case 'vault_export':
         return undefined;
+      case 'vault_import':
+        if (a.password !== 'mock-master') throw { code: 'badPassword', detail: null };
+        return {
+          sessions: { created: 2, skipped: 1, errors: [], folder: null },
+          profilesCreated: 1,
+          passwords: 2,
+          knownHosts: 1,
+        };
       case 'pick_path':
         return null;
       case 'session_reorder': {

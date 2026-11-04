@@ -127,7 +127,8 @@
     "authFailed": "Login failed: user name or password was rejected.",
     "hostKeyChanged": "Connection blocked: the SSH host key of {{port}} has changed. If the device was replaced, forget the stored key.",
     "noCommonAlgorithm": "No common SSH algorithm with {{port}}. For older devices enable “Legacy algorithms” in the session.",
-    "connectionClosed": "{{port}} closed the connection."
+    "connectionClosed": "{{port}} closed the connection.",
+    "badPassword": "Wrong master password, or the file is damaged."
   },
   "identity": {
     "protocol": "Protocol",
@@ -393,6 +394,16 @@
     "skipped_other": "{{count}} already existed",
     "failed_one": "{{count}} could not be imported",
     "failed_other": "{{count}} could not be imported",
-    "exported": "Saved: {{path}}"
+    "exported": "Saved: {{path}}",
+    "vault": "Encrypted backup",
+    "vaultHint": "Sessions, folders, credential profiles, known SSH hosts and saved passwords in one file, encrypted with a master password (Argon2id + ChaCha20-Poly1305). Key files are not included. A lost master password cannot be recovered.",
+    "master": "Master password",
+    "masterRepeat": "Repeat (for a new backup)",
+    "masterShort": "At least {{min}} characters.",
+    "masterMismatch": "The two passwords differ.",
+    "vaultExport": "Create backup…",
+    "vaultImport": "Restore…",
+    "vaultSaved": "Encrypted backup saved: {{path}}",
+    "restored": "Restored: {{sessions}} · {{passwords}} passwords · {{hosts}} host keys"
   }
 }

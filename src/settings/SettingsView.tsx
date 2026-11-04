@@ -593,7 +593,130 @@ function DataSection() {
           CSV…
         </button>
       </div>
+      <VaultBackup />
     </div>
+  );
+}
+
+const MIN_MASTER = 8;
+
+/** Encrypted backup (P2-T15): the master password never leaves this form except to the backend. */
+function VaultBackup() {
+  const t = useT();
+  const [pw, setPw] = useState('');
+  const [repeat, setRepeat] = useState('');
+  const [busy, setBusy] = useState(false);
+  const pwId = useId();
+  const repeatId = useId();
+  const hintId = useId();
+  const short = pw.length > 0 && pw.length < MIN_MASTER;
+  const mismatch = repeat.length > 0 && repeat !== pw;
+  const canExport = pw.length >= MIN_MASTER && repeat === pw && !busy;
+
+  const fail = (e: unknown) => {
+    const d = describeError(e, t);
+    toast({ kind: 'error', message: d.message, detail: d.detail });
+  };
+
+  const backup = async () => {
+    const date = new Date().toISOString().slice(0, 10);
+    const path = await api
+      .pickPath('save', ['ksvault'], `kenshell-backup-${date}.ksvault`)
+      .catch(() => null);
+    if (!path) return;
+    setBusy(true);
+    try {
+      await api.vaultExport(path, pw);
+      setPw('');
+      setRepeat('');
+      useUi.getState().flash(t('data.vaultSaved', { path }));
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const restore = async () => {
+    const path = await api.pickPath('file', ['ksvault']).catch(() => null);
+    if (!path) return;
+    setBusy(true);
+    try {
+      const r = await api.vaultImport(path, pw);
+      setPw('');
+      setRepeat('');
+      await useLibrary.getState().load();
+      toast({
+        kind: 'info',
+        message: t('data.restored', {
+          sessions: [
+            t('data.created', { count: r.sessions.created }),
+            ...(r.sessions.skipped ? [t('data.skipped', { count: r.sessions.skipped })] : []),
+          ].join(' · '),
+          passwords: r.passwords,
+          hosts: r.knownHosts,
+        }),
+        detail: r.sessions.errors.slice(0, 20).join('\n') || null,
+      });
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <h3 className="label-caps mt-2">{t('data.vault')}</h3>
+      <p id={hintId} className="text-sm text-muted">
+        {t('data.vaultHint')}
+      </p>
+      <div className="grid max-w-md grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
+        <label htmlFor={pwId} className="text-sm text-secondary">
+          {t('data.master')}
+        </label>
+        <input
+          id={pwId}
+          type="password"
+          className="field"
+          autoComplete="new-password"
+          value={pw}
+          aria-describedby={hintId}
+          aria-invalid={short}
+          onChange={(e) => setPw(e.target.value)}
+        />
+        <label htmlFor={repeatId} className="text-sm text-secondary">
+          {t('data.masterRepeat')}
+        </label>
+        <input
+          id={repeatId}
+          type="password"
+          className="field"
+          autoComplete="new-password"
+          value={repeat}
+          aria-invalid={mismatch}
+          onChange={(e) => setRepeat(e.target.value)}
+        />
+        {(short || mismatch) && (
+          <p className="col-start-2 text-xs text-danger" role="status">
+            {short ? t('data.masterShort', { min: MIN_MASTER }) : t('data.masterMismatch')}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn" disabled={!canExport} onClick={() => void backup()}>
+          {t('data.vaultExport')}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={busy || pw.length === 0}
+          onClick={() => void restore()}
+        >
+          {t('data.vaultImport')}
+        </button>
+      </div>
+    </>
   );
 }
 

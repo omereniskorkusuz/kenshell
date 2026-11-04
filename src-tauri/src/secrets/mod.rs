@@ -3,6 +3,9 @@
 //! SQLite only knows *that* a session/profile exists; the keychain account name is
 //! derived from its id.
 
+pub mod backup;
+pub mod vault;
+
 use std::fmt;
 
 use zeroize::Zeroizing;

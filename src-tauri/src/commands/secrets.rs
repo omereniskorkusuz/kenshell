@@ -3,8 +3,9 @@
 
 use tauri::State;
 
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::model::CredentialProfile;
+use crate::secrets::backup::{self, RestoreReport};
 use crate::secrets::{profile_account, session_account};
 use crate::state::AppState;
 
@@ -90,3 +91,45 @@ pub fn session_password_set(
 pub fn session_password_exists(state: State<'_, AppState>, id: i64) -> Result<bool> {
     Ok(state.secrets.get(&session_account(id))?.is_some())
 }
+
+/// Writes an encrypted backup (library + saved passwords) to `path`.
+#[tauri::command]
+pub async fn vault_export(
+    state: State<'_, AppState>,
+    path: String,
+    password: String,
+) -> Result<()> {
+    let (db, store) = (state.db.clone(), state.secrets.clone());
+    let password = zeroize::Zeroizing::new(password);
+    tauri::async_runtime::spawn_blocking(move || {
+        let now = chrono::Utc::now().timestamp_millis();
+        let data = backup::export(&db, store.as_ref(), &password, now)?;
+        std::fs::write(&path, data)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::internal(e.to_string()))?
+}
+
+/// Restores an encrypted backup from `path` (merges; never overwrites).
+#[tauri::command]
+pub async fn vault_import(
+    state: State<'_, AppState>,
+    path: String,
+    password: String,
+) -> Result<RestoreReport> {
+    let (db, store) = (state.db.clone(), state.secrets.clone());
+    let password = zeroize::Zeroizing::new(password);
+    tauri::async_runtime::spawn_blocking(move || {
+        let meta = std::fs::metadata(&path)?;
+        if meta.len() > MAX_VAULT_BYTES {
+            return Err(AppError::invalid("file is too large for a backup"));
+        }
+        let data = std::fs::read(&path)?;
+        backup::restore(&db, store.as_ref(), &password, &data)
+    })
+    .await
+    .map_err(|e| AppError::internal(e.to_string()))?
+}
+
+const MAX_VAULT_BYTES: u64 = 64 * 1024 * 1024;

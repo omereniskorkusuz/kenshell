@@ -29,6 +29,8 @@ pub enum ErrorCode {
     NoCommonAlgorithm,
     /// The remote side closed the connection.
     ConnectionClosed,
+    /// Wrong master password (or a damaged vault file — indistinguishable by design).
+    BadPassword,
     NotFound,
     Invalid,
     Unsupported,

@@ -20,6 +20,7 @@ export type ErrorCode =
   | 'hostKeyChanged'
   | 'noCommonAlgorithm'
   | 'connectionClosed'
+  | 'badPassword'
   | 'notFound'
   | 'invalid'
   | 'unsupported'
@@ -127,6 +128,14 @@ export interface ImportReport {
   skipped: number;
   errors: string[];
   folder: string | null;
+}
+
+/** Result of restoring an encrypted backup. */
+export interface RestoreReport {
+  sessions: ImportReport;
+  profilesCreated: number;
+  passwords: number;
+  knownHosts: number;
 }
 
 export type ImportSource = 'putty' | 'securecrt' | 'mobaxterm' | 'csv';
@@ -437,6 +446,11 @@ export const api = {
     call<ImportReport>('import_sessions', { source, path }),
   exportSessions: (path: string, format: 'json' | 'csv') =>
     call<undefined>('export_sessions', { path, format }),
+  /** Encrypted backup (library + saved passwords); Argon2id (64 MiB) takes a moment. */
+  vaultExport: (path: string, password: string) =>
+    call<undefined>('vault_export', { path, password }),
+  vaultImport: (path: string, password: string) =>
+    call<RestoreReport>('vault_import', { path, password }),
   /** Native dialog; resolves null when cancelled. */
   pickPath: (kind: 'file' | 'folder' | 'save', extensions?: string[], name?: string) =>
     call<string | null>('pick_path', { kind, extensions: extensions ?? null, name: name ?? null }),

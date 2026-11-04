@@ -78,6 +78,8 @@ pub fn run() {
             commands::import::pick_path,
             commands::secrets::profile_list,
             commands::secrets::profile_create,
+            commands::secrets::vault_export,
+            commands::secrets::vault_import,
             commands::secrets::profile_update,
             commands::secrets::profile_set_password,
             commands::secrets::profile_delete,

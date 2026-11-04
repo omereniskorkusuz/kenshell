@@ -127,7 +127,8 @@
     "authFailed": "Giriş başarısız: kullanıcı adı veya şifre kabul edilmedi.",
     "hostKeyChanged": "Bağlantı engellendi: {{port}} cihazının SSH host anahtarı değişmiş. Cihaz değiştiyse kayıtlı anahtarı unutun.",
     "noCommonAlgorithm": "{{port}} ile ortak SSH algoritması yok. Eski cihazlar için oturumda “Eski algoritmalar” seçeneğini açın.",
-    "connectionClosed": "{{port}} bağlantıyı kapattı."
+    "connectionClosed": "{{port}} bağlantıyı kapattı.",
+    "badPassword": "Ana şifre yanlış ya da dosya bozuk."
   },
   "identity": {
     "protocol": "Protokol",
@@ -393,6 +394,16 @@
     "skipped_other": "{{count}} zaten vardı",
     "failed_one": "{{count}} aktarılamadı",
     "failed_other": "{{count}} aktarılamadı",
-    "exported": "Kaydedildi: {{path}}"
+    "exported": "Kaydedildi: {{path}}",
+    "vault": "Şifreli yedek",
+    "vaultHint": "Oturumlar, klasörler, kimlik profilleri, bilinen SSH sunucuları ve kayıtlı şifreler tek dosyada, ana şifreyle şifrelenir (Argon2id + ChaCha20-Poly1305). Anahtar dosyaları dahil değildir. Unutulan ana şifre geri getirilemez.",
+    "master": "Ana şifre",
+    "masterRepeat": "Tekrar (yeni yedek için)",
+    "masterShort": "En az {{min}} karakter.",
+    "masterMismatch": "İki şifre aynı değil.",
+    "vaultExport": "Yedek oluştur…",
+    "vaultImport": "Geri yükle…",
+    "vaultSaved": "Şifreli yedek kaydedildi: {{path}}",
+    "restored": "Geri yüklendi: {{sessions}} · {{passwords}} şifre · {{hosts}} sunucu anahtarı"
   }
 }

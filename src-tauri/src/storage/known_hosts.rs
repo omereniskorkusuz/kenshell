@@ -40,6 +40,27 @@ impl Db {
             .optional()?)
     }
 
+    pub fn list_known_hosts(&self) -> Result<Vec<KnownHost>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare_cached(
+            "SELECT host, port, algorithm, public_key, fingerprint, added_at
+             FROM known_hosts ORDER BY host, port",
+        )?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok(KnownHost {
+                    host: r.get(0)?,
+                    port: r.get(1)?,
+                    algorithm: r.get(2)?,
+                    public_key: r.get(3)?,
+                    fingerprint: r.get(4)?,
+                    added_at: r.get(5)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
     /// Stores (or replaces) the key for host:port; `added_at` = now.
     pub fn save_known_host(&self, key: &KnownHost) -> Result<()> {
         let host = norm_host(&key.host)?;
