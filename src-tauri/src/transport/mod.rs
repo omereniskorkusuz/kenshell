@@ -10,6 +10,7 @@ pub mod rlogin;
 pub mod serial;
 pub mod ssh;
 pub mod telnet;
+pub mod tunnel;
 
 use async_trait::async_trait;
 

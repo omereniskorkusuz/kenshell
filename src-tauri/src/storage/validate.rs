@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::ops::RangeInclusive;
 
 use crate::error::{AppError, Result};
-use crate::model::{Protocol, SerialSettings, SessionInput, SshOptions};
+use crate::model::{ForwardKind, Protocol, SerialSettings, SessionInput, SshOptions};
 
 pub(super) const MAX_NAME_CHARS: usize = 200;
 const MAX_HOST_CHARS: usize = 255;
@@ -182,17 +182,53 @@ fn auto_commands(raw: &[String]) -> Result<Vec<String>> {
     Ok(cmds)
 }
 
-/// SSH options only for SSH sessions; blank key paths are dropped.
-fn ssh(input: &SessionInput) -> Option<SshOptions> {
+/// Most forwards a session may start (mirrors the editor limit).
+pub const MAX_FORWARDS: usize = 16;
+
+/// SSH options only for SSH sessions; blank key paths are dropped, jump host /
+/// proxy / forwards are checked (they can also arrive through import).
+fn ssh(input: &SessionInput) -> Result<Option<SshOptions>> {
     if input.protocol != Protocol::Ssh {
-        return None;
+        return Ok(None);
     }
     let mut o = input.ssh.clone().unwrap_or_default();
     o.key_path = o
         .key_path
         .map(|p| p.trim().to_owned())
         .filter(|p| !p.is_empty());
-    Some(o)
+    if let Some(j) = o.jump.as_mut() {
+        j.host = host(Some(&j.host))?;
+        j.username = optional_text(j.username.as_deref(), "jump user", MAX_USERNAME_CHARS)?;
+        if j.port == Some(0) {
+            return Err(AppError::invalid("jump port must be 1-65535"));
+        }
+    }
+    if let Some(p) = o.proxy.as_mut() {
+        p.host = host(Some(&p.host))?;
+        if p.port == 0 {
+            return Err(AppError::invalid("proxy port must be 1-65535"));
+        }
+    }
+    if o.forwards.len() > MAX_FORWARDS {
+        return Err(AppError::invalid(format!(
+            "at most {MAX_FORWARDS} port forwards"
+        )));
+    }
+    for f in &mut o.forwards {
+        if f.listen_port == 0 {
+            return Err(AppError::invalid("forward listen port must be 1-65535"));
+        }
+        if f.kind == ForwardKind::Dynamic {
+            f.target_host = None;
+            f.target_port = None;
+            continue;
+        }
+        f.target_host = Some(host(f.target_host.as_deref())?);
+        if matches!(f.target_port, None | Some(0)) {
+            return Err(AppError::invalid("forward target port must be 1-65535"));
+        }
+    }
+    Ok(Some(o))
 }
 
 pub(super) fn session(input: &SessionInput) -> Result<ValidSession> {
@@ -214,7 +250,7 @@ pub(super) fn session(input: &SessionInput) -> Result<ValidSession> {
         port,
         username: optional_text(input.username.as_deref(), "username", MAX_USERNAME_CHARS)?,
         serial,
-        ssh: ssh(input),
+        ssh: ssh(input)?,
         credential_profile_id: input.credential_profile_id,
         auto_commands: auto_commands(&input.auto_commands)?,
         env_tag: env_tag(input.env_tag.as_deref())?,
@@ -270,6 +306,77 @@ mod tests {
         let e = session(input).unwrap_err();
         assert_eq!(e.code, ErrorCode::Invalid, "{e}");
         e.detail.unwrap()
+    }
+
+    #[test]
+    fn ssh_tunnels_are_checked() {
+        use crate::model::{Forward, JumpHost, ProxyConfig, ProxyKind};
+        let with = |f: &dyn Fn(&mut SshOptions)| {
+            let mut i = ssh();
+            let mut o = SshOptions::default();
+            f(&mut o);
+            i.ssh = Some(o);
+            session(&i)
+        };
+        let fwd = |kind, listen_port, port: Option<u16>| Forward {
+            kind,
+            listen_port,
+            target_host: port.map(|_| " 10.0.0.9 ".into()),
+            target_port: port,
+        };
+        let ok = with(&|o| {
+            o.jump = Some(JumpHost {
+                host: " bastion ".into(),
+                port: Some(2222),
+                username: Some(" ops ".into()),
+            });
+            o.proxy = Some(ProxyConfig {
+                kind: ProxyKind::Socks5,
+                host: "127.0.0.1".into(),
+                port: 1080,
+            });
+            o.forwards = vec![
+                fwd(ForwardKind::Local, 8080, Some(80)),
+                Forward {
+                    target_host: Some("junk".into()),
+                    ..fwd(ForwardKind::Dynamic, 1080, None)
+                },
+            ];
+        })
+        .unwrap()
+        .ssh
+        .unwrap();
+        let jump = ok.jump.unwrap();
+        assert_eq!(
+            (jump.host.as_str(), jump.username.as_deref()),
+            ("bastion", Some("ops"))
+        );
+        assert_eq!(ok.forwards[0].target_host.as_deref(), Some("10.0.0.9"));
+        assert_eq!(ok.forwards[1].target_host, None, "dynamic has no target");
+
+        let bad: [&dyn Fn(&mut SshOptions); 5] = [
+            &|o| {
+                o.jump = Some(JumpHost {
+                    host: " ".into(),
+                    port: None,
+                    username: None,
+                })
+            },
+            &|o| {
+                o.proxy = Some(ProxyConfig {
+                    kind: ProxyKind::Http,
+                    host: "p".into(),
+                    port: 0,
+                })
+            },
+            &|o| o.forwards = vec![fwd(ForwardKind::Local, 0, Some(80))],
+            &|o| o.forwards = vec![fwd(ForwardKind::Remote, 9000, None)],
+            &|o| o.forwards = vec![fwd(ForwardKind::Dynamic, 1, None); MAX_FORWARDS + 1],
+        ];
+        for (n, f) in bad.iter().enumerate() {
+            let err = with(*f).unwrap_err();
+            assert_eq!(err.code, ErrorCode::Invalid, "case {n}");
+        }
     }
 
     #[test]

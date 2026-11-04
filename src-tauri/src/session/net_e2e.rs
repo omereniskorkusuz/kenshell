@@ -419,3 +419,174 @@ async fn net_e2e_ssh_saved_password_logs_in_without_prompt_and_wrong_one_falls_b
     until("connected after prompt", || connected(&out)).await;
     m.close(id).unwrap();
 }
+
+async fn read_some(stream: &mut tokio::net::TcpStream, want: &str) -> String {
+    use tokio::io::AsyncReadExt;
+    let mut got = Vec::new();
+    let mut buf = [0u8; 1024];
+    let start = Instant::now();
+    while !String::from_utf8_lossy(&got).contains(want) {
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "no `{want}` in {got:?}"
+        );
+        if let Ok(Ok(n)) =
+            tokio::time::timeout(Duration::from_millis(500), stream.read(&mut buf)).await
+        {
+            if n == 0 {
+                break;
+            }
+            got.extend_from_slice(&buf[..n]);
+        }
+    }
+    String::from_utf8_lossy(&got).into_owned()
+}
+
+fn ssh_opts(edit: impl FnOnce(&mut SshOptions)) -> SshOptions {
+    let mut o = SshOptions::default();
+    edit(&mut o);
+    o
+}
+
+fn ssh_req(port: u16, opts: SshOptions) -> OpenRequest {
+    OpenRequest {
+        session_id: None,
+        target: OpenTarget::Network {
+            protocol: Protocol::Ssh,
+            host: "127.0.0.1".into(),
+            port: Some(port),
+            username: Some("admin".into()),
+            ssh: opts,
+        },
+        cols: 80,
+        rows: 24,
+    }
+}
+
+/// Answers every password prompt with "admin" until connected.
+async fn login(stage: &str, m: &SessionManager, id: crate::model::RuntimeId, out: &Rec) {
+    let start = Instant::now();
+    let mut answered = 0;
+    while !connected(out) {
+        assert!(
+            failed(out).is_none(),
+            "{stage} failed: {:?}",
+            out.events
+                .lock()
+                .unwrap()
+                .iter()
+                .rev()
+                .find_map(|e| match e {
+                    SessionEvent::State { error: Some(e), .. } => Some(e.clone()),
+                    _ => None,
+                })
+        );
+        assert!(start.elapsed() < Duration::from_secs(20), "login timed out");
+        if out.prompts().len() > answered {
+            answered += 1;
+            m.answer(id, vec!["admin".into()]).unwrap();
+        }
+        tokio::time::sleep(Duration::from_millis(30)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs target/debug/device-simulator"]
+async fn net_e2e_ssh_jump_host_forwards_and_proxy() {
+    use crate::model::{Forward, ForwardKind, JumpHost, ProxyConfig, ProxyKind};
+    let (pa, pb, pt) = (free_port(), free_port(), free_port());
+    let _a = sim(&["--ssh", "--host-key-seed", "11"], pa);
+    let _b = sim(
+        &["--ssh", "--host-key-seed", "12", "--profile", "ruijie"],
+        pb,
+    );
+    let _t = sim(&["--profile", "ruijie"], pt); // telnet target for forwards
+    let (m, db) = manager();
+
+    // 1. Jump host A → target B.
+    let out = Arc::new(Rec::default());
+    let opts = ssh_opts(|o| {
+        o.jump = Some(JumpHost {
+            host: "127.0.0.1".into(),
+            port: Some(pa),
+            username: Some("admin".into()),
+        });
+    });
+    let id = m.open(ssh_req(pb, opts), out.clone()).unwrap();
+    login("jump", &m, id, &out).await;
+    assert_eq!(
+        out.prompts().len(),
+        2,
+        "one password for the jump host, one for the target"
+    );
+    until("ruijie prompt via jump", || {
+        out.text().contains("access-sw-02>")
+    })
+    .await;
+    assert!(
+        db.get_known_host("127.0.0.1", pa).unwrap().is_some(),
+        "jump host key stored"
+    );
+    assert!(
+        db.get_known_host("127.0.0.1", pb).unwrap().is_some(),
+        "target key stored"
+    );
+    m.close(id).unwrap();
+
+    // 2. Forwards through A: local, dynamic (SOCKS5) and remote → telnet target.
+    let (lp, dp, rp) = (free_port(), free_port(), free_port());
+    let fwd = |kind, listen_port, target: bool| Forward {
+        kind,
+        listen_port,
+        target_host: target.then(|| "127.0.0.1".into()),
+        target_port: target.then_some(pt),
+    };
+    let opts = ssh_opts(|o| {
+        o.forwards = vec![
+            fwd(ForwardKind::Local, lp, true),
+            fwd(ForwardKind::Dynamic, dp, false),
+            fwd(ForwardKind::Remote, rp, true),
+        ];
+    });
+    let out = Arc::new(Rec::default());
+    let id = m.open(ssh_req(pa, opts), out.clone()).unwrap();
+    login("forwards", &m, id, &out).await;
+    until("forward notices", || {
+        out.text().matches("[KenShell] forward").count() >= 3
+    })
+    .await;
+    assert!(!out.text().contains("failed"), "{}", out.text());
+
+    let mut local = tokio::net::TcpStream::connect(("127.0.0.1", lp))
+        .await
+        .unwrap();
+    read_some(&mut local, "Username:").await;
+
+    let mut socks = tokio::net::TcpStream::connect(("127.0.0.1", dp))
+        .await
+        .unwrap();
+    crate::transport::tunnel::socks5_connect(&mut socks, "127.0.0.1", pt)
+        .await
+        .unwrap();
+    read_some(&mut socks, "Username:").await;
+
+    let mut remote = tokio::net::TcpStream::connect(("127.0.0.1", rp))
+        .await
+        .unwrap();
+    read_some(&mut remote, "Username:").await;
+
+    // 3. Proxy: a second session to B through the SOCKS5 forward of the first one.
+    let out2 = Arc::new(Rec::default());
+    let opts = ssh_opts(|o| {
+        o.proxy = Some(ProxyConfig {
+            kind: ProxyKind::Socks5,
+            host: "127.0.0.1".into(),
+            port: dp,
+        });
+    });
+    let id2 = m.open(ssh_req(pb, opts), out2.clone()).unwrap();
+    login("proxy", &m, id2, &out2).await;
+    until("ruijie via proxy", || out2.text().contains("access-sw-02>")).await;
+    m.close(id2).unwrap();
+    m.close(id).unwrap();
+}

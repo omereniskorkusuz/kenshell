@@ -190,6 +190,36 @@ export interface SshOptions {
   keepaliveSecs: number | null;
   /** Try SSH agent keys first (off: devices often allow only ~3 attempts). */
   useAgent: boolean;
+  /** Connect through this SSH server first (bastion). */
+  jump: JumpHost | null;
+  /** Started after login; failures are reported in the terminal, the session stays up. */
+  forwards: Forward[];
+  /** SOCKS5 / HTTP CONNECT proxy for the first TCP connection. */
+  proxy: ProxyConfig | null;
+}
+
+export interface JumpHost {
+  host: string;
+  port: number | null;
+  username: string | null;
+}
+
+/** local = -L, remote = -R, dynamic = -D (SOCKS5). */
+export type ForwardKind = 'local' | 'remote' | 'dynamic';
+
+export interface Forward {
+  kind: ForwardKind;
+  listenPort: number;
+  targetHost: string | null;
+  targetPort: number | null;
+}
+
+export type ProxyKind = 'socks5' | 'http';
+
+export interface ProxyConfig {
+  kind: ProxyKind;
+  host: string;
+  port: number;
 }
 
 export const DEFAULT_SSH: SshOptions = {
@@ -197,6 +227,9 @@ export const DEFAULT_SSH: SshOptions = {
   keyPath: null,
   keepaliveSecs: null,
   useAgent: false,
+  jump: null,
+  forwards: [],
+  proxy: null,
 };
 
 export type NetProtocol = Exclude<Protocol, 'serial'>;

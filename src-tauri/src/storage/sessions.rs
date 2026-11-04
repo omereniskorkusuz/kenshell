@@ -401,6 +401,7 @@ mod tests {
             key_path: Some("  ~/.ssh/id_ed25519 ".into()),
             keepalive_secs: Some(15),
             use_agent: true,
+            ..Default::default()
         });
         let rec = db.create_session(&input).unwrap();
         let o = rec.ssh.clone().unwrap();

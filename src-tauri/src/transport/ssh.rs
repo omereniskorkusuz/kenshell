@@ -11,20 +11,22 @@
 //! * Legacy option adds dh-group1/14-sha1, ssh-rsa, aes*-cbc, 3des-cbc, hmac-sha1.
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
 use russh::client::{self, AuthResult, Handle, KeyboardInteractiveAuthResponse};
 use russh::keys::{HashAlg, PrivateKeyWithHashAlg, PublicKey, PublicKeyOrCertificate};
-use russh::{ChannelMsg, ChannelWriteHalf, MethodKind, Preferred, cipher, kex, mac};
+use russh::{Channel, ChannelMsg, ChannelWriteHalf, MethodKind, Preferred, cipher, kex, mac};
 use tokio::task::JoinHandle;
 
 use super::net::{self, label};
+use super::tunnel::{self, Io};
 use super::{HostKeyStore, Prompter, Transport, TransportEvent, TransportSink};
 use crate::error::{AppError, ErrorCode, Result};
 use crate::model::{
-    HostKeyInfo, KnownHost, NetLink, PromptItem, PromptRequest, Protocol, SshOptions,
+    ForwardKind, HostKeyInfo, KnownHost, NetLink, PromptItem, PromptRequest, Protocol, SshOptions,
 };
 
 /// SSH handshake (version exchange + kex + host key) timeout.
@@ -83,11 +85,15 @@ enum KeyVerdict {
     Rejected(String),
 }
 
+/// Remote-forward targets by server-side port (read by the handler).
+type RemoteMap = Arc<Mutex<HashMap<u32, (String, u16)>>>;
+
 struct Client {
     host: String,
     port: u16,
     keys: Arc<dyn HostKeyStore>,
     verdict: Arc<Mutex<Option<KeyVerdict>>>,
+    remote: RemoteMap,
 }
 
 impl Client {
@@ -152,56 +158,54 @@ impl client::Handler for Client {
         }
         Ok(ok)
     }
+
+    /// Remote forwarding (`-R`): the server opens a channel for a connection it
+    /// accepted on a forwarded port; we connect to the local target and pipe.
+    async fn server_channel_open_forwarded_tcpip(
+        &mut self,
+        channel: Channel<client::Msg>,
+        _connected_address: &str,
+        connected_port: u32,
+        _originator_address: &str,
+        _originator_port: u32,
+        reply: client::ChannelOpenHandle,
+        _session: &mut client::Session,
+    ) -> std::result::Result<(), Self::Error> {
+        let target = self
+            .remote
+            .lock()
+            .ok()
+            .and_then(|m| m.get(&connected_port).cloned());
+        let Some((host, port)) = target else {
+            return Ok(()); // dropping `reply` rejects the channel
+        };
+        reply.accept().await;
+        tokio::spawn(async move {
+            match net::connect(&host, port).await {
+                Ok(mut tcp) => {
+                    let mut ch = channel.into_stream();
+                    let _ = tokio::io::copy_bidirectional(&mut ch, &mut tcp).await;
+                }
+                Err(e) => tracing::debug!("remote forward to {host}:{port}: {e}"),
+            }
+        });
+        Ok(())
+    }
 }
 
-pub struct SshTransport {
+/// Everything needed to log in to one SSH server (target or jump host).
+struct Login {
     host: String,
     port: u16,
     username: Option<String>,
-    opts: SshOptions,
-    sink: TransportSink,
-    prompter: Arc<dyn Prompter>,
-    keys: Arc<dyn HostKeyStore>,
-    size: (u16, u16),
-    handle: Option<Handle<Client>>,
-    writer: Option<ChannelWriteHalf<client::Msg>>,
-    reader: Option<JoinHandle<()>>,
-    host_key: Option<HostKeyInfo>,
     /// Saved login (keychain). The password is tried once, before asking the user.
     creds: Option<crate::secrets::Credentials>,
+    opts: SshOptions,
+    prompter: Arc<dyn Prompter>,
+    keys: Arc<dyn HostKeyStore>,
 }
 
-impl SshTransport {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        host: String,
-        port: u16,
-        username: Option<String>,
-        opts: SshOptions,
-        sink: TransportSink,
-        prompter: Arc<dyn Prompter>,
-        keys: Arc<dyn HostKeyStore>,
-        cols: u16,
-        rows: u16,
-        creds: Option<crate::secrets::Credentials>,
-    ) -> Self {
-        Self {
-            host,
-            port,
-            username,
-            opts,
-            sink,
-            prompter,
-            keys,
-            size: (cols, rows),
-            handle: None,
-            writer: None,
-            reader: None,
-            host_key: None,
-            creds,
-        }
-    }
-
+impl Login {
     /// Takes the saved password (it is offered to the server at most once).
     fn take_saved_password(&mut self) -> Option<crate::secrets::Secret> {
         self.creds.as_mut().and_then(|c| c.password.take())
@@ -253,7 +257,7 @@ impl SshTransport {
             .ask(
                 String::new(),
                 vec![PromptItem {
-                    text: "login as: ".into(),
+                    text: format!("login as ({}): ", self.host),
                     echo: true,
                 }],
             )
@@ -266,6 +270,54 @@ impl SshTransport {
         }
         self.username = Some(user.clone());
         Ok(user)
+    }
+
+    /// Version exchange + key exchange + host key check over `stream`.
+    async fn handshake(
+        &self,
+        stream: Box<dyn Io>,
+        remote: RemoteMap,
+    ) -> Result<(Handle<Client>, HostKeyInfo)> {
+        let target = self.target();
+        let verdict = Arc::new(Mutex::new(None));
+        let client = Client {
+            host: self.host.clone(),
+            port: self.port,
+            keys: Arc::clone(&self.keys),
+            verdict: Arc::clone(&verdict),
+            remote,
+        };
+        let handshake = client::connect_stream(Arc::new(self.config()), stream, client);
+        let result = tokio::time::timeout(HANDSHAKE_TIMEOUT, handshake).await;
+        let verdict = verdict.lock().ok().and_then(|v| v.clone());
+        match (result, verdict) {
+            (_, Some(KeyVerdict::Changed { stored, offered })) => Err(AppError::with(
+                ErrorCode::HostKeyChanged,
+                format!("{target}: stored {stored}, offered {offered}"),
+            )),
+            (_, Some(KeyVerdict::Rejected(why))) => {
+                Err(AppError::with(ErrorCode::Io, format!("{target}: {why}")))
+            }
+            (Err(_), _) => Err(AppError::with(
+                ErrorCode::Timeout,
+                format!("{target}: handshake"),
+            )),
+            (Ok(Err(e)), _) => Err(map_ssh(&target, e)),
+            (Ok(Ok(h)), Some(KeyVerdict::Accepted(info))) => Ok((h, info)),
+            (Ok(Ok(_)), None) => Err(AppError::internal("host key was not checked")),
+        }
+    }
+
+    /// Handshake + user name + authentication.
+    async fn login(
+        &mut self,
+        stream: Box<dyn Io>,
+        remote: RemoteMap,
+    ) -> Result<(Handle<Client>, HostKeyInfo)> {
+        let (mut handle, info) = self.handshake(stream, remote).await?;
+        let user = self.resolve_user().await?;
+        self.authenticate(&mut handle, &user).await?;
+        Ok((handle, info))
     }
 
     async fn authenticate(&mut self, handle: &mut Handle<Client>, user: &str) -> Result<()> {
@@ -420,6 +472,217 @@ impl SshTransport {
     }
 }
 
+pub struct SshTransport {
+    login: Login,
+    sink: TransportSink,
+    size: (u16, u16),
+    handle: Option<Arc<Handle<Client>>>,
+    /// Jump host session that carries the target connection.
+    jump: Option<Handle<Client>>,
+    writer: Option<ChannelWriteHalf<client::Msg>>,
+    reader: Option<JoinHandle<()>>,
+    host_key: Option<HostKeyInfo>,
+    remote: RemoteMap,
+    /// Port-forward listeners.
+    tasks: Vec<JoinHandle<()>>,
+}
+
+impl SshTransport {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        host: String,
+        port: u16,
+        username: Option<String>,
+        opts: SshOptions,
+        sink: TransportSink,
+        prompter: Arc<dyn Prompter>,
+        keys: Arc<dyn HostKeyStore>,
+        cols: u16,
+        rows: u16,
+        creds: Option<crate::secrets::Credentials>,
+    ) -> Self {
+        Self {
+            login: Login {
+                host,
+                port,
+                username,
+                creds,
+                opts,
+                prompter,
+                keys,
+            },
+            sink,
+            size: (cols, rows),
+            handle: None,
+            jump: None,
+            writer: None,
+            reader: None,
+            host_key: None,
+            remote: Arc::new(Mutex::new(HashMap::new())),
+            tasks: Vec::new(),
+        }
+    }
+
+    fn target(&self) -> String {
+        self.login.target()
+    }
+
+    /// A dim one-line note in the terminal (forward status) — no dialogs.
+    async fn notice(&self, text: String) {
+        let line = format!("\x1b[2m[KenShell] {text}\x1b[22m\r\n");
+        let _ = self
+            .sink
+            .send(TransportEvent::Data(line.into_bytes()))
+            .await;
+    }
+
+    /// TCP (optionally via proxy) or, with a jump host, a direct-tcpip channel.
+    async fn open_stream(&mut self) -> Result<Box<dyn Io>> {
+        let proxy = self.login.opts.proxy.clone();
+        let Some(j) = self.login.opts.jump.clone() else {
+            let tcp =
+                tunnel::connect_via(&self.login.host, self.login.port, proxy.as_ref()).await?;
+            return Ok(Box::new(tcp));
+        };
+        let mut jump = Login {
+            host: j.host.trim().to_owned(),
+            port: j.port.unwrap_or(22),
+            username: j.username.filter(|u| !u.trim().is_empty()),
+            creds: None,
+            opts: SshOptions {
+                legacy_algorithms: self.login.opts.legacy_algorithms,
+                keepalive_secs: self.login.opts.keepalive_secs,
+                use_agent: self.login.opts.use_agent,
+                ..SshOptions::default()
+            },
+            prompter: Arc::clone(&self.login.prompter),
+            keys: Arc::clone(&self.login.keys),
+        };
+        let via = jump.target();
+        let jump_err = |mut e: AppError| {
+            e.detail = Some(format!("jump host {via}: {}", e.detail.unwrap_or_default()));
+            e
+        };
+        let tcp = tunnel::connect_via(&jump.host, jump.port, proxy.as_ref())
+            .await
+            .map_err(jump_err)?;
+        let (jh, _) = jump
+            .login(Box::new(tcp), Arc::new(Mutex::new(HashMap::new())))
+            .await
+            .map_err(jump_err)?;
+        let ch = jh
+            .channel_open_direct_tcpip(
+                self.login.host.clone(),
+                u32::from(self.login.port),
+                "127.0.0.1",
+                0,
+            )
+            .await
+            .map_err(|e| jump_err(map_ssh(&self.login.target(), e)))?;
+        self.jump = Some(jh);
+        Ok(Box::new(ch.into_stream()))
+    }
+
+    async fn start_forwards(&mut self, handle: &Arc<Handle<Client>>) {
+        for f in self.login.opts.forwards.clone() {
+            let target = match (&f.target_host, f.target_port) {
+                (Some(h), Some(p)) if !h.trim().is_empty() => Some((h.trim().to_owned(), p)),
+                _ => None,
+            };
+            let what = match (f.kind, &target) {
+                (ForwardKind::Dynamic, _) => format!("SOCKS5 127.0.0.1:{}", f.listen_port),
+                (ForwardKind::Local, Some((h, p))) => {
+                    format!("127.0.0.1:{} → {}", f.listen_port, label(h, *p))
+                }
+                (ForwardKind::Remote, Some((h, p))) => {
+                    format!("server:{} → {}", f.listen_port, label(h, *p))
+                }
+                (_, None) => {
+                    self.notice(format!("forward {} skipped: target missing", f.listen_port))
+                        .await;
+                    continue;
+                }
+            };
+            let res = match f.kind {
+                ForwardKind::Local | ForwardKind::Dynamic => {
+                    match tokio::net::TcpListener::bind(("127.0.0.1", f.listen_port)).await {
+                        Ok(listener) => {
+                            let h = Arc::clone(handle);
+                            self.tasks.push(tokio::spawn(serve_forward(
+                                listener,
+                                h,
+                                target.clone(),
+                            )));
+                            Ok(())
+                        }
+                        Err(e) => Err(e.to_string()),
+                    }
+                }
+                ForwardKind::Remote => {
+                    if let (Ok(mut m), Some(t)) = (self.remote.lock(), target.clone()) {
+                        m.insert(u32::from(f.listen_port), t);
+                    }
+                    handle
+                        .tcpip_forward("127.0.0.1", u32::from(f.listen_port))
+                        .await
+                        .map(|_| ())
+                        .map_err(|e| e.to_string())
+                }
+            };
+            match res {
+                Ok(()) => self.notice(format!("forward {what}")).await,
+                Err(e) => self.notice(format!("forward {what} failed: {e}")).await,
+            }
+        }
+    }
+}
+
+/// Accept loop of a local (`target = Some`) or dynamic SOCKS5 (`None`) forward.
+async fn serve_forward(
+    listener: tokio::net::TcpListener,
+    handle: Arc<Handle<Client>>,
+    target: Option<(String, u16)>,
+) {
+    loop {
+        let Ok((mut sock, peer)) = listener.accept().await else {
+            return;
+        };
+        let h = Arc::clone(&handle);
+        let fixed = target.clone();
+        let socks = target.is_none();
+        tokio::spawn(async move {
+            let dest = match fixed {
+                Some(t) => t,
+                None => match tunnel::socks5_accept(&mut sock).await {
+                    Ok(t) => (t.host, t.port),
+                    Err(e) => {
+                        tracing::debug!("socks5 from {peer}: {e}");
+                        return;
+                    }
+                },
+            };
+            let opened = h
+                .channel_open_direct_tcpip(
+                    dest.0.clone(),
+                    u32::from(dest.1),
+                    peer.ip().to_string(),
+                    u32::from(peer.port()),
+                )
+                .await;
+            if socks {
+                let _ = tunnel::socks5_reply(&mut sock, opened.is_ok()).await;
+            }
+            match opened {
+                Ok(ch) => {
+                    let mut stream = ch.into_stream();
+                    let _ = tokio::io::copy_bidirectional(&mut sock, &mut stream).await;
+                }
+                Err(e) => tracing::debug!("forward to {}:{}: {e}", dest.0, dest.1),
+            }
+        });
+    }
+}
+
 #[async_trait]
 impl Transport for SshTransport {
     async fn connect(&mut self) -> Result<()> {
@@ -427,45 +690,10 @@ impl Transport for SshTransport {
             return Err(AppError::invalid("already connected"));
         }
         let target = self.target();
-        let stream = net::connect(&self.host, self.port).await?;
-        let verdict = Arc::new(Mutex::new(None));
-        let client = Client {
-            host: self.host.clone(),
-            port: self.port,
-            keys: Arc::clone(&self.keys),
-            verdict: Arc::clone(&verdict),
-        };
-        let handshake = client::connect_stream(Arc::new(self.config()), stream, client);
-        let result = tokio::time::timeout(HANDSHAKE_TIMEOUT, handshake).await;
-        let verdict = verdict.lock().ok().and_then(|v| v.clone());
-        let mut handle = match (result, verdict) {
-            (_, Some(KeyVerdict::Changed { stored, offered })) => {
-                return Err(AppError::with(
-                    ErrorCode::HostKeyChanged,
-                    format!("{target}: stored {stored}, offered {offered}"),
-                ));
-            }
-            (_, Some(KeyVerdict::Rejected(why))) => {
-                return Err(AppError::with(ErrorCode::Io, format!("{target}: {why}")));
-            }
-            (Err(_), _) => {
-                return Err(AppError::with(
-                    ErrorCode::Timeout,
-                    format!("{target}: handshake"),
-                ));
-            }
-            (Ok(Err(e)), _) => return Err(map_ssh(&target, e)),
-            (Ok(Ok(h)), Some(KeyVerdict::Accepted(info))) => {
-                self.host_key = Some(info);
-                h
-            }
-            (Ok(Ok(_)), None) => {
-                return Err(AppError::internal("host key was not checked"));
-            }
-        };
-
-        let user = self.resolve_user().await?;
-        self.authenticate(&mut handle, &user).await?;
+        let stream = self.open_stream().await?;
+        let (handle, info) = self.login.login(stream, Arc::clone(&self.remote)).await?;
+        self.host_key = Some(info);
+        let handle = Arc::new(handle);
 
         let ssh_err = |e: russh::Error| map_ssh(&target, e);
         let channel = handle.channel_open_session().await.map_err(ssh_err)?;
@@ -498,6 +726,7 @@ impl Transport for SshTransport {
             let _ = sink.send(TransportEvent::Closed(None)).await;
         }));
         self.writer = Some(write);
+        self.start_forwards(&handle).await;
         self.handle = Some(handle);
         Ok(())
     }
@@ -531,6 +760,9 @@ impl Transport for SshTransport {
     }
 
     async fn disconnect(&mut self) -> Result<()> {
+        for t in self.tasks.drain(..) {
+            t.abort();
+        }
         if let Some(r) = self.reader.take() {
             r.abort();
         }
@@ -542,15 +774,20 @@ impl Transport for SshTransport {
                 .disconnect(russh::Disconnect::ByApplication, "", "en")
                 .await;
         }
+        if let Some(j) = self.jump.take() {
+            let _ = j
+                .disconnect(russh::Disconnect::ByApplication, "", "en")
+                .await;
+        }
         Ok(())
     }
 
     fn net_link(&self) -> Option<NetLink> {
         Some(NetLink {
             protocol: Protocol::Ssh,
-            host: self.host.clone(),
-            port: self.port,
-            username: self.username.clone(),
+            host: self.login.host.clone(),
+            port: self.login.port,
+            username: self.login.username.clone(),
             host_key: self.host_key.clone(),
         })
     }

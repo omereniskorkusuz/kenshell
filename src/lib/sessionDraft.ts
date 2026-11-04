@@ -7,7 +7,9 @@ import {
   type Parity,
   type Protocol,
   type SessionInput,
+  type SshOptions,
 } from './ipc';
+import { formatForwards, formatJump, parseForwards, parseHostPort, parseJump } from './sshTunnel';
 import { isValidBaud, MAX_BAUD, MIN_BAUD } from './quickConnect';
 import { envKind, normalizeEnv } from './tree';
 
@@ -41,6 +43,13 @@ export interface Draft {
   legacyAlgorithms: boolean;
   keyPath: string;
   useAgent: boolean;
+  /** "user@host:port" (user and port optional). */
+  jump: string;
+  proxyKind: 'none' | 'socks5' | 'http';
+  /** "host:port". */
+  proxy: string;
+  /** One per line: "L 8080:host:80", "R 9000:host:22", "D 1080". */
+  forwards: string;
   credentialProfileId: number | null;
   /** Comma separated. */
   tags: string;
@@ -72,15 +81,31 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     legacyAlgorithms: input?.ssh?.legacyAlgorithms ?? false,
     keyPath: input?.ssh?.keyPath ?? '',
     useAgent: input?.ssh?.useAgent ?? false,
+    jump: formatJump(input?.ssh?.jump),
+    proxyKind: input?.ssh?.proxy?.kind ?? 'none',
+    proxy: input?.ssh?.proxy ? formatHostPort(input.ssh.proxy.host, input.ssh.proxy.port) : '',
+    forwards: formatForwards(input?.ssh?.forwards),
     credentialProfileId: input?.credentialProfileId ?? null,
     tags: (input?.tags ?? []).join(', '),
     autoCommands: (input?.autoCommands ?? []).join('\n'),
   };
 }
 
+const formatHostPort = (host: string, port: number): string =>
+  `${host.includes(':') ? `[${host}]` : host}:${port}`;
+
 export type DraftErrors = Partial<
-  Record<'name' | 'port' | 'baud' | 'env' | 'host' | 'netPort', 'required' | 'range' | 'tooLong'>
+  Record<
+    'name' | 'port' | 'baud' | 'env' | 'host' | 'netPort' | 'jump' | 'proxy' | 'forwards',
+    'required' | 'range' | 'tooLong' | 'format'
+  >
 >;
+
+/** 1-based bad forward lines (empty when the list is too long), or null when valid. */
+export function forwardErrors(d: Draft): number[] | null {
+  const r = parseForwards(d.forwards);
+  return Array.isArray(r) ? null : r.badLines;
+}
 
 export function draftBaud(d: Draft): number | null {
   if (d.baudChoice === 'auto') return null;
@@ -104,6 +129,11 @@ export function validateDraft(d: Draft): DraftErrors {
     } else if (!/^\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > 65535) {
       errors.netPort = 'range';
     }
+  }
+  if (d.protocol === 'ssh') {
+    if (parseJump(d.jump) === 'invalid') errors.jump = 'format';
+    if (d.proxyKind !== 'none' && !parseHostPort(d.proxy, true)) errors.proxy = 'format';
+    if (forwardErrors(d)) errors.forwards = 'format';
   }
   if (d.baudChoice === 'custom') {
     const raw = d.customBaud.trim();
@@ -162,8 +192,24 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
             legacyAlgorithms: d.legacyAlgorithms,
             keyPath: d.keyPath.trim() || null,
             useAgent: d.useAgent,
+            ...tunnels(d),
           }
         : null,
+  };
+}
+
+/** Jump / proxy / forwards of a valid draft (malformed parts are dropped). */
+function tunnels(d: Draft): Pick<SshOptions, 'jump' | 'proxy' | 'forwards'> {
+  const jump = parseJump(d.jump);
+  const proxy = d.proxyKind === 'none' ? null : parseHostPort(d.proxy, true);
+  const forwards = parseForwards(d.forwards);
+  return {
+    jump: jump === 'invalid' ? null : jump,
+    proxy:
+      proxy && proxy.port !== null && d.proxyKind !== 'none'
+        ? { kind: d.proxyKind, host: proxy.host, port: proxy.port }
+        : null,
+    forwards: Array.isArray(forwards) ? forwards : [],
   };
 }
 

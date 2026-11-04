@@ -355,6 +355,56 @@ pub struct SshOptions {
     /// Pageant). Off by default: network devices often allow only ~3 auth attempts,
     /// which agent keys could use up before the password is asked.
     pub use_agent: bool,
+    /// Connect through this SSH server first (bastion / jump host).
+    pub jump: Option<JumpHost>,
+    /// Port forwards started after login.
+    pub forwards: Vec<Forward>,
+    /// SOCKS5 / HTTP CONNECT proxy for the first TCP connection.
+    pub proxy: Option<ProxyConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JumpHost {
+    pub host: String,
+    pub port: Option<u16>,
+    pub username: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ForwardKind {
+    /// `-L`: local port → (through the server) → target.
+    Local,
+    /// `-R`: server port → (back through us) → target reachable from this computer.
+    Remote,
+    /// `-D`: local SOCKS5 proxy through the server.
+    Dynamic,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Forward {
+    pub kind: ForwardKind,
+    pub listen_port: u16,
+    /// Not used for `dynamic`.
+    pub target_host: Option<String>,
+    pub target_port: Option<u16>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProxyKind {
+    Socks5,
+    Http,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyConfig {
+    pub kind: ProxyKind,
+    pub host: String,
+    pub port: u16,
 }
 
 impl Protocol {

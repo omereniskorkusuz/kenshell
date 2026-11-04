@@ -16,12 +16,14 @@ import {
   MAX_NAME,
   MIN_BAUD,
   STOP_BITS,
+  forwardErrors,
   validateDraft,
   type BaudChoice,
   type Draft,
   type DraftErrors,
   type EnvChoice,
 } from '../lib/sessionDraft';
+import { MAX_FORWARDS } from '../lib/sshTunnel';
 import { folderPath } from '../lib/tree';
 import { chipLabel, useConsoles } from '../stores/consoles';
 import { useLibrary } from '../stores/library';
@@ -67,6 +69,10 @@ export function SessionEditor({ state }: { state: EditorState }) {
   }, [record]);
   const errors = useMemo(() => validateDraft(draft), [draft]);
   const shown: DraftErrors = touched ? errors : {};
+  const [advancedOpen, setAdvancedOpen] = useState(
+    () => draft.jump !== '' || draft.proxyKind !== 'none' || draft.forwards !== '',
+  );
+  const tunnelError = Boolean(shown.jump || shown.proxy || shown.forwards);
   const portsListId = useId();
   const mac = isMac();
 
@@ -117,6 +123,14 @@ export function SessionEditor({ state }: { state: EditorState }) {
     if (!code) return null;
     if (field === 'baud') return t('editor.baudRange', { min: MIN_BAUD, max: MAX_BAUD });
     if (field === 'netPort' && code === 'range') return t('editor.portRange');
+    if (field === 'jump') return t('editor.jumpFormat');
+    if (field === 'proxy') return t('editor.proxyFormat');
+    if (field === 'forwards') {
+      const lines = forwardErrors(draft) ?? [];
+      return lines.length
+        ? t('editor.forwardsFormat', { lines: lines.join(', ') })
+        : t('editor.forwardsTooMany', { max: MAX_FORWARDS });
+    }
     if (code === 'tooLong')
       return t('editor.tooLong', { max: field === 'env' ? MAX_ENV : MAX_NAME });
     return t('editor.required');
@@ -345,7 +359,11 @@ export function SessionEditor({ state }: { state: EditorState }) {
               </Field>
             )}
             {draft.protocol === 'ssh' && (
-              <details className="col-span-full">
+              <details
+                className="col-span-full"
+                open={advancedOpen || tunnelError}
+                onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
+              >
                 <summary className="cursor-pointer text-sm text-secondary">
                   {t('editor.advanced')}
                 </summary>
@@ -385,6 +403,73 @@ export function SessionEditor({ state }: { state: EditorState }) {
                         autoCapitalize="off"
                         onChange={(e) => set('keyPath', e.target.value)}
                       />
+                    )}
+                  </Field>
+                  <Field label={t('editor.jump')} error={errorText('jump')}>
+                    {(id, describedBy) => (
+                      <div className="flex flex-col gap-1">
+                        <input
+                          id={id}
+                          className="field mono"
+                          value={draft.jump}
+                          placeholder="admin@bastion.example.net:22"
+                          spellCheck={false}
+                          autoCapitalize="off"
+                          aria-describedby={describedBy}
+                          aria-invalid={Boolean(shown.jump)}
+                          onChange={(e) => set('jump', e.target.value)}
+                        />
+                        <span className="text-xs text-muted">{t('editor.jumpHint')}</span>
+                      </div>
+                    )}
+                  </Field>
+                  <Field label={t('editor.proxy')} error={errorText('proxy')}>
+                    {(id, describedBy) => (
+                      <div className="flex gap-2">
+                        <select
+                          id={draft.proxyKind === 'none' ? id : undefined}
+                          className="field w-32 shrink-0"
+                          aria-label={t('editor.proxyKind')}
+                          value={draft.proxyKind}
+                          onChange={(e) => set('proxyKind', e.target.value as Draft['proxyKind'])}
+                        >
+                          <option value="none">{t('editor.proxyNone')}</option>
+                          <option value="socks5">SOCKS5</option>
+                          <option value="http">HTTP CONNECT</option>
+                        </select>
+                        {draft.proxyKind !== 'none' && (
+                          <input
+                            id={id}
+                            className="field mono min-w-0 flex-1"
+                            aria-label={t('editor.proxy')}
+                            value={draft.proxy}
+                            placeholder="127.0.0.1:1080"
+                            spellCheck={false}
+                            autoCapitalize="off"
+                            aria-describedby={describedBy}
+                            aria-invalid={Boolean(shown.proxy)}
+                            onChange={(e) => set('proxy', e.target.value)}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </Field>
+                  <Field label={t('editor.forwards')} error={errorText('forwards')}>
+                    {(id, describedBy) => (
+                      <div className="flex flex-col gap-1">
+                        <textarea
+                          id={id}
+                          className="field mono min-h-16"
+                          rows={3}
+                          value={draft.forwards}
+                          placeholder={'L 8080:10.0.0.10:80\nD 1080\nR 9000:127.0.0.1:22'}
+                          spellCheck={false}
+                          aria-describedby={describedBy}
+                          aria-invalid={Boolean(shown.forwards)}
+                          onChange={(e) => set('forwards', e.target.value)}
+                        />
+                        <span className="text-xs text-muted">{t('editor.forwardsHint')}</span>
+                      </div>
                     )}
                   </Field>
                 </div>

@@ -84,6 +84,7 @@ async fn serve(profile: &'static Profile, opts: Options) -> std::io::Result<()> 
             let handler = Handler {
                 profile,
                 engine: None,
+                shell: None,
             };
             match server::run_stream(config, stream, handler).await {
                 Ok(session) => {
@@ -101,6 +102,8 @@ async fn serve(profile: &'static Profile, opts: Options) -> std::io::Result<()> 
 struct Handler {
     profile: &'static Profile,
     engine: Option<Session<'static>>,
+    /// Channel running the CLI; tunnel channels (direct-tcpip) never reach the engine.
+    shell: Option<ChannelId>,
 }
 
 impl Handler {
@@ -156,6 +159,73 @@ impl server::Handler for Handler {
         Ok(())
     }
 
+    /// direct-tcpip: lets KenShell tests use this server as a jump host and for
+    /// local / dynamic port forwarding.
+    async fn channel_open_direct_tcpip(
+        &mut self,
+        channel: Channel<Msg>,
+        host_to_connect: &str,
+        port_to_connect: u32,
+        _originator_address: &str,
+        _originator_port: u32,
+        reply: server::ChannelOpenHandle,
+        _session: &mut SshSession,
+    ) -> Result<(), Self::Error> {
+        let Ok(port) = u16::try_from(port_to_connect) else {
+            return Ok(());
+        };
+        match tokio::net::TcpStream::connect((host_to_connect, port)).await {
+            Ok(mut tcp) => {
+                reply.accept().await;
+                tokio::spawn(async move {
+                    let mut ch = channel.into_stream();
+                    let _ = tokio::io::copy_bidirectional(&mut ch, &mut tcp).await;
+                });
+            }
+            Err(e) => eprintln!("  direct-tcpip {host_to_connect}:{port}: {e}"),
+        }
+        Ok(())
+    }
+
+    /// tcpip-forward (remote forwarding): listen on 127.0.0.1:port and hand every
+    /// connection back to the client as a forwarded-tcpip channel.
+    async fn tcpip_forward(
+        &mut self,
+        _address: &str,
+        port: &mut u32,
+        session: &mut SshSession,
+    ) -> Result<bool, Self::Error> {
+        let Ok(p) = u16::try_from(*port) else {
+            return Ok(false);
+        };
+        let Ok(listener) = tokio::net::TcpListener::bind(("127.0.0.1", p)).await else {
+            return Ok(false);
+        };
+        *port = u32::from(listener.local_addr().map(|a| a.port()).unwrap_or(p));
+        let bound = *port;
+        let handle = session.handle();
+        tokio::spawn(async move {
+            while let Ok((mut sock, peer)) = listener.accept().await {
+                let h = handle.clone();
+                tokio::spawn(async move {
+                    if let Ok(ch) = h
+                        .channel_open_forwarded_tcpip(
+                            "127.0.0.1",
+                            bound,
+                            peer.ip().to_string(),
+                            u32::from(peer.port()),
+                        )
+                        .await
+                    {
+                        let mut stream = ch.into_stream();
+                        let _ = tokio::io::copy_bidirectional(&mut sock, &mut stream).await;
+                    }
+                });
+            }
+        });
+        Ok(true)
+    }
+
     async fn shell_request(
         &mut self,
         channel: ChannelId,
@@ -164,6 +234,7 @@ impl server::Handler for Handler {
         let mut engine = Session::new_authenticated(self.profile);
         let out = engine.start();
         self.engine = Some(engine);
+        self.shell = Some(channel);
         session.data(channel, out)?;
         Ok(())
     }
@@ -174,6 +245,9 @@ impl server::Handler for Handler {
         data: &[u8],
         session: &mut SshSession,
     ) -> Result<(), Self::Error> {
+        if self.shell != Some(channel) {
+            return Ok(());
+        }
         let Some(engine) = self.engine.as_mut() else {
             return Ok(());
         };
