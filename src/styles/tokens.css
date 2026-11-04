@@ -1,0 +1,179 @@
+/*
+ * KenShell design tokens — "Quiet Console".
+ * Single source of truth for theme + mode colors. Components read these via
+ * Tailwind theme mappings (index.css) or directly via var(--…).
+ * User overrides (mode colors etc.) are applied later as inline custom properties on <html>.
+ */
+
+:root {
+  /* typography */
+  --font-ui: system-ui, -apple-system, 'Segoe UI Variable', 'Segoe UI', Inter, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --leading-ui: 1.4;
+  --leading-terminal: 1.25;
+  --tracking-label: 0.04em;
+
+  /* radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* motion */
+  --motion-fast: 120ms;
+  --motion-mode: 150ms;
+  --motion-panel: 180ms;
+  --motion-toast: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  /* layout */
+  --mode-stripe-width: 4px;
+  --sidebar-width: 220px;
+  --side-panel-width: 320px;
+  --top-bar-height: 40px;
+  --tab-height: 32px;
+  --identity-height: 52px;
+  --identity-height-compact: 32px;
+  --status-bar-height: 24px;
+  --toast-width: 360px;
+  --palette-width: 560px;
+
+  --z-panel: 20;
+  --z-toast: 40;
+  --z-palette: 50;
+}
+
+/* ---------- dark (default) ---------- */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-app: #15171b;
+  --bg-surface: #1a1d22;
+  --bg-elevated: #23272e;
+  --bg-terminal: #0f1216;
+  --bg-hover: #262a31;
+  --bg-selected: #2c3340;
+  --border-subtle: #2a2e35;
+  --border-strong: #3a4049;
+  --text-primary: #e6e8eb;
+  --text-secondary: #aab1bb;
+  --text-muted: #969ea9;
+  --text-terminal: #d9dde2;
+  --accent: #d5dce6;
+  --accent-fg: #15171b;
+  --accent-hover: #f2f5f9;
+  --focus-ring: #f2f5f9;
+  --success: #46c08a;
+  --warning: #e8b341;
+  --danger: #f2737a;
+  --info: #5aa2ff;
+
+  --mode-user: #a3acb7;
+  --mode-privileged: #5aa2ff;
+  --mode-config: #f0a43a;
+  --mode-boot: #e08fd6;
+  --mode-boot-alt: #8a4e83;
+  --mode-shell: #3cc6a6;
+  --mode-chip-alpha: 14%;
+
+  --env-prod: #f2737a;
+  --env-lab: #5ec2d6;
+  --env-test: #d9c25a;
+
+  --selection-terminal: rgba(140, 170, 210, 0.28);
+  --cursor-terminal: #e6e8eb;
+  --scrollbar-thumb: #3a4049;
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px #2a2e35;
+}
+
+/* ---------- light ---------- */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg-app: #f4f5f7;
+  --bg-surface: #eceef1;
+  --bg-elevated: #ffffff;
+  --bg-terminal: #fbfbf9;
+  --bg-hover: #e3e6ea;
+  --bg-selected: #dce3ee;
+  --border-subtle: #dde0e5;
+  --border-strong: #c2c7cf;
+  --text-primary: #1b1f24;
+  --text-secondary: #4a525c;
+  --text-muted: #5a626c;
+  --text-terminal: #1f2328;
+  --accent: #1f2937;
+  --accent-fg: #ffffff;
+  --accent-hover: #111827;
+  --focus-ring: #0e1116;
+  --success: #1b7a4c;
+  --warning: #835c00;
+  --danger: #c42b34;
+  --info: #1f62d0;
+
+  --mode-user: #4f5866;
+  --mode-privileged: #1a56b8;
+  --mode-config: #8f4500;
+  --mode-boot: #8e2f78;
+  --mode-boot-alt: #d7a6cc;
+  --mode-shell: #0a6656;
+  --mode-chip-alpha: 10%;
+
+  --env-prod: #a8232b;
+  --env-lab: #0b5f70;
+  --env-test: #6b5400;
+
+  --selection-terminal: rgba(31, 98, 208, 0.2);
+  --cursor-terminal: #1b1f24;
+  --scrollbar-thumb: #c2c7cf;
+  --shadow-elevated: 0 8px 24px rgba(20, 24, 30, 0.12), 0 0 0 1px #dde0e5;
+}
+
+/* ---------- mode → current color (one attribute swap, no React re-render) ---------- */
+[data-mode] {
+  --mode-current: var(--mode-user);
+  --mode-pattern: none;
+}
+[data-mode='privileged'] {
+  --mode-current: var(--mode-privileged);
+}
+[data-mode='config'] {
+  --mode-current: var(--mode-config);
+}
+[data-mode='shell'] {
+  --mode-current: var(--mode-shell);
+}
+[data-mode='boot'] {
+  --mode-current: var(--mode-boot);
+  /* Boot/ROMMON is rare and risky: add a hatch so it never relies on hue alone. */
+  --mode-pattern: repeating-linear-gradient(
+    45deg,
+    var(--mode-boot) 0 3px,
+    var(--mode-boot-alt) 3px 6px
+  );
+}
+[data-mode='unknown'] {
+  --mode-current: var(--border-strong);
+}
+
+[data-env='prod'] {
+  --env-current: var(--env-prod);
+}
+[data-env='lab'] {
+  --env-current: var(--env-lab);
+}
+[data-env='test'] {
+  --env-current: var(--env-test);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-mode: 0ms;
+    --motion-panel: 0ms;
+    --motion-toast: 0ms;
+  }
+}
