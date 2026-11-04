@@ -9,3 +9,6 @@ src-tauri/gen/schemas/
 
 # bench output
 bench/results/*.local.json
+
+# agent worktrees
+.assistant/worktrees/
