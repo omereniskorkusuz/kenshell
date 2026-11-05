@@ -155,8 +155,17 @@ impl Observer {
         if candidate.is_empty() {
             return;
         }
-        let Some(m) = self.profile.match_prompt(candidate) else {
-            return;
+        let m = match self.profile.match_prompt(candidate) {
+            Some(m) => m,
+            // Not a Cisco-like prompt: a vendor with an unmistakable prompt syntax?
+            None if self.profile.family == "generic" => {
+                let Some((p, m)) = modes::infer_from_prompt(candidate) else {
+                    return;
+                };
+                self.adopt(p, out);
+                m
+            }
+            None => return,
         };
         if self.mode != Some(m.mode) || self.sub != m.sub {
             self.mode = Some(m.mode);
@@ -257,6 +266,29 @@ mod tests {
                 CliMode::Config,
                 Some("config-if-GigabitEthernet 0/24".into())
             )]
+        );
+    }
+
+    #[test]
+    fn huawei_and_junos_are_recognised_by_their_prompt_syntax() {
+        let mut o = Observer::new();
+        let obs = o.feed(b"\r\n<Core-SW1>");
+        assert_eq!(o.profile().id, "huawei-vrp");
+        assert_eq!(modes_of(&obs), [(CliMode::User, None)]);
+        assert_eq!(
+            modes_of(&o.feed(b"system-view\r\n[Core-SW1]")),
+            [(CliMode::Config, None)]
+        );
+        assert_eq!(
+            modes_of(&o.feed(b"interface GigabitEthernet0/0/1\r\n[Core-SW1-GigabitEthernet0/0/1]")),
+            [(CliMode::Config, Some("GigabitEthernet0/0/1".into()))]
+        );
+        let mut j = Observer::new();
+        j.feed(b"\r\nadmin@mx1> ");
+        assert_eq!(j.profile().id, "juniper-junos");
+        assert_eq!(
+            modes_of(&j.feed(b"configure\r\n[edit]\r\nadmin@mx1# ")),
+            [(CliMode::Config, None)]
         );
     }
 

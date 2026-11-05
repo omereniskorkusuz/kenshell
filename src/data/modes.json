@@ -1,5 +1,5 @@
 {
-  "_comment": "Vendor CLI profiles (P3-T02): prompt → mode patterns and identification clues. Applied by the backend DeviceObserver to the last output line (ANSI removed). Patterns are Rust `regex` syntax; prompts are tried in order (first match wins), `host`/`sub` named groups are optional. `identify`: case-insensitive patterns over banner / login / `show version` text, each with a weight; the best total ≥ `minScore` wins. Ruijie and Cisco prompts look alike: without a vendor clue a session stays `cisco-like` (spec 7.3). `reload`: lines that mean the device is restarting (the session stays up; the next prompt ends it). `identity`: read-only command run once in the background after login (output hidden) and per-field patterns (`v` group = value, `h` = host name; lines are matched one by one, first hit wins).",
+  "_comment": "Vendor CLI profiles (P3-T02): prompt → mode patterns and identification clues. Applied by the backend DeviceObserver to the last output line (ANSI removed). Patterns are Rust `regex` syntax; prompts are tried in order (first match wins), `host`/`sub` named groups are optional. `identify`: case-insensitive patterns over banner / login / `show version` text, each with a weight; the best total ≥ `minScore` wins. Ruijie and Cisco prompts look alike: without a vendor clue a session stays `cisco-like` (spec 7.3). `reload`: lines that mean the device is restarting (the session stays up; the next prompt ends it). `identity`: read-only command run once in the background after login (output hidden) and per-field patterns (`v` group = value, `h` = host name; lines are matched one by one, first hit wins). `inferFromPrompt`: the prompt syntax alone is distinctive enough to pick this vendor before any banner clue (never used for Cisco vs Ruijie).",
   "minScore": 3,
   "defaultProfile": "cisco-like",
   "reload": [
@@ -301,6 +301,239 @@
           "model": ["(?:Device model|Product model)\\s*:\\s*(?P<v>\\S+)", "\\b(?P<v>RG-[\\w-]+)"],
           "serial": ["(?:Serial number|SN)\\s*:\\s*(?P<v>\\S+)"],
           "uptime": ["(?:System uptime|Uptime)\\s*:\\s*(?P<v>.+?)\\s*$"]
+        }
+      }
+    },
+    {
+      "id": "juniper-junos",
+      "label": "Juniper Junos",
+      "family": "juniper",
+      "inferFromPrompt": true,
+      "identify": [
+        {
+          "re": "\\bJUNOS\\b",
+          "weight": 5
+        },
+        {
+          "re": "Juniper Networks",
+          "weight": 4
+        },
+        {
+          "re": "^Junos:",
+          "weight": 5
+        }
+      ],
+      "prompts": [
+        {
+          "mode": "boot",
+          "re": "^loader>\\s*$"
+        },
+        {
+          "mode": "shell",
+          "re": "^(?:[\\w.\\-]+@)?(?P<host>[\\w.\\-]+)(?::RE:\\d+)?%\\s*$"
+        },
+        {
+          "mode": "config",
+          "re": "^[\\w.\\-]+@(?P<host>[\\w.\\-]+)#\\s*$"
+        },
+        {
+          "mode": "user",
+          "re": "^[\\w.\\-]+@(?P<host>[\\w.\\-]+)>\\s*$"
+        }
+      ],
+      "paging": {
+        "more": "---(more",
+        "disable": "set cli screen-length 0"
+      },
+      "identity": {
+        "command": "show version",
+        "fields": {
+          "hostname": ["^Hostname:\\s*(?P<v>\\S+)"],
+          "model": ["^Model:\\s*(?P<v>\\S+)"],
+          "version": ["^Junos:\\s*(?P<v>\\S+)", "JUNOS .*\\[(?P<v>[^\\]]+)\\]"]
+        }
+      }
+    },
+    {
+      "id": "alcatel-aos",
+      "label": "Alcatel-Lucent OmniSwitch",
+      "family": "alcatel",
+      "inferFromPrompt": true,
+      "identify": [
+        {
+          "re": "Alcatel-Lucent",
+          "weight": 5
+        },
+        {
+          "re": "\\bOmniSwitch\\b",
+          "weight": 5
+        },
+        {
+          "re": "\\bOS\\d{4}[A-Z]?-",
+          "weight": 3
+        }
+      ],
+      "prompts": [
+        {
+          "mode": "privileged",
+          "re": "^(?:(?P<host>[\\w.\\-]+) )?->\\s*$"
+        }
+      ],
+      "paging": {
+        "more": "--More--",
+        "disable": ""
+      },
+      "identity": {
+        "command": "show system",
+        "fields": {
+          "hostname": ["^\\s*Name:\\s*(?P<v>[^,\\s]+)"],
+          "model": ["^\\s*Description:\\s+.*?(?P<v>OS\\d+[\\w-]*)"],
+          "version": ["^\\s*Description:\\s+.*?OS\\d+[\\w-]* (?P<v>\\d[\\w.]+)"],
+          "uptime": ["^\\s*Up Time:\\s*(?P<v>.+?),?\\s*$"]
+        }
+      }
+    },
+    {
+      "id": "aruba",
+      "label": "Aruba / HPE",
+      "family": "aruba",
+      "identify": [
+        {
+          "re": "\\bArubaOS(?:-CX|-Switch)?\\b",
+          "weight": 5
+        },
+        {
+          "re": "\\bProCurve\\b",
+          "weight": 4
+        },
+        {
+          "re": "Hewlett[- ]Packard",
+          "weight": 3
+        },
+        {
+          "re": "\\bAruba\\b",
+          "weight": 3
+        }
+      ],
+      "prompts": [
+        {
+          "mode": "config",
+          "re": "^(?P<host>[\\w.\\-]+)\\((?P<sub>config[^)]*)\\)#\\s*$"
+        },
+        {
+          "mode": "privileged",
+          "re": "^(?P<host>[\\w.\\-]+)#\\s*$"
+        },
+        {
+          "mode": "user",
+          "re": "^(?P<host>[\\w.\\-]+)>\\s*$"
+        }
+      ],
+      "paging": {
+        "more": "-- MORE --",
+        "disable": "no page"
+      },
+      "identity": {
+        "command": "show version",
+        "fields": {
+          "version": [
+            "^Version\\s*:\\s*(?P<v>\\S+)",
+            "^\\s*(?P<v>[A-Z]{2}\\.\\d+\\.\\d+\\.\\d+)\\s*$"
+          ],
+          "model": ["^Product\\s*:?\\s*(?P<v>.+?)\\s*$"]
+        }
+      }
+    },
+    {
+      "id": "huawei-vrp",
+      "label": "Huawei VRP",
+      "family": "huawei",
+      "inferFromPrompt": true,
+      "identify": [
+        {
+          "re": "Huawei Versatile Routing Platform",
+          "weight": 6
+        },
+        {
+          "re": "VRP \\(R\\) software",
+          "weight": 6
+        },
+        {
+          "re": "\\bHUAWEI\\b",
+          "weight": 3
+        }
+      ],
+      "prompts": [
+        {
+          "mode": "config",
+          "re": "^\\[(?P<host>[^\\]\\s]+?)-(?P<sub>(?:GigabitEthernet|XGigabitEthernet|Ethernet|Eth-Trunk|Vlanif|LoopBack|Tunnel|NULL|MEth|10GE|25GE|40GE|100GE|vlan|aaa|ospf|bgp|isis|rip|acl|ui-vty|ui-console|user-interface|stelnet|ssh|interface)[^\\]]*)\\]\\s*$"
+        },
+        {
+          "mode": "config",
+          "re": "^\\[(?P<host>[^\\]\\s]+)\\]\\s*$"
+        },
+        {
+          "mode": "user",
+          "re": "^<(?P<host>[^<>\\s]+)>\\s*$"
+        }
+      ],
+      "paging": {
+        "more": "---- More ----",
+        "disable": "screen-length 0 temporary"
+      },
+      "identity": {
+        "command": "display version",
+        "fields": {
+          "version": ["VRP \\(R\\) software, Version (?P<v>[\\d.]+(?: \\([^)]+\\))?)"],
+          "model": ["^(?:HUAWEI|Quidway) (?P<v>[\\w-]+) (?:uptime is|Routing Switch)"],
+          "uptime": ["^(?:HUAWEI|Quidway) [\\w-]+ uptime is (?P<v>.+?)\\s*$"]
+        }
+      }
+    },
+    {
+      "id": "fortinet-fortios",
+      "label": "FortiGate (FortiOS)",
+      "family": "fortinet",
+      "inferFromPrompt": true,
+      "identify": [
+        {
+          "re": "\\bFortiGate\\b",
+          "weight": 5
+        },
+        {
+          "re": "\\bFortiOS\\b",
+          "weight": 5
+        },
+        {
+          "re": "\\bFortinet\\b",
+          "weight": 4
+        }
+      ],
+      "prompts": [
+        {
+          "mode": "config",
+          "re": "^(?P<host>[\\w.\\-]+) \\((?P<sub>[^)]+)\\) #\\s*$"
+        },
+        {
+          "mode": "privileged",
+          "re": "^(?P<host>[\\w.\\-]+) #\\s*$"
+        },
+        {
+          "mode": "user",
+          "re": "^(?P<host>[\\w.\\-]+) \\$\\s*$"
+        }
+      ],
+      "paging": {
+        "more": "--More--",
+        "disable": ""
+      },
+      "identity": {
+        "command": "get system status",
+        "fields": {
+          "hostname": ["^Hostname:\\s*(?P<v>\\S+)"],
+          "model": ["^Version:\\s*(?P<v>Forti\\w+-\\w+)"],
+          "version": ["^Version:\\s*Forti\\w+-\\w+ (?P<v>v[\\w.,()-]+)"],
+          "serial": ["^Serial-Number:\\s*(?P<v>\\S+)"]
         }
       }
     }

@@ -158,6 +158,119 @@
       "profile": "cisco-like",
       "line": "",
       "mode": null
+    },
+    {
+      "profile": "juniper-junos",
+      "line": "admin@mx1> ",
+      "mode": "user",
+      "host": "mx1"
+    },
+    {
+      "profile": "juniper-junos",
+      "line": "admin@mx1# ",
+      "mode": "config",
+      "host": "mx1"
+    },
+    {
+      "profile": "juniper-junos",
+      "line": "root@mx1:RE:0% ",
+      "mode": "shell",
+      "host": "mx1"
+    },
+    {
+      "profile": "juniper-junos",
+      "line": "loader>",
+      "mode": "boot"
+    },
+    {
+      "profile": "alcatel-aos",
+      "line": "-> ",
+      "mode": "privileged"
+    },
+    {
+      "profile": "alcatel-aos",
+      "line": "SW1 ->",
+      "mode": "privileged",
+      "host": "SW1"
+    },
+    {
+      "profile": "aruba",
+      "line": "sw-aruba(config)#",
+      "mode": "config",
+      "host": "sw-aruba",
+      "sub": "config"
+    },
+    {
+      "profile": "aruba",
+      "line": "sw-aruba#",
+      "mode": "privileged",
+      "host": "sw-aruba"
+    },
+    {
+      "profile": "huawei-vrp",
+      "line": "<HUAWEI>",
+      "mode": "user",
+      "host": "HUAWEI"
+    },
+    {
+      "profile": "huawei-vrp",
+      "line": "[HUAWEI]",
+      "mode": "config",
+      "host": "HUAWEI"
+    },
+    {
+      "profile": "huawei-vrp",
+      "line": "[Core-SW1-GigabitEthernet0/0/1]",
+      "mode": "config",
+      "host": "Core-SW1",
+      "sub": "GigabitEthernet0/0/1"
+    },
+    {
+      "profile": "huawei-vrp",
+      "line": "[Core-SW1]",
+      "mode": "config",
+      "host": "Core-SW1"
+    },
+    {
+      "profile": "huawei-vrp",
+      "line": "[Core-SW1-ui-vty0-4]",
+      "mode": "config",
+      "host": "Core-SW1",
+      "sub": "ui-vty0-4"
+    },
+    {
+      "profile": "fortinet-fortios",
+      "line": "FGT60F # ",
+      "mode": "privileged",
+      "host": "FGT60F"
+    },
+    {
+      "profile": "fortinet-fortios",
+      "line": "FGT60F (interface) # ",
+      "mode": "config",
+      "host": "FGT60F",
+      "sub": "interface"
+    },
+    {
+      "profile": "fortinet-fortios",
+      "line": "FGT60F $ ",
+      "mode": "user",
+      "host": "FGT60F"
+    },
+    {
+      "profile": "cisco-like",
+      "line": "admin@mx1> ",
+      "mode": null
+    },
+    {
+      "profile": "cisco-like",
+      "line": "<HUAWEI>",
+      "mode": null
+    },
+    {
+      "profile": "cisco-like",
+      "line": "FGT60F # ",
+      "mode": null
     }
   ],
   "identify": [
@@ -192,6 +305,26 @@
     {
       "text": "Welcome to the switch. Unauthorized access prohibited.",
       "profile": null
+    },
+    {
+      "text": "Hostname: mx1\nModel: mx204\nJunos: 21.4R3-S5.4\nJUNOS OS Kernel 64-bit  [20230801.123]",
+      "profile": "juniper-junos"
+    },
+    {
+      "text": "System:\n  Description:  Alcatel-Lucent Enterprise OS6860E-48 8.7.354.R03 GA, July 12, 2021.",
+      "profile": "alcatel-aos"
+    },
+    {
+      "text": "ArubaOS-CX\n(c) Copyright 2017-2023 Hewlett Packard Enterprise Development LP\nVersion      : FL.10.10.1000",
+      "profile": "aruba"
+    },
+    {
+      "text": "Huawei Versatile Routing Platform Software\nVRP (R) software, Version 5.170 (S5735 V200R021C10SPC600)\nHUAWEI S5735-L48T4S-A uptime is 12 days, 3 hours, 5 minutes",
+      "profile": "huawei-vrp"
+    },
+    {
+      "text": "Version: FortiGate-60F v7.2.5,build1517,230606 (GA.F)\nSerial-Number: FGT60FTK2209ABCD",
+      "profile": "fortinet-fortios"
     }
   ],
   "reload": [
@@ -285,6 +418,50 @@
         "model": null,
         "version": null,
         "serial": null,
+        "uptime": null
+      }
+    },
+    {
+      "profile": "juniper-junos",
+      "text": "Hostname: mx1\nModel: mx204\nJunos: 21.4R3-S5.4\n",
+      "facts": {
+        "hostname": "mx1",
+        "model": "mx204",
+        "version": "21.4R3-S5.4",
+        "serial": null,
+        "uptime": null
+      }
+    },
+    {
+      "profile": "alcatel-aos",
+      "text": "System:\n  Description:  Alcatel-Lucent Enterprise OS6860E-48 8.7.354.R03 GA, July 12, 2021.,\n  Name:         SW1,\n  Up Time:      12 days 3 hours 5 minutes and 9 seconds,\n",
+      "facts": {
+        "hostname": "SW1",
+        "model": "OS6860E-48",
+        "version": "8.7.354.R03",
+        "serial": null,
+        "uptime": "12 days 3 hours 5 minutes and 9 seconds"
+      }
+    },
+    {
+      "profile": "huawei-vrp",
+      "text": "Huawei Versatile Routing Platform Software\nVRP (R) software, Version 5.170 (S5735 V200R021C10SPC600)\nCopyright (C) 2000-2023 HUAWEI TECH Co., Ltd.\nHUAWEI S5735-L48T4S-A uptime is 12 days, 3 hours, 5 minutes\n",
+      "facts": {
+        "hostname": null,
+        "model": "S5735-L48T4S-A",
+        "version": "5.170 (S5735 V200R021C10SPC600)",
+        "serial": null,
+        "uptime": "12 days, 3 hours, 5 minutes"
+      }
+    },
+    {
+      "profile": "fortinet-fortios",
+      "text": "Version: FortiGate-60F v7.2.5,build1517,230606 (GA.F)\nSerial-Number: FGT60FTK2209ABCD\nHostname: FGT60F\n",
+      "facts": {
+        "hostname": "FGT60F",
+        "model": "FortiGate-60F",
+        "version": "v7.2.5,build1517,230606",
+        "serial": "FGT60FTK2209ABCD",
         "uptime": null
       }
     }

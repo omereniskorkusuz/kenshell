@@ -51,7 +51,10 @@ struct RawIdentity {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RawProfile {
+    #[serde(default)]
+    infer_from_prompt: bool,
     id: String,
     label: String,
     family: String,
@@ -100,6 +103,8 @@ pub struct Profile {
     pub disable_paging: String,
     /// Read-only command that prints the device identity.
     pub identity_command: String,
+    /// The prompt syntax alone identifies this vendor (Huawei `<x>`, Junos `user@host>` …).
+    infer_from_prompt: bool,
     prompts: Vec<(CliMode, Regex)>,
     clues: Vec<(Regex, u32)>,
     /// Field name → patterns (`v` = value, optional `h` = host name).
@@ -147,6 +152,7 @@ fn table() -> &'static Table {
                     })
                     .collect(),
                 identity_command: p.identity.command,
+                infer_from_prompt: p.infer_from_prompt,
                 fields: p
                     .identity
                     .fields
@@ -237,6 +243,16 @@ pub fn default_profile() -> &'static Profile {
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn profile(id: &str) -> Option<&'static Profile> {
     table().profiles.iter().find(|p| p.id == id)
+}
+
+/// A vendor whose prompt syntax is unmistakable, from a prompt line the default profile
+/// did not recognise (never decides Cisco vs Ruijie).
+pub fn infer_from_prompt(line: &str) -> Option<(&'static Profile, PromptMatch)> {
+    table()
+        .profiles
+        .iter()
+        .filter(|p| p.infer_from_prompt)
+        .find_map(|p| p.match_prompt(line).map(|m| (p, m)))
 }
 
 /// True when a completed output line means the device is restarting.
@@ -357,8 +373,12 @@ mod tests {
         assert_eq!(default_profile().disable_paging, "terminal length 0");
         assert_eq!(default_profile().more, "--More--");
         assert_eq!(default_profile().label, "Cisco-like CLI");
-        // Every profile's patterns compile and the generic prompt shapes work everywhere.
-        for p in &table().profiles {
+        // Cisco-like CLIs (Cisco, Ruijie, Aruba) all accept the generic prompt shapes.
+        for p in table()
+            .profiles
+            .iter()
+            .filter(|p| ["generic", "cisco", "ruijie", "aruba"].contains(&p.family.as_str()))
+        {
             assert_eq!(
                 p.match_prompt("sw1#").map(|m| m.mode),
                 Some(CliMode::Privileged),
