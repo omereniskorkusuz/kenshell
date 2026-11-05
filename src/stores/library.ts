@@ -13,8 +13,10 @@ import {
   type SessionInput,
   type SessionRecord,
 } from '../lib/ipc';
+import type { SessionPatch } from '../lib/bulk';
 import { toInput } from '../lib/tree';
 import { toast } from './toasts';
+import { useUi } from './ui';
 
 export type RenameTarget = { kind: 'folder' | 'session'; id: number } | null;
 
@@ -45,6 +47,12 @@ interface LibraryState {
   deleteSession(id: number): Promise<void>;
   /** Drag & drop: into `folderId`, right before `beforeId` (null = last). */
   reorderSession(id: number, folderId: number | null, beforeId: number | null): Promise<void>;
+  /** Moves a folder under `parentId`, before sibling `beforeId` (null = at the end). */
+  reorderFolder(id: number, parentId: number | null, beforeId: number | null): Promise<void>;
+  /** One change set for many sessions (all or nothing); resolves true on success. */
+  bulkUpdate(ids: number[], patch: SessionPatch): Promise<boolean>;
+  /** Deletes many sessions; the toast offers undo (recreated without saved passwords). */
+  bulkDelete(ids: number[]): Promise<void>;
   toggleFavorite(id: number): Promise<void>;
 
   reloadProfiles(): Promise<void>;
@@ -189,6 +197,36 @@ export const useLibrary = create<LibraryState>()((set, get) => {
     async reorderSession(id, folderId, beforeId) {
       if (id === beforeId) return;
       await mutate(() => api.sessionReorder(id, folderId, beforeId));
+    },
+    async reorderFolder(id, parentId, beforeId) {
+      if (id === beforeId || id === parentId) return;
+      await mutate(() => api.folderReorder(id, parentId, beforeId));
+    },
+    async bulkUpdate(ids, patch) {
+      if (ids.length === 0) return false;
+      const out = await mutate(() => api.sessionBulkUpdate(ids, patch));
+      if (out) useUi.getState().flash(t('library.bulkUpdated', { count: out.length }));
+      return out !== null;
+    },
+    async bulkDelete(ids) {
+      const victims = get().sessions.filter((x) => ids.includes(x.id));
+      if (victims.length === 0) return;
+      const cached = victims.map(toInput);
+      const n = await mutate(() => api.sessionBulkDelete(victims.map((x) => x.id)));
+      if (n === null) return;
+      toast({
+        message: t('library.bulkDeleted', { count: n }),
+        actions: [
+          {
+            label: t('common.undo'),
+            primary: true,
+            run: () =>
+              void mutate(async () => {
+                for (const input of cached) await api.sessionCreate(input);
+              }),
+          },
+        ],
+      });
     },
     async toggleFavorite(id) {
       const s = get().sessions.find((x) => x.id === id);

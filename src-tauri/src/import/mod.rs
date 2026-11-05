@@ -505,6 +505,8 @@ pub(crate) fn find_or_create_folder(
 
 /// Creates the sessions under a top-level folder `root` (reused if it exists),
 /// mirroring their folder paths. Same name in the same folder → skipped.
+/// (Test shorthand; the app goes through [`apply_with`] to clear stale passwords.)
+#[cfg(test)]
 pub fn apply(db: &Db, root: &str, items: Vec<Imported>, report: ImportReport) -> ImportReport {
     apply_with(db, Some(root), items, report, |_, _| {})
 }

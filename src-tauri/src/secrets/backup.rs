@@ -250,6 +250,8 @@ pub fn restore(
         |i, s| created.push((i, s.id)),
     );
     for (i, id) in created {
+        // A fresh session: drop anything a deleted session with the same id left behind.
+        super::forget_session(store, id);
         if let Some(pw) = payload.sessions[i].password.as_deref() {
             store.set(&session_account(id), pw)?;
             report.passwords += 1;

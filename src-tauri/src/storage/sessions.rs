@@ -11,7 +11,7 @@ use super::folders::require_folder;
 use super::validate::{self, MAX_NAME_CHARS, ValidSession};
 use super::{Db, now_ms};
 use crate::error::{AppError, ErrorCode, Result};
-use crate::model::{Protocol, SessionInput, SessionRecord};
+use crate::model::{Protocol, SessionInput, SessionPatch, SessionRecord};
 
 const SELECT_SESSION: &str = "SELECT id, folder_id, name, protocol, host, port, username, \
      serial_json, env_tag, tags_json, favorite, sort_order, created_at, updated_at, \
@@ -190,6 +190,85 @@ fn copy_name(base: &str, n: u64) -> String {
     format!("{}{suffix}", base.trim_end())
 }
 
+/// Upper bound for one bulk operation (a library holds a few thousand sessions at most).
+const MAX_BULK: usize = 5000;
+
+fn check_bulk(ids: &[i64]) -> Result<()> {
+    if ids.is_empty() || ids.len() > MAX_BULK {
+        return Err(AppError::invalid(format!(
+            "bulk edit needs 1..={MAX_BULK} sessions"
+        )));
+    }
+    let unique: HashSet<i64> = ids.iter().copied().collect();
+    if unique.len() != ids.len() {
+        return Err(AppError::invalid("duplicate session ids"));
+    }
+    Ok(())
+}
+
+/// The editable fields of a stored session.
+fn input_of(r: &SessionRecord) -> SessionInput {
+    SessionInput {
+        folder_id: r.folder_id,
+        name: r.name.clone(),
+        protocol: r.protocol,
+        host: r.host.clone(),
+        port: r.port,
+        username: r.username.clone(),
+        serial: r.serial.clone(),
+        env_tag: r.env_tag.clone(),
+        tags: r.tags.clone(),
+        favorite: r.favorite,
+        ssh: r.ssh.clone(),
+        credential_profile_id: r.credential_profile_id,
+        auto_commands: r.auto_commands.clone(),
+    }
+}
+
+/// Replaces the user-editable fields inside an open transaction. Keeps `id`,
+/// `created_at`, `last_connected_at` and the position (unless the folder changes, then
+/// the session is appended to the new folder). `updated_at` strictly increases.
+fn update_in(tx: &Connection, id: i64, input: &SessionInput) -> Result<SessionRecord> {
+    let v = validate::session(input)?;
+    let existing = fetch(tx, id)?;
+    require_folder(tx, v.folder_id)?;
+    require_profile(tx, v.credential_profile_id)?;
+    let sort_order = if existing.folder_id == v.folder_id {
+        existing.sort_order
+    } else {
+        next_session_order(tx, v.folder_id)?
+    };
+    let updated_at = now_ms().max(existing.updated_at + 1);
+    let serial_json = v.serial.as_ref().map(to_json).transpose()?;
+    let ssh_json = v.ssh.as_ref().map(to_json).transpose()?;
+    tx.execute(
+        "UPDATE sessions SET folder_id = ?2, name = ?3, protocol = ?4, host = ?5,
+                 port = ?6, username = ?7, serial_json = ?8, env_tag = ?9, tags_json = ?10,
+                 favorite = ?11, sort_order = ?12, updated_at = ?13, ssh_json = ?14,
+                 credential_profile_id = ?15, auto_commands_json = ?16
+             WHERE id = ?1",
+        params![
+            id,
+            v.folder_id,
+            v.name,
+            protocol_str(v.protocol),
+            v.host,
+            v.port,
+            v.username,
+            serial_json,
+            v.env_tag,
+            to_json(&v.tags)?,
+            v.favorite,
+            sort_order,
+            updated_at,
+            ssh_json,
+            v.credential_profile_id,
+            auto_json(&v.auto_commands)?,
+        ],
+    )?;
+    fetch(tx, id)
+}
+
 impl Db {
     pub fn list_sessions(&self) -> Result<Vec<SessionRecord>> {
         let conn = self.conn();
@@ -222,48 +301,45 @@ impl Db {
     /// `last_connected_at` and the position (unless the folder changes, then the
     /// session is appended to the new folder). `updated_at` strictly increases.
     pub fn update_session(&self, id: i64, input: &SessionInput) -> Result<SessionRecord> {
-        let v = validate::session(input)?;
         let mut conn = self.conn();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let existing = fetch(&tx, id)?;
-        require_folder(&tx, v.folder_id)?;
-        require_profile(&tx, v.credential_profile_id)?;
-        let sort_order = if existing.folder_id == v.folder_id {
-            existing.sort_order
-        } else {
-            next_session_order(&tx, v.folder_id)?
-        };
-        let updated_at = now_ms().max(existing.updated_at + 1);
-        let serial_json = v.serial.as_ref().map(to_json).transpose()?;
-        let ssh_json = v.ssh.as_ref().map(to_json).transpose()?;
-        tx.execute(
-            "UPDATE sessions SET folder_id = ?2, name = ?3, protocol = ?4, host = ?5,
-                 port = ?6, username = ?7, serial_json = ?8, env_tag = ?9, tags_json = ?10,
-                 favorite = ?11, sort_order = ?12, updated_at = ?13, ssh_json = ?14,
-                 credential_profile_id = ?15, auto_commands_json = ?16
-             WHERE id = ?1",
-            params![
-                id,
-                v.folder_id,
-                v.name,
-                protocol_str(v.protocol),
-                v.host,
-                v.port,
-                v.username,
-                serial_json,
-                v.env_tag,
-                to_json(&v.tags)?,
-                v.favorite,
-                sort_order,
-                updated_at,
-                ssh_json,
-                v.credential_profile_id,
-                auto_json(&v.auto_commands)?,
-            ],
-        )?;
-        let record = fetch(&tx, id)?;
+        let record = update_in(&tx, id, input)?;
         tx.commit()?;
         Ok(record)
+    }
+
+    /// Applies one change set to many sessions in a single transaction: either all
+    /// change (each one re-validated like a normal edit) or none (P2-T10 bulk edit).
+    pub fn bulk_update_sessions(
+        &self,
+        ids: &[i64],
+        patch: &SessionPatch,
+    ) -> Result<Vec<SessionRecord>> {
+        check_bulk(ids)?;
+        let mut conn = self.conn();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let mut out = Vec::with_capacity(ids.len());
+        for &id in ids {
+            let mut input = input_of(&fetch(&tx, id)?);
+            patch.apply(&mut input);
+            out.push(update_in(&tx, id, &input)?);
+        }
+        tx.commit()?;
+        Ok(out)
+    }
+
+    /// Deletes many sessions at once (all or none); returns how many were deleted.
+    pub fn delete_sessions(&self, ids: &[i64]) -> Result<usize> {
+        check_bulk(ids)?;
+        let mut conn = self.conn();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        for &id in ids {
+            if tx.execute("DELETE FROM sessions WHERE id = ?1", [id])? == 0 {
+                return Err(session_not_found(id));
+            }
+        }
+        tx.commit()?;
+        Ok(ids.len())
     }
 
     /// Moves a session into `folder_id` and places it right before `before_id`
@@ -738,5 +814,79 @@ mod tests {
         assert_eq!(names(&db, Some(f.id)), ["b"]);
         assert!(db.reorder_session(999, None, None).is_err());
         assert!(db.reorder_session(a.id, Some(999), None).is_err());
+    }
+
+    #[test]
+    fn bulk_update_changes_only_given_fields_all_or_nothing() {
+        use crate::model::{Change, SessionPatch};
+        let db = db();
+        let f = db.create_folder("Core", None).unwrap().id;
+        let a = db.create_session(&ssh("a", None)).unwrap();
+        let b = db.create_session(&ssh("b", None)).unwrap();
+        let c = db.create_session(&serial("console")).unwrap();
+        let patch = SessionPatch {
+            folder: Some(Change { value: Some(f) }),
+            env_tag: Some(Change {
+                value: Some("prod".into()),
+            }),
+            add_tags: vec!["edge".into(), "CORE".into()],
+            remove_tags: vec!["dc1".into()],
+            favorite: Some(false),
+            username: Some(Change {
+                value: Some("netops".into()),
+            }),
+            ..Default::default()
+        };
+        let out = db
+            .bulk_update_sessions(&[a.id, b.id, c.id], &patch)
+            .unwrap();
+        assert_eq!(out.len(), 3);
+        for r in &out {
+            assert_eq!(r.folder_id, Some(f));
+            assert_eq!(r.env_tag.as_deref(), Some("prod"));
+            assert!(!r.favorite);
+            assert!(!r.tags.iter().any(|t| t == "dc1"));
+            assert!(r.tags.iter().any(|t| t == "edge"));
+        }
+        assert_eq!(out[0].tags, ["core", "edge"], "no duplicate CORE");
+        assert_eq!(out[0].username.as_deref(), Some("netops"));
+        assert_eq!(out[2].username, None, "serial sessions get no user name");
+        assert_eq!(out[0].host, a.host, "untouched fields stay");
+        assert_eq!(
+            out.iter().map(|r| r.sort_order).collect::<Vec<_>>(),
+            [0, 1, 2],
+            "appended to the new folder in order"
+        );
+
+        // One invalid change (empty tag list is fine; a bad env label is not) rolls all back.
+        let bad = SessionPatch {
+            env_tag: Some(Change {
+                value: Some("x".repeat(500)),
+            }),
+            ..Default::default()
+        };
+        assert!(db.bulk_update_sessions(&[a.id, b.id], &bad).is_err());
+        assert_eq!(
+            db.get_session(a.id).unwrap().env_tag.as_deref(),
+            Some("prod")
+        );
+        assert!(db.bulk_update_sessions(&[a.id, a.id], &patch).is_err());
+        assert!(db.bulk_update_sessions(&[], &patch).is_err());
+        assert!(db.bulk_update_sessions(&[a.id, 999], &patch).is_err());
+        assert_eq!(
+            db.get_session(a.id).unwrap().username.as_deref(),
+            Some("netops")
+        );
+    }
+
+    #[test]
+    fn bulk_delete_is_all_or_nothing() {
+        let db = db();
+        let a = db.create_session(&ssh("a", None)).unwrap().id;
+        let b = db.create_session(&ssh("b", None)).unwrap().id;
+        assert!(db.delete_sessions(&[a, 999]).is_err());
+        assert_eq!(db.list_sessions().unwrap().len(), 2);
+        assert_eq!(db.delete_sessions(&[a, b]).unwrap(), 2);
+        assert!(db.list_sessions().unwrap().is_empty());
     }
 }

@@ -22,6 +22,12 @@ export const MAX_ENV = 12;
 
 export type BaudChoice = 'auto' | `${(typeof BAUD_PRESETS)[number]}` | 'custom';
 export type EnvChoice = (typeof ENV_CHOICES)[number];
+export type LineChoice = 'default' | 'on' | 'off';
+export const MAX_KEEPALIVE = 3600;
+
+const lineChoice = (v: boolean | null | undefined): LineChoice =>
+  v === true ? 'on' : v === false ? 'off' : 'default';
+const lineValue = (c: LineChoice): boolean | null => (c === 'default' ? null : c === 'on');
 
 export interface Draft {
   name: string;
@@ -34,6 +40,9 @@ export interface Draft {
   parity: Parity;
   stopBits: number;
   flowControl: FlowControl;
+  /** Line level after opening the port ('default' = leave as the driver sets it). */
+  dtr: LineChoice;
+  rts: LineChoice;
   envChoice: EnvChoice;
   envCustom: string;
   /** Network protocols. */
@@ -43,6 +52,8 @@ export interface Draft {
   legacyAlgorithms: boolean;
   keyPath: string;
   useAgent: boolean;
+  /** Seconds as typed; empty = default (30), 0 = off. */
+  keepalive: string;
   /** "user@host:port" (user and port optional). */
   jump: string;
   proxyKind: 'none' | 'socks5' | 'http';
@@ -73,6 +84,8 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     parity: serial.parity,
     stopBits: serial.stopBits,
     flowControl: serial.flowControl,
+    dtr: lineChoice(serial.dtr),
+    rts: lineChoice(serial.rts),
     envChoice: kind === null ? 'none' : kind,
     envCustom: kind === 'custom' ? (normalizeEnv(input?.envTag) ?? '') : '',
     host: input?.host ?? '',
@@ -81,6 +94,7 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     legacyAlgorithms: input?.ssh?.legacyAlgorithms ?? false,
     keyPath: input?.ssh?.keyPath ?? '',
     useAgent: input?.ssh?.useAgent ?? false,
+    keepalive: input?.ssh?.keepaliveSecs != null ? String(input.ssh.keepaliveSecs) : '',
     jump: formatJump(input?.ssh?.jump),
     proxyKind: input?.ssh?.proxy?.kind ?? 'none',
     proxy: input?.ssh?.proxy ? formatHostPort(input.ssh.proxy.host, input.ssh.proxy.port) : '',
@@ -96,7 +110,16 @@ const formatHostPort = (host: string, port: number): string =>
 
 export type DraftErrors = Partial<
   Record<
-    'name' | 'port' | 'baud' | 'env' | 'host' | 'netPort' | 'jump' | 'proxy' | 'forwards',
+    | 'name'
+    | 'port'
+    | 'baud'
+    | 'env'
+    | 'host'
+    | 'netPort'
+    | 'jump'
+    | 'proxy'
+    | 'forwards'
+    | 'keepalive',
     'required' | 'range' | 'tooLong' | 'format'
   >
 >;
@@ -134,6 +157,8 @@ export function validateDraft(d: Draft): DraftErrors {
     if (parseJump(d.jump) === 'invalid') errors.jump = 'format';
     if (d.proxyKind !== 'none' && !parseHostPort(d.proxy, true)) errors.proxy = 'format';
     if (forwardErrors(d)) errors.forwards = 'format';
+    const k = d.keepalive.trim();
+    if (k !== '' && (!/^\d+$/.test(k) || Number(k) > MAX_KEEPALIVE)) errors.keepalive = 'range';
   }
   if (d.baudChoice === 'custom') {
     const raw = d.customBaud.trim();
@@ -169,8 +194,8 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
             parity: d.parity,
             stopBits: d.stopBits,
             flowControl: d.flowControl,
-            dtr: base?.serial?.dtr ?? null,
-            rts: base?.serial?.rts ?? null,
+            dtr: lineValue(d.dtr),
+            rts: lineValue(d.rts),
           }
         : null,
     envTag: env,
@@ -192,6 +217,7 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
             legacyAlgorithms: d.legacyAlgorithms,
             keyPath: d.keyPath.trim() || null,
             useAgent: d.useAgent,
+            keepaliveSecs: d.keepalive.trim() === '' ? null : Number(d.keepalive.trim()),
             ...tunnels(d),
           }
         : null,

@@ -188,7 +188,26 @@
     "search": "Oturum ara",
     "results_one": "{{count}} sonuç",
     "results_other": "{{count}} sonuç",
-    "noResults": "Eşleşen oturum yok."
+    "noResults": "Eşleşen oturum yok.",
+    "bulkSelected": "{{count}} seçili",
+    "bulkFolder": "Klasöre taşı",
+    "bulkRoot": "En üst düzey",
+    "bulkEnv": "Ortam",
+    "bulkEnvNone": "Ortam yok",
+    "bulkTags": "Etiketler",
+    "bulkAddTags": "Eklenecek etiketler",
+    "bulkRemoveTags": "Çıkarılacak etiketler",
+    "bulkTagsHint": "Virgül veya boşlukla ayırın.",
+    "bulkFavOn": "Favorilere ekle",
+    "bulkFavOff": "Favorilerden çıkar",
+    "bulkUser": "Kullanıcı adı",
+    "bulkUserHint": "Boş bırakırsanız kaldırılır. Seri oturumlar atlanır.",
+    "bulkApply": "Uygula",
+    "bulkDelete": "{{count}} oturumu sil",
+    "bulkClear": "Seçimi temizle",
+    "bulkUpdated": "{{count}} oturum güncellendi.",
+    "bulkDeleted": "{{count}} oturum silindi. Kayıtlı şifreler kaldırıldı.",
+    "bulkHint": "Birden çok oturum seçmek için ⌘/Ctrl veya Shift ile tıklayın"
   },
   "consoles": {
     "connect": "Bağlan",
@@ -271,7 +290,14 @@
     "tags": "Etiketler",
     "tagsHint": "core, dc1, kat-2 (virgülle ayırın)",
     "autoCommands": "Bağlanınca gönderilecek komutlar",
-    "autoCommandsHint": "Her satıra bir komut; cihaz prompt'ta beklerken (siz giriş yaptıktan sonra) gönderilir. Buraya şifre yazmayın."
+    "autoCommandsHint": "Her satıra bir komut; cihaz prompt'ta beklerken (siz giriş yaptıktan sonra) gönderilir. Buraya şifre yazmayın.",
+    "keepalive": "Keepalive (sn)",
+    "keepaliveHint": "Boş = 30 sn, 0 = kapalı.",
+    "keepaliveRange": "0–{{max}} saniye.",
+    "lineDefault": "Sürücü varsayılanı",
+    "lineOn": "Açık",
+    "lineOff": "Kapalı",
+    "lineHint": "Port açıldıktan sonraki hat seviyeleri. Bazı konsol kabloları veya cihazlar DTR ya da RTS kapalı ister."
   },
   "palette": {
     "placeholder": "Oturum, konsol ve eylem ara…",

@@ -24,6 +24,7 @@ import type {
   Settings,
 } from '../ipc';
 import { isMac } from '../ipc';
+import { applyPatch, type SessionPatch } from '../bulk';
 import { framingLabel } from '../format';
 import { FakeCli } from './cli';
 
@@ -575,6 +576,24 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         f.parentId = parentId;
         return undefined;
       }
+      case 'folder_reorder': {
+        const f = need(
+          folders.find((x) => x.id === a.id),
+          'folder',
+        );
+        const parentId = (a.parentId as number | null) ?? null;
+        if (wouldCycle(f.id, parentId)) fail('invalid', 'cycle');
+        const rest = folders
+          .filter((x) => x.parentId === parentId && x.id !== f.id)
+          .sort((x, y) => x.sortOrder - y.sortOrder);
+        const at = rest.findIndex((x) => x.id === a.beforeId);
+        rest.splice(at < 0 ? rest.length : at, 0, f);
+        rest.forEach((x, i) => {
+          x.parentId = parentId;
+          x.sortOrder = i;
+        });
+        return undefined;
+      }
       case 'folder_delete': {
         const f = need(
           folders.find((x) => x.id === a.id),
@@ -626,6 +645,33 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         );
         sessions = sessions.filter((s) => s.id !== a.id);
         return undefined;
+      case 'session_bulk_update': {
+        const ids = a.ids as number[];
+        const patch = a.patch as SessionPatch;
+        const found = ids.map((id) =>
+          need(
+            sessions.find((s) => s.id === id),
+            'session',
+          ),
+        );
+        const out = found.map((old) => {
+          const next = { ...old, ...applyPatch(old, patch), updatedAt: now() };
+          sessions[sessions.indexOf(old)] = next;
+          return structuredClone(next);
+        });
+        return out;
+      }
+      case 'session_bulk_delete': {
+        const ids = a.ids as number[];
+        ids.forEach((id) =>
+          need(
+            sessions.find((s) => s.id === id),
+            'session',
+          ),
+        );
+        sessions = sessions.filter((s) => !ids.includes(s.id));
+        return ids.length;
+      }
       case 'session_duplicate': {
         const old = need(
           sessions.find((s) => s.id === a.id),

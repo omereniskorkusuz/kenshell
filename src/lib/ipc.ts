@@ -4,6 +4,7 @@
  */
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import type { SessionPatch } from './bulk';
 import type * as MockModule from './mock';
 
 // ------------------------------------------------------------------ errors
@@ -426,6 +427,9 @@ export const api = {
   folderMove: (id: number, parentId: number | null) =>
     call<undefined>('folder_move', { id, parentId }),
   folderDelete: (id: number) => call<undefined>('folder_delete', { id }),
+  /** Moves a folder under `parentId`, before sibling `beforeId` (null = at the end). */
+  folderReorder: (id: number, parentId: number | null, beforeId: number | null) =>
+    call<undefined>('folder_reorder', { id, parentId, beforeId }),
 
   sessionList: () => call<SessionRecord[]>('session_list'),
   sessionCreate: (input: SessionInput) => call<SessionRecord>('session_create', { input }),
@@ -435,6 +439,10 @@ export const api = {
   sessionDuplicate: (id: number) => call<SessionRecord>('session_duplicate', { id }),
   sessionReorder: (id: number, folderId: number | null, beforeId: number | null) =>
     call<undefined>('session_reorder', { id, folderId, beforeId }),
+  /** One change set for many sessions; all or nothing. */
+  sessionBulkUpdate: (ids: number[], patch: SessionPatch) =>
+    call<SessionRecord[]>('session_bulk_update', { ids, patch }),
+  sessionBulkDelete: (ids: number[]) => call<number>('session_bulk_delete', { ids }),
 
   settingsAll: () => call<Settings>('settings_all'),
   settingSet: (key: string, value: unknown) => call<undefined>('setting_set', { key, value }),

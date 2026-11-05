@@ -1,6 +1,10 @@
 /**
  * Saved sessions tree: nested folders, PROD first, inline rename, drag & drop, context menu,
  * full keyboard navigation (roving tabindex, WAI-ARIA tree pattern).
+ *
+ * P2-T10: several sessions can be marked (⌘/Ctrl-click, Shift-click, ⌘/Ctrl+A) for the bulk
+ * bar; dragging a marked session moves all marked ones. A folder dropped on the top edge of
+ * another folder is placed before it, anywhere else on the row it goes inside.
  */
 import {
   useMemo,
@@ -12,6 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 import { ChevronDown, ChevronRight, Folder as FolderIcon, Plus } from 'lucide-react';
+import { rangeBetween } from '../lib/bulk';
 import { useT } from '../i18n';
 import { isMac, type Folder, type SessionRecord } from '../lib/ipc';
 import { formatChord } from '../lib/shortcuts';
@@ -28,6 +33,7 @@ import { newSerialSession } from '../app/actions';
 import { useLibrary } from '../stores/library';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
+import { BulkBar } from './BulkBar';
 import { Menu, useMenu, type MenuEntry } from './Menu';
 
 type Sel = `f${number}` | `s${number}`;
@@ -61,6 +67,11 @@ export function SessionTree() {
   /** Session row a dragged session would be inserted before. */
   const [dropBefore, setDropBefore] = useState<number | null>(null);
   const [dragging, setDragging] = useState<DragPayload | null>(null);
+  /** Folder row a dragged folder would be placed before. */
+  const [dropBeforeFolder, setDropBeforeFolder] = useState<number | null>(null);
+  /** Sessions marked for bulk edit, and the anchor of Shift-click ranges. */
+  const [marked, setMarked] = useState<Set<number>>(() => new Set());
+  const [anchor, setAnchor] = useState<number | null>(null);
   const menu = useMenu();
   const [menuEntries, setMenuEntries] = useState<MenuEntry[]>([]);
   const addMenu = useMenu();
@@ -70,6 +81,43 @@ export function SessionTree() {
   const lib = useLibrary.getState;
   const openSession = (s: SessionRecord) => useTabs.getState().openSession(s);
   const editSession = (s: SessionRecord) => useUi.getState().openEditor({ sessionId: s.id });
+
+  /** Session ids in the order they are shown (inside expanded folders only). */
+  const visibleSessionIds = (): number[] => {
+    const out: number[] = [];
+    const walk = (nodes: TreeNode[]) => {
+      for (const n of nodes) {
+        if (n.kind === 'session') out.push(n.session.id);
+        else if (!collapsed.has(n.folder.id)) walk(n.children);
+      }
+    };
+    walk(tree);
+    return out;
+  };
+  // Marks of sessions that no longer exist are dropped.
+  const markedIds = Array.from(marked).filter((id) => sessions.some((x) => x.id === id));
+  const clearMarks = () => {
+    setMarked(new Set());
+    setAnchor(null);
+  };
+  /** Click on a session row: plain = single, ⌘/Ctrl = toggle, Shift = range from anchor. */
+  const markOnClick = (e: MouseEvent, id: number) => {
+    if (e.shiftKey && anchor !== null) {
+      setMarked(new Set(rangeBetween(visibleSessionIds(), anchor, id)));
+      return;
+    }
+    if (e.metaKey || e.ctrlKey) {
+      const next = new Set(marked);
+      if (marked.size === 0 && anchor !== null && anchor !== id) next.add(anchor);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      setMarked(next);
+      setAnchor(id);
+      return;
+    }
+    setMarked(new Set());
+    setAnchor(id);
+  };
 
   const moveTargets = (
     exclude: Set<number>,
@@ -171,7 +219,10 @@ export function SessionTree() {
     const isFolder = node.kind === 'folder';
     const isOpen = isFolder && !collapsed.has(node.folder.id);
     const del = e.key === 'Delete' || (e.key === 'Backspace' && (e.metaKey || !mac));
-    if (e.key === 'ArrowDown') focusRow(list[i + 1]);
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+      setMarked(new Set(visibleSessionIds()));
+    } else if (e.key === 'Escape' && marked.size > 0) clearMarks();
+    else if (e.key === 'ArrowDown') focusRow(list[i + 1]);
     else if (e.key === 'ArrowUp') focusRow(list[i - 1]);
     else if (e.key === 'Home') focusRow(list[0]);
     else if (e.key === 'End') focusRow(list[list.length - 1]);
@@ -193,6 +244,9 @@ export function SessionTree() {
           ? { kind: 'folder', id: node.folder.id }
           : { kind: 'session', id: node.session.id },
       );
+    } else if (del && !isFolder && markedIds.length > 1 && marked.has(node.session.id)) {
+      void lib().bulkDelete(markedIds);
+      clearMarks();
     } else if (del) {
       focusRow(list[i + 1] ?? list[i - 1]);
       if (isFolder) void lib().deleteFolder(node.folder.id);
@@ -226,6 +280,8 @@ export function SessionTree() {
       // Never into itself or one of its own sub-folders.
       if (target !== null && descendantFolderIds(folders, d.id).has(target)) return;
       void lib().moveFolder(d.id, target);
+    } else if (markedIds.length > 1 && marked.has(d.id)) {
+      void lib().bulkUpdate(markedIds, { folder: { value: target } });
     } else {
       void lib().moveSession(d.id, target);
     }
@@ -243,8 +299,70 @@ export function SessionTree() {
       setDragging(null);
       setDropTarget(null);
       setDropBefore(null);
+      setDropBeforeFolder(null);
     },
   });
+
+  const prodPinned = (id: number): boolean => {
+    const find = (nodes: TreeNode[]): boolean | null => {
+      for (const n of nodes) {
+        if (n.kind !== 'folder') continue;
+        if (n.folder.id === id) return n.hasProd;
+        const inner = find(n.children);
+        if (inner !== null) return inner;
+      }
+      return null;
+    };
+    return find(tree) ?? false;
+  };
+
+  /**
+   * Folder rows: a dragged folder over the top third → "before this folder" (same parent),
+   * elsewhere → "into this folder"; sessions always go into the folder.
+   */
+  const folderDropProps = (f: Folder) => {
+    const into = dropProps(f.id);
+    // Folders holding PROD stay pinned on top, so "before" only works within one group.
+    const beforeAllowed = () =>
+      dragging?.kind === 'folder' &&
+      dragging.id !== f.id &&
+      canDropInto(f.parentId) &&
+      prodPinned(dragging.id) === prodPinned(f.id);
+    const isTop = (e: DragEvent) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      return e.clientY - r.top < r.height / 3;
+    };
+    return {
+      onDragOver: (e: DragEvent) => {
+        if (beforeAllowed() && isTop(e)) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = 'move';
+          setDropBeforeFolder(f.id);
+          setDropTarget(null);
+          return;
+        }
+        setDropBeforeFolder(null);
+        into.onDragOver(e);
+      },
+      onDragLeave: (e: DragEvent) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropBeforeFolder(null);
+        into.onDragLeave(e);
+      },
+      onDrop: (e: DragEvent) => {
+        if (dropBeforeFolder === f.id && beforeAllowed()) {
+          e.preventDefault();
+          e.stopPropagation();
+          setDropBeforeFolder(null);
+          const d = readDrag(e) ?? dragging;
+          setDragging(null);
+          if (d?.kind === 'folder') void lib().reorderFolder(d.id, f.parentId, f.id);
+          return;
+        }
+        into.onDrop(e);
+      },
+    };
+  };
 
   const dropProps = (target: number | null) => ({
     onDragOver: (e: DragEvent) => {
@@ -280,6 +398,14 @@ export function SessionTree() {
       const d = readDrag(e) ?? dragging;
       setDragging(null);
       if (d?.kind !== 'session' || d.id === target.id) return;
+      if (markedIds.length > 1 && marked.has(d.id)) {
+        // Keep the marked sessions' shown order, all placed before the target.
+        const order = visibleSessionIds().filter((id) => marked.has(id) && id !== target.id);
+        void (async () => {
+          for (const id of order) await lib().reorderSession(id, target.folderId, target.id);
+        })();
+        return;
+      }
       void lib().reorderSession(d.id, target.folderId, target.id);
     },
   });
@@ -311,6 +437,7 @@ export function SessionTree() {
             tabIndex={focusable === sel ? 0 : -1}
             data-tree-row={sel}
             data-drop={dropTarget === f.id || undefined}
+            data-drop-before={dropBeforeFolder === f.id || undefined}
             className="tree-row cursor-default"
             style={pad}
             onClick={() => {
@@ -324,7 +451,7 @@ export function SessionTree() {
               openMenuFor(node, e.clientX, e.clientY);
             }}
             {...dragProps({ kind: 'folder', id: f.id })}
-            {...dropProps(f.id)}
+            {...folderDropProps(f)}
           >
             <span className="flex w-3 shrink-0 justify-center text-muted" aria-hidden>
               {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -362,7 +489,8 @@ export function SessionTree() {
         key={sel}
         role="treeitem"
         aria-level={node.depth + 1}
-        aria-selected={selected === sel}
+        aria-selected={marked.size > 0 ? marked.has(s.id) : selected === sel}
+        data-marked={marked.has(s.id) || undefined}
         aria-label={[s.name, envLabel(s.envTag), tab ? t(`state.${tab.state}`) : null]
           .filter(Boolean)
           .join(', ')}
@@ -373,7 +501,10 @@ export function SessionTree() {
         className="tree-row cursor-default"
         style={pad}
         title={port}
-        onClick={() => setSelected(sel)}
+        onClick={(e) => {
+          setSelected(sel);
+          markOnClick(e, s.id);
+        }}
         onDoubleClick={() => openSession(s)}
         onFocus={() => setSelected(sel)}
         onKeyDown={(e) => onRowKeyDown(e, node)}
@@ -445,6 +576,8 @@ export function SessionTree() {
         ref={treeRef}
         role="tree"
         aria-labelledby="sessions-heading"
+        aria-multiselectable
+        aria-description={t('library.bulkHint')}
         className={`flex min-h-6 flex-col px-1 ${dropTarget === 'root' ? 'rounded-sm bg-hover' : ''}`}
         {...dropProps(null)}
       >
@@ -458,6 +591,7 @@ export function SessionTree() {
           </div>
         )}
       </div>
+      {markedIds.length > 1 && <BulkBar ids={markedIds} onClear={clearMarks} />}
       {menu.at && (
         <Menu
           x={menu.at.x}

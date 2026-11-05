@@ -3,7 +3,8 @@
 use tauri::State;
 
 use crate::error::Result;
-use crate::model::{Folder, SessionInput, SessionRecord};
+use crate::model::{Folder, SessionInput, SessionPatch, SessionRecord};
+use crate::secrets::forget_session;
 use crate::state::AppState;
 
 #[tauri::command]
@@ -31,6 +32,34 @@ pub fn folder_move(state: State<'_, AppState>, id: i64, parent_id: Option<i64>) 
 }
 
 #[tauri::command]
+pub fn folder_reorder(
+    state: State<'_, AppState>,
+    id: i64,
+    parent_id: Option<i64>,
+    before_id: Option<i64>,
+) -> Result<()> {
+    state.db.reorder_folder(id, parent_id, before_id)
+}
+
+#[tauri::command]
+pub fn session_bulk_update(
+    state: State<'_, AppState>,
+    ids: Vec<i64>,
+    patch: SessionPatch,
+) -> Result<Vec<SessionRecord>> {
+    state.db.bulk_update_sessions(&ids, &patch)
+}
+
+#[tauri::command]
+pub fn session_bulk_delete(state: State<'_, AppState>, ids: Vec<i64>) -> Result<usize> {
+    let n = state.db.delete_sessions(&ids)?;
+    for id in ids {
+        forget_session(state.secrets.as_ref(), id);
+    }
+    Ok(n)
+}
+
+#[tauri::command]
 pub fn folder_delete(state: State<'_, AppState>, id: i64) -> Result<()> {
     state.db.delete_folder(id)
 }
@@ -42,7 +71,9 @@ pub fn session_list(state: State<'_, AppState>) -> Result<Vec<SessionRecord>> {
 
 #[tauri::command]
 pub fn session_create(state: State<'_, AppState>, input: SessionInput) -> Result<SessionRecord> {
-    state.db.create_session(&input)
+    let rec = state.db.create_session(&input)?;
+    forget_session(state.secrets.as_ref(), rec.id);
+    Ok(rec)
 }
 
 #[tauri::command]
@@ -56,12 +87,16 @@ pub fn session_update(
 
 #[tauri::command]
 pub fn session_delete(state: State<'_, AppState>, id: i64) -> Result<()> {
-    state.db.delete_session(id)
+    state.db.delete_session(id)?;
+    forget_session(state.secrets.as_ref(), id);
+    Ok(())
 }
 
 #[tauri::command]
 pub fn session_duplicate(state: State<'_, AppState>, id: i64) -> Result<SessionRecord> {
-    state.db.duplicate_session(id)
+    let rec = state.db.duplicate_session(id)?;
+    forget_session(state.secrets.as_ref(), rec.id);
+    Ok(rec)
 }
 
 #[tauri::command]

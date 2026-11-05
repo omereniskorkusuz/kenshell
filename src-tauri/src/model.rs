@@ -140,6 +140,57 @@ pub struct SessionInput {
     pub auto_commands: Vec<String>,
 }
 
+/// A field set to `value` (`null` clears it) — absent means "leave as is".
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Change<T> {
+    pub value: T,
+}
+
+/// Bulk edit of saved sessions (P2-T10). Only the given fields change.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SessionPatch {
+    pub folder: Option<Change<Option<i64>>>,
+    pub env_tag: Option<Change<Option<String>>>,
+    pub add_tags: Vec<String>,
+    pub remove_tags: Vec<String>,
+    pub favorite: Option<bool>,
+    /// Network sessions only (serial sessions have no user name).
+    pub username: Option<Change<Option<String>>>,
+    pub credential_profile: Option<Change<Option<i64>>>,
+}
+
+impl SessionPatch {
+    pub fn apply(&self, s: &mut SessionInput) {
+        if let Some(c) = &self.folder {
+            s.folder_id = c.value;
+        }
+        if let Some(c) = &self.env_tag {
+            s.env_tag.clone_from(&c.value);
+        }
+        let same = |a: &str, b: &str| a.trim().eq_ignore_ascii_case(b.trim());
+        s.tags
+            .retain(|t| !self.remove_tags.iter().any(|r| same(t, r)));
+        for tag in &self.add_tags {
+            if !tag.trim().is_empty() && !s.tags.iter().any(|t| same(t, tag)) {
+                s.tags.push(tag.trim().to_owned());
+            }
+        }
+        if let Some(f) = self.favorite {
+            s.favorite = f;
+        }
+        if s.protocol != Protocol::Serial {
+            if let Some(c) = &self.username {
+                s.username.clone_from(&c.value);
+            }
+            if let Some(c) = &self.credential_profile {
+                s.credential_profile_id = c.value;
+            }
+        }
+    }
+}
+
 /// Remembered facts about a console cable, keyed by USB serial number (or port path).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

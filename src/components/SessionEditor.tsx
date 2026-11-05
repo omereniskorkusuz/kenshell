@@ -13,6 +13,7 @@ import {
   hasErrors,
   MAX_BAUD,
   MAX_ENV,
+  MAX_KEEPALIVE,
   MAX_NAME,
   MIN_BAUD,
   STOP_BITS,
@@ -22,6 +23,7 @@ import {
   type Draft,
   type DraftErrors,
   type EnvChoice,
+  type LineChoice,
 } from '../lib/sessionDraft';
 import { MAX_FORWARDS } from '../lib/sshTunnel';
 import { folderPath } from '../lib/tree';
@@ -70,9 +72,17 @@ export function SessionEditor({ state }: { state: EditorState }) {
   const errors = useMemo(() => validateDraft(draft), [draft]);
   const shown: DraftErrors = touched ? errors : {};
   const [advancedOpen, setAdvancedOpen] = useState(
-    () => draft.jump !== '' || draft.proxyKind !== 'none' || draft.forwards !== '',
+    () =>
+      draft.jump !== '' ||
+      draft.proxyKind !== 'none' ||
+      draft.forwards !== '' ||
+      draft.keepalive !== '',
   );
-  const tunnelError = Boolean(shown.jump || shown.proxy || shown.forwards);
+  const tunnelError = Boolean(shown.jump || shown.proxy || shown.forwards || shown.keepalive);
+  // Serial line control is rarely changed: open only when a session already sets it.
+  const [lineOpen, setLineOpen] = useState(
+    () => draft.dtr !== 'default' || draft.rts !== 'default',
+  );
   const portsListId = useId();
   const mac = isMac();
 
@@ -125,6 +135,7 @@ export function SessionEditor({ state }: { state: EditorState }) {
     if (field === 'netPort' && code === 'range') return t('editor.portRange');
     if (field === 'jump') return t('editor.jumpFormat');
     if (field === 'proxy') return t('editor.proxyFormat');
+    if (field === 'keepalive') return t('editor.keepaliveRange', { max: MAX_KEEPALIVE });
     if (field === 'forwards') {
       const lines = forwardErrors(draft) ?? [];
       return lines.length
@@ -405,6 +416,22 @@ export function SessionEditor({ state }: { state: EditorState }) {
                       />
                     )}
                   </Field>
+                  <Field label={t('editor.keepalive')} error={errorText('keepalive')}>
+                    {(id, describedBy) => (
+                      <div className="flex flex-col gap-1">
+                        <input
+                          id={id}
+                          className="field mono w-28"
+                          inputMode="numeric"
+                          value={draft.keepalive}
+                          placeholder="30"
+                          aria-describedby={describedBy}
+                          onChange={(e) => set('keepalive', e.target.value)}
+                        />
+                        <span className="text-xs text-muted">{t('editor.keepaliveHint')}</span>
+                      </div>
+                    )}
+                  </Field>
                   <Field label={t('editor.jump')} error={errorText('jump')}>
                     {(id, describedBy) => (
                       <div className="flex flex-col gap-1">
@@ -595,6 +622,35 @@ export function SessionEditor({ state }: { state: EditorState }) {
                 </select>
               )}
             </Field>
+
+            <details
+              className="col-span-full"
+              open={lineOpen}
+              onToggle={(e) => setLineOpen(e.currentTarget.open)}
+            >
+              <summary className="cursor-pointer text-sm text-secondary">
+                {t('editor.advanced')}
+              </summary>
+              <div className="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
+                {(['dtr', 'rts'] as const).map((line) => (
+                  <Field key={line} label={line.toUpperCase()}>
+                    {(id) => (
+                      <select
+                        id={id}
+                        className="field w-40"
+                        value={draft[line]}
+                        onChange={(e) => set(line, e.target.value as LineChoice)}
+                      >
+                        <option value="default">{t('editor.lineDefault')}</option>
+                        <option value="on">{t('editor.lineOn')}</option>
+                        <option value="off">{t('editor.lineOff')}</option>
+                      </select>
+                    )}
+                  </Field>
+                ))}
+                <p className="col-span-full text-xs text-muted">{t('editor.lineHint')}</p>
+              </div>
+            </details>
           </>
         )}
 

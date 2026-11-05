@@ -150,6 +150,7 @@ pub async fn import_sessions(
     path: Option<String>,
 ) -> Result<ImportReport> {
     let db = std::sync::Arc::clone(&state.db);
+    let secrets = std::sync::Arc::clone(&state.secrets);
     tauri::async_runtime::spawn_blocking(move || {
         let need_path = || {
             path.clone()
@@ -171,7 +172,16 @@ pub async fn import_sessions(
             }
             other => return Err(AppError::invalid(format!("unknown import source {other}"))),
         };
-        Ok(import::apply(&db, root, items, report))
+        // A new session must never inherit a deleted one's saved password (id reuse).
+        Ok(import::apply_with(
+            &db,
+            Some(root),
+            items,
+            report,
+            |_, s| {
+                crate::secrets::forget_session(secrets.as_ref(), s.id);
+            },
+        ))
     })
     .await
     .map_err(|e| AppError::internal(e.to_string()))?

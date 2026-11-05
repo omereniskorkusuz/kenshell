@@ -139,6 +139,48 @@ impl Db {
         Ok(())
     }
 
+    /// Moves a folder under `parent_id` and places it right before sibling `before_id`
+    /// (`None` = at the end). Sibling positions are renumbered 0..n. Rejects cycles.
+    pub fn reorder_folder(
+        &self,
+        id: i64,
+        parent_id: Option<i64>,
+        before_id: Option<i64>,
+    ) -> Result<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        parent_of(&tx, id)?;
+        require_folder(&tx, parent_id)?;
+        if let Some(target) = parent_id
+            && is_self_or_descendant(&tx, id, target)?
+        {
+            return Err(AppError::invalid(
+                "cannot move a folder into itself or its descendant",
+            ));
+        }
+        let mut ids: Vec<i64> = {
+            let mut stmt = tx.prepare(
+                "SELECT id FROM folders WHERE parent_id IS ?1 AND id != ?2
+                 ORDER BY sort_order, id",
+            )?;
+            stmt.query_map(params![parent_id, id], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?
+        };
+        let at = before_id
+            .and_then(|b| ids.iter().position(|x| *x == b))
+            .unwrap_or(ids.len());
+        ids.insert(at, id);
+        {
+            let mut upd =
+                tx.prepare("UPDATE folders SET parent_id = ?2, sort_order = ?3 WHERE id = ?1")?;
+            for (i, fid) in ids.iter().enumerate() {
+                upd.execute(params![fid, parent_id, i as i64])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     /// Deletes a folder; its sessions and sub-folders move to the folder's parent.
     /// They are appended after the parent's existing children, keeping their relative
     /// order, so nothing is ever lost by deleting a folder.
@@ -408,5 +450,38 @@ mod tests {
     #[test]
     fn delete_missing_folder_is_not_found() {
         assert_eq!(db().delete_folder(7).unwrap_err().code, ErrorCode::NotFound);
+    }
+
+    #[test]
+    fn folders_reorder_among_siblings_and_never_into_themselves() {
+        let db = db();
+        let a = db.create_folder("A", None).unwrap().id;
+        let b = db.create_folder("B", None).unwrap().id;
+        let c = db.create_folder("C", None).unwrap().id;
+        let sub = db.create_folder("Sub", Some(a)).unwrap().id;
+        let names = |db: &Db, parent: Option<i64>| -> Vec<String> {
+            db.list_folders()
+                .unwrap()
+                .into_iter()
+                .filter(|f| f.parent_id == parent)
+                .map(|f| f.name)
+                .collect()
+        };
+        db.reorder_folder(c, None, Some(a)).unwrap();
+        assert_eq!(names(&db, None), ["C", "A", "B"]);
+        db.reorder_folder(c, None, None).unwrap();
+        assert_eq!(names(&db, None), ["A", "B", "C"]);
+        // Into another parent, before an existing child.
+        db.reorder_folder(b, Some(a), Some(sub)).unwrap();
+        assert_eq!(names(&db, Some(a)), ["B", "Sub"]);
+        assert_eq!(names(&db, None), ["A", "C"]);
+        assert_eq!(
+            db.reorder_folder(a, Some(sub), None).unwrap_err().code,
+            ErrorCode::Invalid
+        );
+        assert_eq!(
+            db.reorder_folder(999, None, None).unwrap_err().code,
+            ErrorCode::NotFound
+        );
     }
 }

@@ -188,7 +188,26 @@
     "search": "Search sessions",
     "results_one": "{{count}} result",
     "results_other": "{{count}} results",
-    "noResults": "No session matches."
+    "noResults": "No session matches.",
+    "bulkSelected": "{{count}} selected",
+    "bulkFolder": "Move to folder",
+    "bulkRoot": "Top level",
+    "bulkEnv": "Environment",
+    "bulkEnvNone": "No environment",
+    "bulkTags": "Tags",
+    "bulkAddTags": "Add tags",
+    "bulkRemoveTags": "Remove tags",
+    "bulkTagsHint": "Comma or space separated.",
+    "bulkFavOn": "Add to favorites",
+    "bulkFavOff": "Remove from favorites",
+    "bulkUser": "User name",
+    "bulkUserHint": "Empty removes it. Serial sessions are skipped.",
+    "bulkApply": "Apply",
+    "bulkDelete": "Delete {{count}} sessions",
+    "bulkClear": "Clear selection",
+    "bulkUpdated": "{{count}} sessions updated.",
+    "bulkDeleted": "{{count}} sessions deleted. Saved passwords were removed.",
+    "bulkHint": "⌘/Ctrl-click or Shift-click to select several sessions"
   },
   "consoles": {
     "connect": "Connect",
@@ -271,7 +290,14 @@
     "tags": "Tags",
     "tagsHint": "core, dc1, floor-2 (comma separated)",
     "autoCommands": "Commands after connecting",
-    "autoCommandsHint": "One per line, sent when the device is idle at its prompt (after you log in). Do not put passwords here."
+    "autoCommandsHint": "One per line, sent when the device is idle at its prompt (after you log in). Do not put passwords here.",
+    "keepalive": "Keepalive (s)",
+    "keepaliveHint": "Empty = 30 s, 0 = off.",
+    "keepaliveRange": "0–{{max}} seconds.",
+    "lineDefault": "Driver default",
+    "lineOn": "On",
+    "lineOff": "Off",
+    "lineHint": "Line levels after the port opens. Some console cables or devices need DTR or RTS off."
   },
   "palette": {
     "placeholder": "Search sessions, consoles and actions…",

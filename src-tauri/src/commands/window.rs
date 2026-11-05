@@ -58,6 +58,8 @@ pub async fn window_detach(
             .inner_size(WIDTH, HEIGHT)
             .min_inner_size(720.0, 480.0)
             .visible(false)
+            // HTML5 drag-and-drop (session tree) instead of OS file drops (WebView2).
+            .disable_drag_drop_handler()
             .background_color(tauri::window::Color(15, 17, 21, 255));
     if let (Some(x), Some(y)) = (request.x, request.y) {
         // Center the title bar under the pointer, like dragging a browser tab out.

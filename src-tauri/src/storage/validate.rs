@@ -187,6 +187,9 @@ pub const MAX_FORWARDS: usize = 16;
 
 /// SSH options only for SSH sessions; blank key paths are dropped, jump host /
 /// proxy / forwards are checked (they can also arrive through import).
+/// SSH keepalive interval upper bound (0 = off).
+pub const MAX_KEEPALIVE_SECS: u32 = 3600;
+
 fn ssh(input: &SessionInput) -> Result<Option<SshOptions>> {
     if input.protocol != Protocol::Ssh {
         return Ok(None);
@@ -196,6 +199,11 @@ fn ssh(input: &SessionInput) -> Result<Option<SshOptions>> {
         .key_path
         .map(|p| p.trim().to_owned())
         .filter(|p| !p.is_empty());
+    if o.keepalive_secs.is_some_and(|k| k > MAX_KEEPALIVE_SECS) {
+        return Err(AppError::invalid(format!(
+            "keepalive must be 0-{MAX_KEEPALIVE_SECS} seconds"
+        )));
+    }
     if let Some(j) = o.jump.as_mut() {
         j.host = host(Some(&j.host))?;
         j.username = optional_text(j.username.as_deref(), "jump user", MAX_USERNAME_CHARS)?;
@@ -306,6 +314,21 @@ mod tests {
         let e = session(input).unwrap_err();
         assert_eq!(e.code, ErrorCode::Invalid, "{e}");
         e.detail.unwrap()
+    }
+
+    #[test]
+    fn ssh_keepalive_is_bounded() {
+        let mut i = ssh();
+        i.ssh = Some(SshOptions {
+            keepalive_secs: Some(MAX_KEEPALIVE_SECS),
+            ..SshOptions::default()
+        });
+        assert!(session(&i).is_ok());
+        i.ssh = Some(SshOptions {
+            keepalive_secs: Some(MAX_KEEPALIVE_SECS + 1),
+            ..SshOptions::default()
+        });
+        assert_eq!(session(&i).unwrap_err().code, ErrorCode::Invalid);
     }
 
     #[test]

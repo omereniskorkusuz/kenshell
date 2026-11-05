@@ -402,6 +402,9 @@
 }
 
 /* Drop indicator: a 2px line above the session row a dragged session goes before. */
+.tree-row[data-marked='true'] {
+  background: var(--bg-selected);
+}
 .tree-row[data-drop-before='true'] {
   box-shadow: inset 0 2px 0 0 var(--accent);
 }
