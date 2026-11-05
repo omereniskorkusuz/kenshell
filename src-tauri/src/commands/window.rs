@@ -28,8 +28,11 @@ const HEIGHT: f64 = 680.0;
 
 /// Opens a new window for a parked session; returns its label. On failure nothing is
 /// left behind and the caller re-attaches the session.
+///
+/// Async on purpose: creating a window from a synchronous command (which runs on the main
+/// thread) can deadlock on Windows (Tauri docs).
 #[tauri::command]
-pub fn window_detach(
+pub async fn window_detach(
     app: AppHandle,
     window: Window,
     state: State<'_, AppState>,

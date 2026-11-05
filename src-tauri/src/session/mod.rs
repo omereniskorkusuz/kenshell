@@ -298,18 +298,20 @@ impl SessionManager {
         Ok(())
     }
 
-    /// Closes every session shown by window `owner` (that window was destroyed).
+    /// Closes every session shown by window `owner` (that window is closing). Their output
+    /// is dropped right here (see [`Router::disconnect`]); call it on the main thread.
     pub fn close_owned_by(&self, owner: &str) -> usize {
-        let ids: Vec<RuntimeId> = self
+        let owned: Vec<(RuntimeId, Arc<Router>)> = self
             .registry()
             .iter()
             .filter(|(_, h)| h.owner == owner)
-            .map(|(id, _)| *id)
+            .map(|(id, h)| (*id, Arc::clone(&h.router)))
             .collect();
-        for id in &ids {
+        for (id, router) in &owned {
+            router.disconnect();
             let _ = self.close(*id);
         }
-        ids.len()
+        owned.len()
     }
 
     /// Called on every console hotplug change: sessions whose port vanished get

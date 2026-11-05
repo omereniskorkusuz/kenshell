@@ -96,10 +96,30 @@ pub fn run() {
             commands::secrets::session_password_exists,
         ])
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event
+            if matches!(
+                event,
+                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed
+            ) {
+                tracing::debug!(window = window.label(), ?event, "window event");
+            }
+            // macOS: destroying a detached window from inside the close-button click (Tauri's
+            // default) can leave its frame on screen when its terminal was live (seen
+            // 2026-11-05; not with AXPress). Destroy it a moment later instead.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event
+                && window.label().starts_with(handoff::WINDOW_PREFIX)
+            {
+                api.prevent_close();
+                let w = window.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+                    if let Err(e) = w.destroy() {
+                        tracing::warn!("destroy window: {e}");
+                    }
+                });
+            }
+            if let tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed = event
                 && let Some(state) = window.try_state::<AppState>()
             {
-                // Sessions live as long as the window that shows them.
                 let closed = state.sessions.close_owned_by(window.label());
                 state.handoffs.take(window.label());
                 if closed > 0 {

@@ -23,7 +23,12 @@ enum Held {
 
 enum Route {
     Live(Arc<dyn SessionOutput>),
-    Parked { held: VecDeque<Held>, bytes: usize },
+    Parked {
+        held: VecDeque<Held>,
+        bytes: usize,
+    },
+    /// The window is gone: output is dropped.
+    Closed,
 }
 
 pub(crate) struct Router(Mutex<Route>);
@@ -65,6 +70,15 @@ impl Router {
         }
         *route = Route::Live(out);
     }
+
+    /// Drops the output for good (its window is closing). The caller's thread drops the
+    /// output itself — a Tauri channel holds its webview, and a window whose webview is
+    /// still referenced stays on screen as an empty frame, so this must happen on the main
+    /// thread before the window is destroyed, not later in the session task.
+    pub(crate) fn disconnect(&self) {
+        let old = std::mem::replace(&mut *self.route(), Route::Closed);
+        drop(old);
+    }
 }
 
 impl SessionOutput for Router {
@@ -83,6 +97,7 @@ impl SessionOutput for Router {
                     }
                 }
             }
+            Route::Closed => {}
         }
     }
 
@@ -90,6 +105,7 @@ impl SessionOutput for Router {
         match &mut *self.route() {
             Route::Live(out) => out.event(event),
             Route::Parked { held, .. } => held.push_back(Held::Event(event)),
+            Route::Closed => {}
         }
     }
 }
@@ -146,6 +162,18 @@ mod tests {
         r.data(b"four".to_vec());
         assert!(a.take().is_empty(), "old window gets nothing after park");
         assert_eq!(b.take(), ["d:two", "e:Disconnected", "d:three", "d:four"]);
+    }
+
+    #[test]
+    fn disconnect_releases_the_output() {
+        let a = Arc::new(Rec::default());
+        let r = Router::new(a.clone());
+        assert_eq!(Arc::strong_count(&a), 2);
+        r.disconnect();
+        assert_eq!(Arc::strong_count(&a), 1, "window output dropped at once");
+        r.data(b"late".to_vec());
+        r.event(state(ConnState::Disconnected));
+        assert!(a.take().is_empty());
     }
 
     #[test]
