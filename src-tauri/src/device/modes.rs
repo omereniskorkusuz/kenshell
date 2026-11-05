@@ -243,6 +243,8 @@ mod tests {
         assert_eq!(ruijie.family, "ruijie");
         assert_eq!(default_profile().id, "cisco-like");
         assert_eq!(default_profile().disable_paging, "terminal length 0");
+        assert_eq!(default_profile().more, "--More--");
+        assert_eq!(default_profile().label, "Cisco-like CLI");
         // Every profile's patterns compile and the generic prompt shapes work everywhere.
         for p in &table().profiles {
             assert_eq!(
