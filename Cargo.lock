@@ -2530,6 +2530,7 @@ dependencies = [
  "futures-lite",
  "keyring",
  "nusb",
+ "regex",
  "ring",
  "rusqlite",
  "russh",

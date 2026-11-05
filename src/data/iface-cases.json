@@ -1,0 +1,152 @@
+{
+  "_comment": "Shared test vectors for interface normalization (Rust and TypeScript tests). key = canonical lowercase match key; short = display form; null = not an interface.",
+  "cases": [
+    {
+      "in": "GigabitEthernet 0/24",
+      "key": "gigabitethernet0/24",
+      "short": "Gi0/24",
+      "canonical": "GigabitEthernet0/24"
+    },
+    {
+      "in": "GigabitEthernet0/24",
+      "key": "gigabitethernet0/24",
+      "short": "Gi0/24",
+      "canonical": "GigabitEthernet0/24"
+    },
+    {
+      "in": "Gi0/24",
+      "key": "gigabitethernet0/24",
+      "short": "Gi0/24",
+      "canonical": "GigabitEthernet0/24"
+    },
+    {
+      "in": "gi 0/24",
+      "key": "gigabitethernet0/24",
+      "short": "Gi0/24",
+      "canonical": "GigabitEthernet0/24"
+    },
+    {
+      "in": "Gig1/0/24",
+      "key": "gigabitethernet1/0/24",
+      "short": "Gi1/0/24",
+      "canonical": "GigabitEthernet1/0/24"
+    },
+    {
+      "in": "giga1/0/1",
+      "key": "gigabitethernet1/0/1",
+      "short": "Gi1/0/1",
+      "canonical": "GigabitEthernet1/0/1"
+    },
+    {
+      "in": "TenGigabitEthernet 0/49",
+      "key": "tengigabitethernet0/49",
+      "short": "Te0/49",
+      "canonical": "TenGigabitEthernet0/49"
+    },
+    {
+      "in": "Te1/1/1",
+      "key": "tengigabitethernet1/1/1",
+      "short": "Te1/1/1",
+      "canonical": "TenGigabitEthernet1/1/1"
+    },
+    {
+      "in": "AggregatePort 1",
+      "key": "aggregateport1",
+      "short": "Ag1",
+      "canonical": "AggregatePort1"
+    },
+    { "in": "Ag1", "key": "aggregateport1", "short": "Ag1", "canonical": "AggregatePort1" },
+    {
+      "in": "Port-channel10",
+      "key": "port-channel10",
+      "short": "Po10",
+      "canonical": "Port-channel10"
+    },
+    { "in": "po10", "key": "port-channel10", "short": "Po10", "canonical": "Port-channel10" },
+    {
+      "in": "FastEthernet0/1",
+      "key": "fastethernet0/1",
+      "short": "Fa0/1",
+      "canonical": "FastEthernet0/1"
+    },
+    { "in": "Ethernet1/1", "key": "ethernet1/1", "short": "Eth1/1", "canonical": "Ethernet1/1" },
+    {
+      "in": "Eth1/49/2",
+      "key": "ethernet1/49/2",
+      "short": "Eth1/49/2",
+      "canonical": "Ethernet1/49/2"
+    },
+    { "in": "VLAN 10", "key": "vlan10", "short": "Vl10", "canonical": "Vlan10" },
+    { "in": "Vlan10", "key": "vlan10", "short": "Vl10", "canonical": "Vlan10" },
+    { "in": "Lo0", "key": "loopback0", "short": "Lo0", "canonical": "Loopback0" },
+    { "in": "Tu100", "key": "tunnel100", "short": "Tu100", "canonical": "Tunnel100" },
+    {
+      "in": "Gi0/1.100",
+      "key": "gigabitethernet0/1.100",
+      "short": "Gi0/1.100",
+      "canonical": "GigabitEthernet0/1.100"
+    },
+    {
+      "in": "Serial0/0/0:1",
+      "key": "serial0/0/0:1",
+      "short": "Se0/0/0:1",
+      "canonical": "Serial0/0/0:1"
+    },
+    {
+      "in": "HundredGigabitEthernet 0/1",
+      "key": "hundredgige0/1",
+      "short": "Hu0/1",
+      "canonical": "HundredGigE0/1"
+    },
+    {
+      "in": "Hu1/0/49",
+      "key": "hundredgige1/0/49",
+      "short": "Hu1/0/49",
+      "canonical": "HundredGigE1/0/49"
+    },
+    {
+      "in": "TFGigabitEthernet 0/1",
+      "key": "twentyfivegige0/1",
+      "short": "Twe0/1",
+      "canonical": "TwentyFiveGigE0/1"
+    },
+    {
+      "in": "Twe1/0/1",
+      "key": "twentyfivegige1/0/1",
+      "short": "Twe1/0/1",
+      "canonical": "TwentyFiveGigE1/0/1"
+    },
+    { "in": "Mgmt 0", "key": "mgmt0", "short": "Mgmt0", "canonical": "Mgmt0" },
+    {
+      "in": "  Gi0/24  ",
+      "key": "gigabitethernet0/24",
+      "short": "Gi0/24",
+      "canonical": "GigabitEthernet0/24"
+    },
+    { "in": "t0/1", "key": null },
+    { "in": "Gi", "key": null },
+    { "in": "0/24", "key": null },
+    { "in": "GigabitEthernet  0/24", "key": null },
+    { "in": "Gi0/", "key": null },
+    { "in": "Gi0//1", "key": null },
+    { "in": "Foo0/1", "key": null },
+    { "in": "Gi0/24 extra", "key": null }
+  ],
+  "scan": [
+    { "text": "Gi1/0/24 is up, line protocol is up", "found": ["gigabitethernet1/0/24"] },
+    {
+      "text": "interface GigabitEthernet 0/24 and Te0/49 down",
+      "found": ["gigabitethernet0/24", "tengigabitethernet0/49"]
+    },
+    {
+      "text": "%LINK-3-UPDOWN: Interface GigabitEthernet1/0/1, changed state to down",
+      "found": ["gigabitethernet1/0/1"]
+    },
+    {
+      "text": "Ag1 members: Gi0/1, Gi0/2",
+      "found": ["aggregateport1", "gigabitethernet0/1", "gigabitethernet0/2"]
+    },
+    { "text": "go to 1 hour, set 10/100, telnet 10.0.0.5", "found": [] },
+    { "text": "FastEthernet0/1.100 subif", "found": ["fastethernet0/1.100"] }
+  ]
+}

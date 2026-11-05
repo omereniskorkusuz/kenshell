@@ -2,6 +2,7 @@
 
 mod commands;
 mod console_detect;
+mod device;
 mod error;
 mod events;
 mod handoff;

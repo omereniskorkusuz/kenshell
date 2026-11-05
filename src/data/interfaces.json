@@ -1,0 +1,76 @@
+{
+  "_comment": "Interface types for name normalization (P3-T01). Shared by the backend (device/iface.rs) and the frontend (lib/iface.ts). `names`: full spellings (any unique prefix is accepted, like the Cisco CLI); `aliases`: short forms that win over prefix matching (ambiguous prefixes such as 't'); `short`: display abbreviation. Ruijie writes a space before the number ('GigabitEthernet 0/24'); both forms are the same interface.",
+  "types": [
+    {
+      "canonical": "GigabitEthernet",
+      "short": "Gi",
+      "names": ["GigabitEthernet"],
+      "aliases": ["gi", "gig", "ge"]
+    },
+    {
+      "canonical": "FastEthernet",
+      "short": "Fa",
+      "names": ["FastEthernet"],
+      "aliases": ["fa", "fas"]
+    },
+    {
+      "canonical": "TenGigabitEthernet",
+      "short": "Te",
+      "names": ["TenGigabitEthernet", "TenGigE"],
+      "aliases": ["te", "ten", "tengig"]
+    },
+    {
+      "canonical": "TwentyFiveGigE",
+      "short": "Twe",
+      "names": ["TwentyFiveGigE", "TwentyFiveGigabitEthernet", "TFGigabitEthernet"],
+      "aliases": ["twe", "tf"]
+    },
+    {
+      "canonical": "FortyGigabitEthernet",
+      "short": "Fo",
+      "names": ["FortyGigabitEthernet", "FortyGigE"],
+      "aliases": ["fo", "for", "fortygig"]
+    },
+    {
+      "canonical": "FiftyGigE",
+      "short": "Fi",
+      "names": ["FiftyGigE", "FiftyGigabitEthernet"],
+      "aliases": ["fi", "fif"]
+    },
+    {
+      "canonical": "HundredGigE",
+      "short": "Hu",
+      "names": ["HundredGigE", "HundredGigabitEthernet"],
+      "aliases": ["hu", "hun"]
+    },
+    { "canonical": "Ethernet", "short": "Eth", "names": ["Ethernet"], "aliases": ["eth", "et"] },
+    {
+      "canonical": "Port-channel",
+      "short": "Po",
+      "names": ["Port-channel", "PortChannel"],
+      "aliases": ["po"]
+    },
+    {
+      "canonical": "AggregatePort",
+      "short": "Ag",
+      "names": ["AggregatePort"],
+      "aliases": ["ag", "agg"]
+    },
+    { "canonical": "Vlan", "short": "Vl", "names": ["Vlan", "VLAN-interface"], "aliases": ["vl"] },
+    { "canonical": "Loopback", "short": "Lo", "names": ["Loopback"], "aliases": ["lo"] },
+    { "canonical": "Tunnel", "short": "Tu", "names": ["Tunnel"], "aliases": ["tu"] },
+    { "canonical": "Serial", "short": "Se", "names": ["Serial"], "aliases": ["se"] },
+    {
+      "canonical": "AppGigabitEthernet",
+      "short": "Ap",
+      "names": ["AppGigabitEthernet"],
+      "aliases": ["ap"]
+    },
+    {
+      "canonical": "Mgmt",
+      "short": "Mgmt",
+      "names": ["Mgmt", "Management"],
+      "aliases": ["mgmt", "ma"]
+    }
+  ]
+}
