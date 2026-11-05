@@ -204,13 +204,18 @@ export function searchSessions(
   sessions: readonly SessionRecord[],
   folders: readonly Folder[],
   query: string,
+  /** Sessions whose notes match (from the backend's full-text search). */
+  byNotes: ReadonlySet<number> = new Set(),
 ): SessionRecord[] {
   const terms = fold(query).split(/\s+/).filter(Boolean);
   if (terms.length === 0) return [];
   const scored: { s: SessionRecord; rank: number }[] = [];
   for (const s of sessions) {
     const hay = haystack(s, folders);
-    if (!terms.every((t) => hay.includes(t))) continue;
+    if (!terms.every((t) => hay.includes(t))) {
+      if (byNotes.has(s.id)) scored.push({ s, rank: 3 });
+      continue;
+    }
     const name = fold(s.name);
     const first = terms[0] as string;
     const rank = name.startsWith(first) ? 0 : name.includes(first) ? 1 : 2;

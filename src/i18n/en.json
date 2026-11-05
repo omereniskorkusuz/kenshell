@@ -543,5 +543,20 @@
     "env": "Environment colours",
     "envColor": "{{env}} colour",
     "resetAll": "Reset all colours"
+  },
+  "notes": {
+    "add": "New note",
+    "placeholder": "Note… Enter adds, Shift+Enter new line. \"Gi1/0/24: camera\" links to the interface.",
+    "onDevice": "Saved to the device (same notes over SSH or console)",
+    "onSession": "Saved to the session; moves to the device once it is identified",
+    "noTab": "Open a session to see its notes.",
+    "needsSession": "Notes need a saved session or an identified device.",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleted": "Note deleted.",
+    "export": "Export all notes as Markdown",
+    "exported": "Notes saved to {{path}}"
   }
 }

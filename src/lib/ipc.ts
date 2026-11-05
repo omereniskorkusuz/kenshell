@@ -130,6 +130,26 @@ export interface DeviceFacts {
   uptime: string | null;
 }
 
+/** A device / session note (P3-T08). */
+export interface Note {
+  id: number;
+  sessionId: number | null;
+  deviceId: number | null;
+  /** Normalized interface key for interface notes (`gigabitethernet0/24`). */
+  interfaceKey: string | null;
+  /** Display form, e.g. `Gi0/24`. */
+  interfaceShort: string | null;
+  body: string;
+  pinned: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NoteHit {
+  sessionId: number | null;
+  deviceId: number | null;
+}
+
 export interface DeviceRecord {
   id: number;
   /** Vendor profile id, e.g. `ruijie-rgos`. */
@@ -384,6 +404,8 @@ export type SessionEvent =
       vendor: VendorInfo | null;
       /** From the background identity command. */
       facts: DeviceFacts | null;
+      /** Stored device row (once the identity command ran). */
+      deviceId: number | null;
     }
   /** The device is restarting; the next `mode` event means it is back. */
   | { type: 'reload' };
@@ -499,6 +521,15 @@ export const api = {
   sessionDelete: (id: number) => call<undefined>('session_delete', { id }),
   sessionDuplicate: (id: number) => call<SessionRecord>('session_duplicate', { id }),
   deviceList: () => call<DeviceRecord[]>('device_list'),
+  notesList: (sessionId: number | null, deviceId: number | null) =>
+    call<Note[]>('notes_list', { sessionId, deviceId }),
+  noteCreate: (sessionId: number | null, deviceId: number | null, body: string) =>
+    call<Note>('note_create', { sessionId, deviceId, body }),
+  noteUpdate: (id: number, body: string) => call<Note>('note_update', { id, body }),
+  notePin: (id: number, pinned: boolean) => call<Note>('note_pin', { id, pinned }),
+  noteDelete: (id: number) => call<undefined>('note_delete', { id }),
+  notesSearch: (text: string) => call<NoteHit[]>('notes_search', { text }),
+  notesExport: (path: string) => call<undefined>('notes_export', { path }),
   sessionReorder: (id: number, folderId: number | null, beforeId: number | null) =>
     call<undefined>('session_reorder', { id, folderId, beforeId }),
   /** One change set for many sessions; all or nothing. */

@@ -17,6 +17,7 @@ import type {
   DriverHint,
   Folder,
   OpenRequest,
+  Note,
   RuntimeId,
   SessionEvent,
   SessionInput,
@@ -25,6 +26,7 @@ import type {
 } from '../ipc';
 import { isMac } from '../ipc';
 import { applyPatch, type SessionPatch } from '../bulk';
+import { parseIface } from '../iface';
 import { framingLabel } from '../format';
 import { FakeCli } from './cli';
 
@@ -144,6 +146,8 @@ function record(
   };
 }
 
+let notes: Note[] = [];
+let nextNoteId = 1;
 let sessions: SessionRecord[] = [
   record(1, 1, 'core-sw1', FTDI_PATH, 9600, 'prod', now() - 2 * HOUR),
   record(2, 1, 'fw-edge', MISSING_PATH, 115200, 'prod', now() - 26 * HOUR),
@@ -232,6 +236,9 @@ function portExists(path: string): ConsolePort | undefined {
  * Browser demo only: the backend DeviceObserver reports modes from prompts; the mock mirrors
  * its generic Cisco-like patterns so the mode colour changes in the demo too.
  */
+/** The demo device (notes attach to it). */
+const MOCK_DEVICE_ID = 1;
+
 class MockModeWatch {
   private last = '';
   constructor(private readonly onEvent: (e: SessionEvent) => void) {}
@@ -262,12 +269,19 @@ class MockModeWatch {
           serial: 'FOC1928Z0AB',
           uptime: '2 weeks, 3 days, 4 hours',
         },
+        deviceId: MOCK_DEVICE_ID,
       });
     }
     if (key !== this.last) {
       this.last = key;
       this.onEvent({ type: 'mode', mode: hit.mode, sub: hit.sub });
-      this.onEvent({ type: 'identity', hostname: hit.host ?? null, vendor: null, facts: null });
+      this.onEvent({
+        type: 'identity',
+        hostname: hit.host ?? null,
+        vendor: null,
+        facts: null,
+        deviceId: null,
+      });
     }
   }
 }
@@ -721,6 +735,75 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         });
         return out;
       }
+      case 'device_list':
+        return [];
+      case 'notes_list': {
+        const sid = (a.sessionId as number | null) ?? null;
+        const did = (a.deviceId as number | null) ?? null;
+        return structuredClone(
+          notes
+            .filter(
+              (n) =>
+                (did !== null && n.deviceId === did) ||
+                (sid !== null && n.sessionId === sid && n.deviceId === null),
+            )
+            .sort((x, y) => Number(y.pinned) - Number(x.pinned) || y.createdAt - x.createdAt),
+        );
+      }
+      case 'note_create': {
+        const body = String(a.body ?? '').trim();
+        if (!body) fail('invalid', 'empty note');
+        const sid = (a.sessionId as number | null) ?? null;
+        const did = (a.deviceId as number | null) ?? null;
+        if (sid === null && did === null) fail('invalid', 'no owner');
+        const iface = parseIface(body.split('\n')[0]?.split(':')[0] ?? '');
+        const t = now();
+        const n: Note = {
+          id: nextNoteId++,
+          sessionId: sid,
+          deviceId: did,
+          interfaceKey: body.split('\n')[0]?.includes(':') ? (iface?.key ?? null) : null,
+          interfaceShort: body.split('\n')[0]?.includes(':') ? (iface?.short ?? null) : null,
+          body,
+          pinned: false,
+          createdAt: t,
+          updatedAt: t,
+        };
+        notes.push(n);
+        return structuredClone(n);
+      }
+      case 'note_update': {
+        const n = need(
+          notes.find((x) => x.id === a.id),
+          'note',
+        );
+        n.body = String(a.body ?? '').trim();
+        n.updatedAt = now();
+        return structuredClone(n);
+      }
+      case 'note_pin': {
+        const n = need(
+          notes.find((x) => x.id === a.id),
+          'note',
+        );
+        n.pinned = Boolean(a.pinned);
+        return structuredClone(n);
+      }
+      case 'note_delete':
+        need(
+          notes.find((x) => x.id === a.id),
+          'note',
+        );
+        notes = notes.filter((x) => x.id !== a.id);
+        return undefined;
+      case 'notes_search': {
+        const q = String(a.text ?? '').toLowerCase();
+        return notes
+          .filter((n) => n.body.toLowerCase().includes(q))
+          .map((n) => ({ sessionId: n.sessionId, deviceId: n.deviceId }));
+      }
+      case 'notes_export':
+        return undefined;
       case 'session_bulk_delete': {
         const ids = a.ids as number[];
         ids.forEach((id) =>

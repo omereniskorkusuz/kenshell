@@ -35,6 +35,7 @@ const tab: LiveTab = {
     hostname: 'core-sw1',
     vendor: { id: 'cisco-ios', label: 'Cisco IOS / IOS-XE', family: 'cisco' },
     facts: null,
+    deviceId: null,
   },
   reloadAt: null,
 };

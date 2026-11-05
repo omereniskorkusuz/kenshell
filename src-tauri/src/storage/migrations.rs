@@ -125,6 +125,41 @@ ALTER TABLE sessions ADD COLUMN device_id INTEGER NULL REFERENCES devices(id) ON
 ALTER TABLE sessions ADD COLUMN identify INTEGER NOT NULL DEFAULT 1;
 "#,
     },
+    Migration {
+        name: "v7 notes (+ FTS5 index)",
+        sql: r#"
+CREATE TABLE notes (
+    id            INTEGER PRIMARY KEY,
+    session_id    INTEGER NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    device_id     INTEGER NULL REFERENCES devices(id) ON DELETE CASCADE,
+    interface_key TEXT    NULL,
+    body          TEXT    NOT NULL,
+    pinned        INTEGER NOT NULL DEFAULT 0,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    CHECK (session_id IS NOT NULL OR device_id IS NOT NULL)
+);
+CREATE INDEX idx_notes_session ON notes(session_id);
+CREATE INDEX idx_notes_device ON notes(device_id);
+CREATE VIRTUAL TABLE notes_fts USING fts5(
+    body, tokenize='unicode61 remove_diacritics 2'
+);
+-- Turkish dotless/dotted i fold to i (diacritic removal does not cover them), so
+-- "yazici" finds "yazıcı"; queries are folded the same way (storage/notes.rs).
+CREATE TRIGGER notes_ai AFTER INSERT ON notes BEGIN
+    INSERT INTO notes_fts(rowid, body)
+        VALUES (new.id, replace(replace(new.body, 'ı', 'i'), 'İ', 'i'));
+END;
+CREATE TRIGGER notes_ad AFTER DELETE ON notes BEGIN
+    DELETE FROM notes_fts WHERE rowid = old.id;
+END;
+CREATE TRIGGER notes_au AFTER UPDATE OF body ON notes BEGIN
+    DELETE FROM notes_fts WHERE rowid = old.id;
+    INSERT INTO notes_fts(rowid, body)
+        VALUES (new.id, replace(replace(new.body, 'ı', 'i'), 'İ', 'i'));
+END;
+"#,
+    },
 ];
 
 /// Schema version this build expects.
@@ -210,6 +245,13 @@ mod tests {
                 "devices",
                 "folders",
                 "known_hosts",
+                "notes",
+                "notes_fts",
+                "notes_fts_config",
+                "notes_fts_content",
+                "notes_fts_data",
+                "notes_fts_docsize",
+                "notes_fts_idx",
                 "port_memory",
                 "sessions",
                 "settings"

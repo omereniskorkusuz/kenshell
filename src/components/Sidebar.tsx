@@ -11,7 +11,7 @@ import {
   recentSessions,
   searchSessions,
 } from '../lib/tree';
-import type { SessionRecord } from '../lib/ipc';
+import { api, type SessionRecord } from '../lib/ipc';
 import { useUi } from '../stores/ui';
 import { useLibrary } from '../stores/library';
 import { LIMITS, useSettings } from '../stores/settings';
@@ -28,9 +28,34 @@ function SessionSearch() {
   const sessions = useLibrary((s) => s.sessions);
   const folders = useLibrary((s) => s.folders);
   const focusTick = useUi((s) => s.searchFocus);
+  // Note content is searched in the backend (FTS5), shortly after typing stops.
+  const [byNotes, setByNotes] = useState<ReadonlySet<number>>(() => new Set());
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      api
+        .notesSearch(q)
+        .then((hits) => {
+          if (!live) return;
+          const ids = new Set<number>();
+          const devices = new Set(hits.map((h) => h.deviceId).filter((d) => d !== null));
+          for (const h of hits) if (h.sessionId !== null) ids.add(h.sessionId);
+          for (const s of sessions)
+            if (s.deviceId !== null && devices.has(s.deviceId)) ids.add(s.id);
+          setByNotes(ids);
+        })
+        .catch(() => {});
+    }, 200);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [query, sessions]);
   const results = useMemo(
-    () => searchSessions(sessions, folders, query),
-    [sessions, folders, query],
+    () => searchSessions(sessions, folders, query, query.trim().length >= 2 ? byNotes : undefined),
+    [sessions, folders, query, byNotes],
   );
   const favorites = useMemo(() => favoriteSessions(sessions), [sessions]);
   const searching = query.trim() !== '';

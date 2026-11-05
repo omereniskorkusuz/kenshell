@@ -6,7 +6,7 @@ use crate::error::Result;
 use crate::model::{Folder, SessionInput, SessionPatch, SessionRecord};
 use crate::secrets::forget_session;
 use crate::state::AppState;
-use crate::storage::DeviceRecord;
+use crate::storage::{DeviceRecord, Note, NoteHit};
 
 #[tauri::command]
 pub fn folder_list(state: State<'_, AppState>) -> Result<Vec<Folder>> {
@@ -131,4 +131,52 @@ pub fn session_reorder(
 #[tauri::command]
 pub fn device_list(state: State<'_, AppState>) -> Result<Vec<DeviceRecord>> {
     state.db.list_devices()
+}
+
+/// Notes of a tab: its device's (when known) plus its session's (P3-T08).
+#[tauri::command]
+pub fn notes_list(
+    state: State<'_, AppState>,
+    session_id: Option<i64>,
+    device_id: Option<i64>,
+) -> Result<Vec<Note>> {
+    state.db.list_notes(session_id, device_id)
+}
+
+#[tauri::command]
+pub fn note_create(
+    state: State<'_, AppState>,
+    session_id: Option<i64>,
+    device_id: Option<i64>,
+    body: String,
+) -> Result<Note> {
+    state.db.create_note(session_id, device_id, &body)
+}
+
+#[tauri::command]
+pub fn note_update(state: State<'_, AppState>, id: i64, body: String) -> Result<Note> {
+    state.db.update_note(id, &body)
+}
+
+#[tauri::command]
+pub fn note_pin(state: State<'_, AppState>, id: i64, pinned: bool) -> Result<Note> {
+    state.db.pin_note(id, pinned)
+}
+
+#[tauri::command]
+pub fn note_delete(state: State<'_, AppState>, id: i64) -> Result<()> {
+    state.db.delete_note(id)
+}
+
+/// Sessions / devices whose notes match (session search).
+#[tauri::command]
+pub fn notes_search(state: State<'_, AppState>, text: String) -> Result<Vec<NoteHit>> {
+    state.db.search_notes(&text)
+}
+
+/// Writes every note as Markdown to `path` (export).
+#[tauri::command]
+pub fn notes_export(state: State<'_, AppState>, path: String) -> Result<()> {
+    let md = state.db.notes_markdown()?;
+    std::fs::write(&path, md).map_err(crate::error::AppError::from)
 }

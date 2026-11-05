@@ -18,7 +18,7 @@ pub(crate) const PARK_CAP: usize = 4 * 1024 * 1024;
 
 enum Held {
     Data(Vec<u8>),
-    Event(SessionEvent),
+    Event(Box<SessionEvent>),
 }
 
 enum Route {
@@ -64,7 +64,7 @@ impl Router {
             for item in held.drain(..) {
                 match item {
                     Held::Data(bytes) => out.data(bytes),
-                    Held::Event(event) => out.event(event),
+                    Held::Event(event) => out.event(*event),
                 }
             }
         }
@@ -104,7 +104,7 @@ impl SessionOutput for Router {
     fn event(&self, event: SessionEvent) {
         match &mut *self.route() {
             Route::Live(out) => out.event(event),
-            Route::Parked { held, .. } => held.push_back(Held::Event(event)),
+            Route::Parked { held, .. } => held.push_back(Held::Event(Box::new(event))),
             Route::Closed => {}
         }
     }

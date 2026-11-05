@@ -35,6 +35,8 @@ struct Table {
     /// Whole-name parser: letters, at most one space, number.
     whole: Regex,
     /// Finds interface mentions in free text (known spellings only, ≥ 2 letters).
+    /// Scanning runs in the frontend (`lib/iface.ts`); kept here for parity tests.
+    #[cfg_attr(not(test), allow(dead_code))]
     scan: Regex,
 }
 
@@ -83,6 +85,7 @@ pub struct Iface {
 
 impl Iface {
     /// Full canonical name, e.g. `GigabitEthernet1/0/24`.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn canonical(&self) -> String {
         format!("{}{}", self.kind, self.number)
     }
@@ -132,7 +135,9 @@ pub fn parse(text: &str) -> Option<Iface> {
     })
 }
 
-/// Interface mentions in `text`, in order (each with its byte range).
+/// Interface mentions in `text`, in order (each with its byte range). Parity with the
+/// frontend scanner (shared vectors).
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn scan(text: &str) -> Vec<(std::ops::Range<usize>, Iface)> {
     let mut out = Vec::new();
     let mut at = 0;
@@ -149,6 +154,7 @@ pub fn scan(text: &str) -> Vec<(std::ops::Range<usize>, Iface)> {
 }
 
 /// True when both names are the same interface (any spelling).
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn same(a: &str, b: &str) -> bool {
     matches!((parse(a), parse(b)), (Some(x), Some(y)) if x.key == y.key)
 }

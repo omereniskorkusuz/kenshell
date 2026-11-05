@@ -7,6 +7,7 @@ import { BookText, Pin, PinOff, ScanSearch, SquareCode, Wrench, X } from 'lucide
 import { useT, type TKey } from '../i18n';
 import { LIMITS, useSettings } from '../stores/settings';
 import { useUi, type SidePanelTab } from '../stores/ui';
+import { NotesPanel } from './NotesPanel';
 import { ResizeHandle } from './ResizeHandle';
 
 export const PUSH_MIN_WIDTH = 1600;
@@ -116,14 +117,20 @@ export function SidePanel() {
           <X size={14} />
         </button>
       </div>
-      <div
-        role="tabpanel"
-        className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center"
-      >
-        <Icon size={22} className="text-muted" aria-hidden />
-        <p className="font-medium text-secondary">{t(current.label)}</p>
-        <p className="max-w-60 text-sm text-muted">{t(current.empty)}</p>
-      </div>
+      {current.id === 'notes' ? (
+        <div role="tabpanel" className="flex min-h-0 flex-1 flex-col">
+          <NotesPanel />
+        </div>
+      ) : (
+        <div
+          role="tabpanel"
+          className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center"
+        >
+          <Icon size={22} className="text-muted" aria-hidden />
+          <p className="font-medium text-secondary">{t(current.label)}</p>
+          <p className="max-w-60 text-sm text-muted">{t(current.empty)}</p>
+        </div>
+      )}
       <ResizeHandle
         side="left"
         cssVar="--side-panel-width"

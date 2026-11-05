@@ -543,5 +543,20 @@
     "env": "Ortam renkleri",
     "envColor": "{{env}} rengi",
     "resetAll": "Tüm renkleri varsayılana döndür"
+  },
+  "notes": {
+    "add": "Yeni not",
+    "placeholder": "Not… Enter ekler, Shift+Enter yeni satır. \"Gi1/0/24: kamera\" interface'e bağlanır.",
+    "onDevice": "Cihaza kaydedilir (SSH ya da konsol, aynı notlar)",
+    "onSession": "Oturuma kaydedilir; cihaz tanınınca cihaza taşınır",
+    "noTab": "Notlarını görmek için bir oturum açın.",
+    "needsSession": "Not için kayıtlı bir oturum ya da tanınmış bir cihaz gerekir.",
+    "pin": "Sabitle",
+    "unpin": "Sabitlemeyi kaldır",
+    "edit": "Düzenle",
+    "delete": "Sil",
+    "deleted": "Not silindi.",
+    "export": "Tüm notları Markdown olarak dışa aktar",
+    "exported": "Notlar kaydedildi: {{path}}"
   }
 }

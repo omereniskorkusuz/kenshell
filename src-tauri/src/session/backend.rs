@@ -70,13 +70,13 @@ pub(crate) trait Backend: Send + Sync + 'static {
     /// Run the background identity command: setting `device.identify` (default on) and,
     /// for saved sessions, the session's own switch.
     fn identify_enabled(&self, session_id: Option<i64>) -> bool;
-    /// Stores the device the identity command described (errors are logged only).
+    /// Stores the device the identity command described; its id (errors are logged).
     fn record_device(
         &self,
         session_id: Option<i64>,
         vendor: &str,
         facts: &crate::device::modes::DeviceFacts,
-    );
+    ) -> Option<i64>;
 }
 
 /// SQLite-backed SSH host key store.
@@ -313,9 +313,13 @@ impl Backend for RealBackend {
         session_id: Option<i64>,
         vendor: &str,
         facts: &crate::device::modes::DeviceFacts,
-    ) {
-        if let Err(e) = self.db.record_device(session_id, vendor, facts) {
-            tracing::warn!("store device: {e}");
+    ) -> Option<i64> {
+        match self.db.record_device(session_id, vendor, facts) {
+            Ok(d) => Some(d.id),
+            Err(e) => {
+                tracing::warn!("store device: {e}");
+                None
+            }
         }
     }
 

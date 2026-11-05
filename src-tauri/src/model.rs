@@ -412,6 +412,8 @@ pub enum SessionEvent {
         vendor: Option<crate::device::observer::VendorInfo>,
         /// From the identity command (model, OS version, serial, uptime).
         facts: Option<crate::device::modes::DeviceFacts>,
+        /// Stored device (`devices` row) once the identity command ran.
+        device_id: Option<i64>,
     },
     /// Boot messages: the device restarts; the next `Mode` event means it is back.
     Reload,

@@ -22,6 +22,8 @@
 mod devices;
 pub use devices::DeviceRecord;
 mod folders;
+mod notes;
+pub use notes::{Note, NoteHit};
 mod known_hosts;
 mod migrations;
 mod port_memory;

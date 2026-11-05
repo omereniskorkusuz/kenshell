@@ -123,6 +123,7 @@ impl Db {
                 "UPDATE sessions SET device_id = ?2 WHERE id = ?1",
                 params![sid, id],
             )?;
+            Db::move_session_notes(&tx, sid, id)?;
         }
         let rec = by_id(&tx, id)?.expect("device just written");
         tx.commit()?;

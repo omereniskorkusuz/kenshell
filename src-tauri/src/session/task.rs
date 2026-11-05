@@ -596,16 +596,20 @@ impl SessionTask {
         if facts.is_empty() {
             return;
         }
+        let (sid, vendor) = (self.ctx.session_id, profile.id.clone());
+        let stored = facts.clone();
+        let device_id = self
+            .ctx
+            .call(move |b| b.record_device(sid, &vendor, &stored))
+            .await
+            .ok()
+            .flatten();
         self.ctx.out.event(SessionEvent::Identity {
             hostname: facts.hostname.clone(),
             vendor: Some(VendorInfo::of(profile)),
-            facts: Some(facts.clone()),
+            facts: Some(facts),
+            device_id,
         });
-        let (sid, vendor) = (self.ctx.session_id, profile.id.clone());
-        let _ = self
-            .ctx
-            .call(move |b| b.record_device(sid, &vendor, &facts))
-            .await;
     }
 
     async fn connected(&mut self, link: Link) -> Next {
@@ -839,6 +843,7 @@ fn observation_event(o: crate::device::observer::Observation) -> SessionEvent {
             hostname,
             vendor,
             facts: None,
+            device_id: None,
         },
         Observation::Reload => SessionEvent::Reload,
     }

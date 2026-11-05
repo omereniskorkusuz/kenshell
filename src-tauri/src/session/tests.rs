@@ -236,11 +236,15 @@ impl Backend for FakeBackend {
         _session_id: Option<i64>,
         vendor: &str,
         facts: &crate::device::modes::DeviceFacts,
-    ) {
-        self.st().devices.push((vendor.to_owned(), facts.clone()));
+    ) -> Option<i64> {
+        let mut st = self.st();
+        st.devices.push((vendor.to_owned(), facts.clone()));
+        Some(st.devices.len() as i64)
     }
 }
 
+// Test recorder: size does not matter.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq)]
 enum Rec {
     Data(Vec<u8>),
