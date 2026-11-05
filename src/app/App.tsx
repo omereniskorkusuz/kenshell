@@ -16,6 +16,7 @@ import { Workspace } from '../components/Workspace';
 import { loadTerminalView } from '../components/Pane';
 import { useConsoles } from '../stores/consoles';
 import { useLibrary } from '../stores/library';
+import { useNotes } from '../stores/notes';
 import { useTabs } from '../stores/tabs';
 import { setPersistErrorHandler, useSettings } from '../stores/settings';
 import { toast } from '../stores/toasts';
@@ -64,6 +65,7 @@ export function App() {
     const disposeKeys = installShortcuts();
     void useSettings.getState().load();
     void useLibrary.getState().load();
+    void useNotes.getState().loadPinned();
     void useConsoles.getState().load();
     // A moved tab waits for this window in the backend (null in the main window).
     void api

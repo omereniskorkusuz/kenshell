@@ -29,6 +29,15 @@ pub struct Note {
     pub updated_at: i64,
 }
 
+/// A pinned note's first line and owner.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PinnedNote {
+    pub session_id: Option<i64>,
+    pub device_id: Option<i64>,
+    pub text: String,
+}
+
 /// A session search hit from note content.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -193,6 +202,31 @@ impl Db {
             return Err(AppError::not_found(format!("note {id}")));
         }
         Ok(())
+    }
+
+    /// First line of every pinned note with its owner (subtitle in the session list),
+    /// newest first.
+    pub fn pinned_notes(&self) -> Result<Vec<PinnedNote>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare_cached(
+            "SELECT session_id, device_id, body FROM notes WHERE pinned = 1
+             ORDER BY updated_at DESC, id DESC LIMIT 2000",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            let body: String = r.get(2)?;
+            Ok(PinnedNote {
+                session_id: r.get(0)?,
+                device_id: r.get(1)?,
+                text: body
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .chars()
+                    .take(120)
+                    .collect(),
+            })
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
 
     /// Sessions / devices whose notes match `text` (for the session search).
@@ -371,6 +405,10 @@ mod tests {
             .unwrap();
         assert_eq!(b.interface_key, None);
         db.pin_note(a.id, true).unwrap();
+        let pinned = db.pinned_notes().unwrap();
+        assert_eq!(pinned.len(), 1);
+        assert_eq!(pinned[0].text, "GigabitEthernet 0/24: Kamera");
+        assert_eq!(pinned[0].session_id, Some(s));
         let list = db.list_notes(Some(s), None).unwrap();
         assert_eq!(list[0].id, a.id, "pinned first");
         let a2 = db.update_note(a.id, "Gi0/25: Yazıcı").unwrap();

@@ -804,6 +804,14 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
       }
       case 'notes_export':
         return undefined;
+      case 'notes_pinned':
+        return notes
+          .filter((n) => n.pinned)
+          .map((n) => ({
+            sessionId: n.sessionId,
+            deviceId: n.deviceId,
+            text: n.body.split('\n')[0] ?? '',
+          }));
       case 'session_bulk_delete': {
         const ids = a.ids as number[];
         ids.forEach((id) =>

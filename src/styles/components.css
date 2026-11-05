@@ -408,3 +408,8 @@
 .tree-row[data-drop-before='true'] {
   box-shadow: inset 0 2px 0 0 var(--accent);
 }
+
+/* Session row with a pinned-note subtitle (P3-T09). */
+.tree-row[data-subtitle='true'] {
+  height: 38px;
+}

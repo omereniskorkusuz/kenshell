@@ -68,6 +68,7 @@ pub fn run() {
             commands::storage::note_delete,
             commands::storage::notes_search,
             commands::storage::notes_export,
+            commands::storage::notes_pinned,
             commands::storage::session_list,
             commands::storage::session_create,
             commands::storage::session_update,

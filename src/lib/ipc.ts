@@ -145,6 +145,13 @@ export interface Note {
   updatedAt: number;
 }
 
+export interface PinnedNote {
+  sessionId: number | null;
+  deviceId: number | null;
+  /** First line of the note. */
+  text: string;
+}
+
 export interface NoteHit {
   sessionId: number | null;
   deviceId: number | null;
@@ -530,6 +537,7 @@ export const api = {
   noteDelete: (id: number) => call<undefined>('note_delete', { id }),
   notesSearch: (text: string) => call<NoteHit[]>('notes_search', { text }),
   notesExport: (path: string) => call<undefined>('notes_export', { path }),
+  notesPinned: () => call<PinnedNote[]>('notes_pinned'),
   sessionReorder: (id: number, folderId: number | null, beforeId: number | null) =>
     call<undefined>('session_reorder', { id, folderId, beforeId }),
   /** One change set for many sessions; all or nothing. */

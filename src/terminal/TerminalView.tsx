@@ -18,6 +18,8 @@ import { useSettings } from '../stores/settings';
 import { useUi } from '../stores/ui';
 import { registerTerminal, unregisterTerminal, type SearchOptions } from './registry';
 import { cleanCopy, makeDecoder, Timestamper, type Charset, type Decoder } from './transform';
+import { scanIfaces } from '../lib/iface';
+import { ownerKey, useNotes } from '../stores/notes';
 import { useTabs } from '../stores/tabs';
 import { CHARS_PER_LINE } from './history';
 import { getSink } from './sink';
@@ -217,6 +219,46 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       };
       host.addEventListener('contextmenu', onContextMenu);
 
+      // ---- interface note tooltips (P3-T09): hover an interface that has a note
+      const tip = document.createElement('div');
+      tip.className = 'term-tooltip';
+      tip.setAttribute('role', 'tooltip');
+      tip.hidden = true;
+      document.body.appendChild(tip);
+      const notesOf = () => {
+        const tab = useTabs.getState().tabs.find((x) => x.key === tabKey);
+        if (!tab) return undefined;
+        return useNotes.getState().byOwner[ownerKey(tab.sessionId, tab.device.deviceId)];
+      };
+      const links = term.registerLinkProvider({
+        provideLinks(y, done) {
+          const notes = notesOf();
+          const line = notes ? term.buffer.active.getLine(y - 1)?.translateToString(true) : '';
+          if (!notes || !line) {
+            done(undefined);
+            return;
+          }
+          const found = scanIfaces(line)
+            .filter((h) => notes[h.iface.key] !== undefined)
+            .map((h) => ({
+              range: { start: { x: h.start + 1, y }, end: { x: h.end, y } },
+              text: line.slice(h.start, h.end),
+              decorations: { pointerCursor: false, underline: true },
+              activate: () => undefined,
+              hover: (e: MouseEvent) => {
+                tip.textContent = (notes[h.iface.key] ?? '').slice(0, 500);
+                tip.style.left = `${Math.min(e.clientX + 12, window.innerWidth - 320)}px`;
+                tip.style.top = `${e.clientY + 16}px`;
+                tip.hidden = false;
+              },
+              leave: () => {
+                tip.hidden = true;
+              },
+            }));
+          done(found.length ? found : undefined);
+        },
+      });
+
       // ---- search (Cmd/Ctrl+F bar)
       const decorations = readSearchDecorations();
       const searchOpts = (o: SearchOptions) => ({
@@ -277,6 +319,8 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       if (focusedRef.current) term.focus();
 
       cleanups.push(() => {
+        links.dispose();
+        tip.remove();
         window.clearTimeout(selTimer);
         selection.dispose();
         host.removeEventListener('contextmenu', onContextMenu);
@@ -299,6 +343,13 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       cleanups.forEach((fn) => fn());
     };
   }, [tabKey, alive]);
+
+  // Interface notes of this tab's device / session (for the tooltips).
+  const noteSession = useTabs((s) => s.tabs.find((x) => x.key === tabKey)?.sessionId ?? null);
+  const noteDevice = useTabs((s) => s.tabs.find((x) => x.key === tabKey)?.device.deviceId ?? null);
+  useEffect(() => {
+    void useNotes.getState().loadOwner(noteSession, noteDevice);
+  }, [noteSession, noteDevice]);
 
   useEffect(() => {
     getSink(tabKey)?.setVisible(visible);

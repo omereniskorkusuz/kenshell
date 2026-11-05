@@ -6,7 +6,7 @@ use crate::error::Result;
 use crate::model::{Folder, SessionInput, SessionPatch, SessionRecord};
 use crate::secrets::forget_session;
 use crate::state::AppState;
-use crate::storage::{DeviceRecord, Note, NoteHit};
+use crate::storage::{DeviceRecord, Note, NoteHit, PinnedNote};
 
 #[tauri::command]
 pub fn folder_list(state: State<'_, AppState>) -> Result<Vec<Folder>> {
@@ -179,4 +179,10 @@ pub fn notes_search(state: State<'_, AppState>, text: String) -> Result<Vec<Note
 pub fn notes_export(state: State<'_, AppState>, path: String) -> Result<()> {
     let md = state.db.notes_markdown()?;
     std::fs::write(&path, md).map_err(crate::error::AppError::from)
+}
+
+/// Pinned notes' first lines (subtitles in the session list, P3-T09).
+#[tauri::command]
+pub fn notes_pinned(state: State<'_, AppState>) -> Result<Vec<PinnedNote>> {
+    state.db.pinned_notes()
 }

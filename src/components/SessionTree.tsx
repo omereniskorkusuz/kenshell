@@ -31,6 +31,7 @@ import {
 } from '../lib/tree';
 import { newSerialSession } from '../app/actions';
 import { useLibrary } from '../stores/library';
+import { pinnedFor, useNotes } from '../stores/notes';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
 import { BulkBar } from './BulkBar';
@@ -60,6 +61,7 @@ export function SessionTree() {
   const loaded = useLibrary((s) => s.loaded);
   const collapsed = useLibrary((s) => s.collapsed);
   const renaming = useLibrary((s) => s.renaming);
+  const pinned = useNotes((s) => s.pinned);
   const tabs = useTabs((s) => s.tabs);
   const tree = useMemo(() => buildTree(folders, sessions), [folders, sessions]);
   const [selected, setSelected] = useState<Sel | null>(null);
@@ -484,6 +486,7 @@ export function SessionTree() {
     const kind = envKind(s.envTag);
     const isRenaming = renaming?.kind === 'session' && renaming.id === s.id;
     const port = s.serial?.port ?? s.host ?? '';
+    const note = pinnedFor(pinned, s.id, s.deviceId);
     return (
       <div
         key={sel}
@@ -491,7 +494,7 @@ export function SessionTree() {
         aria-level={node.depth + 1}
         aria-selected={marked.size > 0 ? marked.has(s.id) : selected === sel}
         data-marked={marked.has(s.id) || undefined}
-        aria-label={[s.name, envLabel(s.envTag), tab ? t(`state.${tab.state}`) : null]
+        aria-label={[s.name, envLabel(s.envTag), tab ? t(`state.${tab.state}`) : null, note]
           .filter(Boolean)
           .join(', ')}
         tabIndex={focusable === sel ? 0 : -1}
@@ -501,7 +504,8 @@ export function SessionTree() {
         data-env={kind ?? undefined}
         className="tree-row cursor-default"
         style={pad}
-        title={port}
+        title={note ? `${port}\n${note}` : port}
+        data-subtitle={note ? true : undefined}
         onClick={(e) => {
           setSelected(sel);
           markOnClick(e, s.id);
@@ -541,7 +545,10 @@ export function SessionTree() {
             }}
           />
         ) : (
-          <span className="mono flex-1 truncate">{s.name}</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="mono truncate">{s.name}</span>
+            {note && <span className="truncate text-[11px] leading-tight text-muted">{note}</span>}
+          </span>
         )}
         {kind && (
           <span className="env-letter w-3 shrink-0 text-center" title={envLabel(s.envTag) ?? ''}>

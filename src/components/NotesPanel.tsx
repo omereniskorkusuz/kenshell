@@ -10,6 +10,7 @@ import { useT } from '../i18n';
 import { describeError } from '../lib/errors';
 import { api, type Note } from '../lib/ipc';
 import { Markdown } from '../lib/markdown';
+import { useNotes } from '../stores/notes';
 import { useActiveTab } from '../stores/tabs';
 import { toast } from '../stores/toasts';
 import { useUi } from '../stores/ui';
@@ -40,13 +41,18 @@ function NotesList({ sessionId, deviceId }: { sessionId: number | null; deviceId
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
 
-  const reload = useCallback(() => {
+  const load = useCallback(() => {
     api
       .notesList(sessionId, deviceId)
       .then(setNotes)
       .catch(() => setNotes([]));
   }, [sessionId, deviceId]);
-  useEffect(reload, [reload]);
+  useEffect(load, [load]);
+  /** After a change: this list, the terminal tooltips and the session list subtitles. */
+  const reload = () => {
+    load();
+    useNotes.getState().changed(sessionId, deviceId);
+  };
 
   const add = async () => {
     const body = draft.trim();

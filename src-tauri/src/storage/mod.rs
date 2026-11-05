@@ -23,7 +23,7 @@ mod devices;
 pub use devices::DeviceRecord;
 mod folders;
 mod notes;
-pub use notes::{Note, NoteHit};
+pub use notes::{Note, NoteHit, PinnedNote};
 mod known_hosts;
 mod migrations;
 mod port_memory;
