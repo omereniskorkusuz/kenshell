@@ -538,6 +538,12 @@ export const api = {
   notesSearch: (text: string) => call<NoteHit[]>('notes_search', { text }),
   notesExport: (path: string) => call<undefined>('notes_export', { path }),
   notesPinned: () => call<PinnedNote[]>('notes_pinned'),
+  historyList: (sessionId: number | null, deviceId: number | null) =>
+    call<string[]>('history_list', { sessionId, deviceId }),
+  historyAdd: (sessionId: number | null, deviceId: number | null, command: string) =>
+    call<undefined>('history_add', { sessionId, deviceId, command }),
+  historyClear: (sessionId: number | null, deviceId: number | null) =>
+    call<undefined>('history_clear', { sessionId, deviceId }),
   sessionReorder: (id: number, folderId: number | null, beforeId: number | null) =>
     call<undefined>('session_reorder', { id, folderId, beforeId }),
   /** One change set for many sessions; all or nothing. */

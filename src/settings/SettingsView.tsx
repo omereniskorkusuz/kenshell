@@ -281,6 +281,7 @@ function TerminalSection() {
   const [cursorStyle, setCursorStyle] = useSetting('terminal.cursorStyle');
   const [cursorBlink, setCursorBlink] = useSetting('terminal.cursorBlink');
   const [highlight, setHighlight] = useSetting('terminal.highlight');
+  const [autocomplete, setAutocomplete] = useSetting('terminal.autocomplete');
   const [highlightOff, setHighlightOff] = useSetting('terminal.highlightOff');
   const [fontText, setFontText] = useState(font);
   return (
@@ -376,6 +377,9 @@ function TerminalSection() {
           )}
         </Row>
       )}
+      <Row label={t('settings.autocomplete')} hint={t('settings.autocompleteHint')}>
+        {(id) => <Toggle id={id} checked={autocomplete} onChange={setAutocomplete} />}
+      </Row>
       <Row label={t('settings.scrollback')} hint={t('settings.rangeHint', LIMITS.scrollback)}>
         {(id) => (
           <NumberField

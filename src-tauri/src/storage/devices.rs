@@ -124,6 +124,7 @@ impl Db {
                 params![sid, id],
             )?;
             Db::move_session_notes(&tx, sid, id)?;
+            Db::move_session_history(&tx, sid, id)?;
         }
         let rec = by_id(&tx, id)?.expect("device just written");
         tx.commit()?;

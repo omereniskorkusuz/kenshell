@@ -408,7 +408,9 @@
       "errors": "Errors, err-disabled",
       "addresses": "IP and MAC",
       "interfaces": "Interfaces"
-    }
+    },
+    "autocomplete": "Autocomplete",
+    "autocompleteHint": "Dim suggestion from this device's command history (then common commands); Tab or → accepts. Lines the device did not echo and lines with password/secret/key words are never saved."
   },
   "mode": {
     "user": "USER",

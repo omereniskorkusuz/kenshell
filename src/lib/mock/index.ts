@@ -30,6 +30,7 @@ import { parseIface } from '../iface';
 import { framingLabel } from '../format';
 import { FakeCli } from './cli';
 
+const mockHistory = new Map<string, string[]>();
 const enc = new TextEncoder();
 const now = () => Date.now();
 const HOUR = 3_600_000;
@@ -803,6 +804,17 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           .map((n) => ({ sessionId: n.sessionId, deviceId: n.deviceId }));
       }
       case 'notes_export':
+        return undefined;
+      case 'history_list':
+        return mockHistory.get(`${a.sessionId ?? '-'}:${a.deviceId ?? '-'}`) ?? [];
+      case 'history_add': {
+        const k = `${a.sessionId ?? '-'}:${a.deviceId ?? '-'}`;
+        const c = String(a.command);
+        mockHistory.set(k, [c, ...(mockHistory.get(k) ?? []).filter((x) => x !== c)]);
+        return undefined;
+      }
+      case 'history_clear':
+        mockHistory.delete(`${a.sessionId ?? '-'}:${a.deviceId ?? '-'}`);
         return undefined;
       case 'notes_pinned':
         return notes

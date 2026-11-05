@@ -28,6 +28,8 @@ export interface AppSettings {
   'terminal.cursorBlink': boolean;
   /** Output colouring (P3-T10): on/off and the switched-off rule categories. */
   'terminal.highlight': boolean;
+  /** Dim suggestion from history / built-ins, Tab or → accepts (P3-T12). */
+  'terminal.autocomplete': boolean;
   'terminal.highlightOff': HighlightCategory[];
   'console.hotplugToast': boolean;
   'console.autoReconnect': boolean;
@@ -68,6 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'terminal.cursorStyle': 'block',
   'terminal.cursorBlink': false,
   'terminal.highlight': true,
+  'terminal.autocomplete': true,
   'terminal.highlightOff': [],
   'console.hotplugToast': true,
   'console.autoReconnect': true,
@@ -158,6 +161,7 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'terminal.timestamps':
       case 'terminal.cursorBlink':
       case 'terminal.highlight':
+      case 'terminal.autocomplete':
       case 'log.timestamps':
         return bool(value, d[k]);
       case 'terminal.highlightOff':

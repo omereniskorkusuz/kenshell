@@ -9,7 +9,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { Terminal } from '@xterm/xterm';
+import { Terminal, type IMarker } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef, useState } from 'react';
 import { copyText, readText } from '../lib/clipboard';
@@ -22,6 +22,8 @@ import { ownerKey, useNotes } from '../stores/notes';
 import { useTabs } from '../stores/tabs';
 import { CHARS_PER_LINE } from './history';
 import { getSink } from './sink';
+import { LineTracker, storable, suggest } from './autocomplete';
+import { historyKey, useHistory } from '../stores/history';
 import { LinkMenu, type LinkMenuState } from './LinkMenu';
 import { findLinks } from './links';
 import { Highlighter, highlightColors, type HighlighterConfig } from './highlighter';
@@ -148,7 +150,137 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       ro.observe(host);
       doFit();
 
-      const input = term.onData((data) => useTabs.getState().write(tabKey, data));
+      // ---- command history + dim autocomplete (P3-T12)
+      const tracker = new LineTracker();
+      const ghost = document.createElement('span');
+      ghost.className = 'term-ghost';
+      ghost.setAttribute('aria-hidden', 'true');
+      ghost.hidden = true;
+      host.appendChild(ghost);
+      let ghostText: string | null = null;
+      const tabNow = () => useTabs.getState().tabs.find((x) => x.key === tabKey);
+      /** The screen shows `typed` right before the cursor, nothing after it. */
+      const echoed = (typed: string) => {
+        const b = term.buffer.active;
+        const line = b.getLine(b.baseY + b.cursorY)?.translateToString(false) ?? '';
+        return line.slice(0, b.cursorX).endsWith(typed) && line.slice(b.cursorX).trim() === '';
+      };
+      const hideGhost = () => {
+        ghostText = null;
+        ghost.hidden = true;
+      };
+      const updateGhost = () => {
+        const typed = tracker.line;
+        const t = tabNow();
+        const b = term.buffer.active;
+        if (
+          !typed ||
+          !t ||
+          t.state !== 'connected' ||
+          t.mode === 'unknown' ||
+          b.type !== 'normal' ||
+          b.viewportY !== b.baseY ||
+          !useSettings.getState().values['terminal.autocomplete'] ||
+          !echoed(typed)
+        ) {
+          hideGhost();
+          return;
+        }
+        const history =
+          useHistory.getState().byOwner[historyKey(tabKey, t.sessionId, t.device.deviceId)] ?? [];
+        const rest = suggest(typed, history, t.device.vendor?.family ?? null);
+        const screen = host.querySelector('.xterm-screen');
+        if (!rest || !screen) {
+          hideGhost();
+          return;
+        }
+        const r = screen.getBoundingClientRect();
+        const hr = host.getBoundingClientRect();
+        const w = r.width / term.cols;
+        const h = r.height / term.rows;
+        ghostText = rest;
+        ghost.textContent = rest;
+        Object.assign(ghost.style, {
+          left: `${r.left - hr.left + b.cursorX * w}px`,
+          top: `${r.top - hr.top + b.cursorY * h}px`,
+          height: `${h}px`,
+          lineHeight: `${h}px`,
+          maxWidth: `${Math.max(0, term.cols - b.cursorX) * w}px`,
+          fontFamily: term.options.fontFamily ?? '',
+          fontSize: `${term.options.fontSize ?? 13}px`,
+        });
+        ghost.hidden = false;
+      };
+      // A finished line is saved once the device has echoed it (passwords are not echoed):
+      // checked when the cursor has left that row, within a few seconds.
+      const pending: { line: string; marker: IMarker; at: number }[] = [];
+      const rowText = (y: number) => {
+        const b = term.buffer.active;
+        let text = b.getLine(y)?.translateToString(true) ?? '';
+        for (let n = y + 1; b.getLine(n)?.isWrapped; n++) {
+          text += b.getLine(n)?.translateToString(true) ?? '';
+        }
+        return text;
+      };
+      /** `row` is a prompt followed by `want` (`sw1#show run`, `<HW>display …`). */
+      const afterPrompt = (row: string, want: string) => {
+        const r = row.trimEnd();
+        if (!r.endsWith(want)) return false;
+        return /[#>\]$%)]\s*$/.test(r.slice(0, r.length - want.length));
+      };
+      const checkPending = () => {
+        const b = term.buffer.active;
+        const cursorRow = b.baseY + b.cursorY;
+        const now = Date.now();
+        // Oldest first, so the history ends up newest first.
+        for (const p of [...pending]) {
+          if (p.marker.isDisposed || now - p.at > 5000) {
+            p.marker.dispose();
+            pending.splice(pending.indexOf(p), 1);
+            continue;
+          }
+          // Typed ahead: the echo can land on a later row than the cursor was on at Enter.
+          const want = p.line.trimEnd();
+          let found = false;
+          for (let y = p.marker.line; y < cursorRow && y < p.marker.line + 200; y++) {
+            if (!b.getLine(y)?.isWrapped && afterPrompt(rowText(y), want)) {
+              found = true;
+              break;
+            }
+          }
+          if (!found) continue;
+          const t = tabNow();
+          if (t && t.mode !== 'unknown') {
+            const key = historyKey(tabKey, t.sessionId, t.device.deviceId);
+            useHistory.getState().add(key, t.sessionId, t.device.deviceId, p.line);
+          }
+          p.marker.dispose();
+          pending.splice(pending.indexOf(p), 1);
+        }
+      };
+      const record = (line: string) => {
+        if (!storable(line) || pending.length > 20) return;
+        const marker = term.registerMarker(0);
+        if (marker) pending.push({ line, marker, at: Date.now() });
+      };
+      const ghostWatch = [
+        term.onWriteParsed(() => {
+          if (pending.length) checkPending();
+          updateGhost();
+        }),
+        term.onResize(hideGhost),
+      ];
+
+      const input = term.onData((typed) => {
+        let data = typed;
+        // Tab / → accept the suggestion (otherwise they go to the device as usual).
+        if (ghostText && (data === '\t' || data === '\x1b[C' || data === '\x1bOC')) {
+          data = ghostText;
+        }
+        for (const line of tracker.feed(data)) record(line);
+        hideGhost();
+        useTabs.getState().write(tabKey, data);
+      });
 
       // ---- output: charset decoding + optional line timestamps (state outlives the terminal)
       const charset = s['terminal.charset'] as Charset;
@@ -176,7 +308,10 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       };
       const paste = () => {
         void readText().then((text) => {
-          if (text) useTabs.getState().paste(tabKey, text);
+          if (!text) return;
+          tracker.lose();
+          hideGhost();
+          useTabs.getState().paste(tabKey, text);
         });
       };
       term.attachCustomKeyEventHandler((e) => {
@@ -204,6 +339,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           !e.altKey &&
           useSettings.getState().values['terminal.backspace'] === 'ctrlH'
         ) {
+          tracker.feed('\x08');
           useTabs.getState().write(tabKey, '\x08');
           return false;
         }
@@ -353,6 +489,9 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       if (focusedRef.current) term.focus();
 
       cleanups.push(() => {
+        ghostWatch.forEach((d) => d.dispose());
+        pending.forEach((p) => p.marker.dispose());
+        ghost.remove();
         highlighter.dispose();
         unsubFamily();
         links.dispose();
@@ -385,6 +524,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
   const noteDevice = useTabs((s) => s.tabs.find((x) => x.key === tabKey)?.device.deviceId ?? null);
   useEffect(() => {
     void useNotes.getState().loadOwner(noteSession, noteDevice);
+    void useHistory.getState().load(noteSession, noteDevice);
   }, [noteSession, noteDevice]);
 
   useEffect(() => {

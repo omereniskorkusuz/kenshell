@@ -160,6 +160,22 @@ CREATE TRIGGER notes_au AFTER UPDATE OF body ON notes BEGIN
 END;
 "#,
     },
+    Migration {
+        name: "v8 command history",
+        sql: r#"
+CREATE TABLE command_history (
+    id         INTEGER PRIMARY KEY,
+    session_id INTEGER NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    device_id  INTEGER NULL REFERENCES devices(id) ON DELETE CASCADE,
+    command    TEXT    NOT NULL,
+    uses       INTEGER NOT NULL DEFAULT 1,
+    used_at    INTEGER NOT NULL,
+    CHECK (session_id IS NOT NULL OR device_id IS NOT NULL)
+);
+CREATE INDEX idx_history_device ON command_history(device_id, used_at);
+CREATE INDEX idx_history_session ON command_history(session_id, used_at);
+"#,
+    },
 ];
 
 /// Schema version this build expects.
@@ -241,6 +257,7 @@ mod tests {
         assert_eq!(
             tables(&conn),
             vec![
+                "command_history",
                 "credential_profiles",
                 "devices",
                 "folders",

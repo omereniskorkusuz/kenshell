@@ -408,7 +408,9 @@
       "errors": "Hatalar, err-disabled",
       "addresses": "IP ve MAC",
       "interfaces": "Interface'ler"
-    }
+    },
+    "autocomplete": "Otomatik tamamlama",
+    "autocompleteHint": "Bu cihazın komut geçmişinden (sonra yaygın komutlardan) soluk öneri; Tab ya da → kabul eder. Cihazın ekrana yazmadığı satırlar ve password/secret/key içerenler hiç kaydedilmez."
   },
   "mode": {
     "user": "USER",

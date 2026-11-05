@@ -183,6 +183,34 @@ pub fn notes_export(state: State<'_, AppState>, path: String) -> Result<()> {
 
 /// Pinned notes' first lines (subtitles in the session list, P3-T09).
 #[tauri::command]
+pub fn history_list(
+    state: State<'_, AppState>,
+    session_id: Option<i64>,
+    device_id: Option<i64>,
+) -> Result<Vec<String>> {
+    state.db.list_history(session_id, device_id)
+}
+
+#[tauri::command]
+pub fn history_add(
+    state: State<'_, AppState>,
+    session_id: Option<i64>,
+    device_id: Option<i64>,
+    command: String,
+) -> Result<()> {
+    state.db.add_history(session_id, device_id, &command)
+}
+
+#[tauri::command]
+pub fn history_clear(
+    state: State<'_, AppState>,
+    session_id: Option<i64>,
+    device_id: Option<i64>,
+) -> Result<()> {
+    state.db.clear_history(session_id, device_id)
+}
+
+#[tauri::command]
 pub fn notes_pinned(state: State<'_, AppState>) -> Result<Vec<PinnedNote>> {
     state.db.pinned_notes()
 }

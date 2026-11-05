@@ -22,6 +22,7 @@
 mod devices;
 pub use devices::DeviceRecord;
 mod folders;
+mod history;
 mod notes;
 pub use notes::{Note, NoteHit, PinnedNote};
 mod known_hosts;
