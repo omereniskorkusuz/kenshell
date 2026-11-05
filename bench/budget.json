@@ -4,5 +4,6 @@
   "installerMB": { "windows": 15, "macos": 25 },
   "coldStartMs": 1000,
   "idleRamMB": 100,
+  "perSessionRamMB": 15,
   "idleCpuPercent": 1
 }

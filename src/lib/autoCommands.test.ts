@@ -20,3 +20,14 @@ describe('auto commands timing', () => {
     expect(appendTail('x'.repeat(300), enc('yz'), 256)).toHaveLength(256);
   });
 });
+
+describe('appendTail on large chunks', () => {
+  it('keeps exactly the last bytes without walking the whole chunk', () => {
+    const big = new Uint8Array(1_000_000).fill(0x61);
+    big.set(new TextEncoder().encode('\r\nSwitch>'), big.length - 9);
+    const tail = appendTail('old', big);
+    expect(tail).toHaveLength(256);
+    expect(tail.endsWith('\r\nSwitch>')).toBe(true);
+    expect(appendTail('ab', new TextEncoder().encode('cd'), 3)).toBe('bcd');
+  });
+});

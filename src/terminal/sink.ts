@@ -4,11 +4,14 @@
  * - visible + terminal attached → bytes are batched (once per animation frame, timer fallback)
  * - hidden or terminal not yet created → bytes are buffered (cap 8 MiB, oldest dropped) and
  *   flushed when the tab is shown, so hidden tabs never make xterm do work.
+ * - hidden tabs drop their xterm instance after a few seconds; `history` keeps what it had
+ *   shown so a new instance can replay it (P2-T23 memory budget).
  *
  * Kept free of xterm imports so it lives in the main chunk; the terminal chunk attaches a
  * writer once it has created the Terminal.
  */
 import { ByteQueue, HIDDEN_BUFFER_CAP, trimToLineStart } from '../lib/bytes';
+import { CHARS_PER_LINE, OutputHistory } from './history';
 import {
   browserScheduler,
   FALLBACK_MS,
@@ -38,6 +41,13 @@ export class TerminalSink {
   /** Current terminal grid (set by the terminal view after each fit). */
   cols = 0;
   rows = 0;
+  /**
+   * Text the terminal has shown (replayed when a disposed terminal is recreated, carried
+   * over when the tab moves to another window).
+   */
+  readonly history = new OutputHistory(10_000 * CHARS_PER_LINE);
+  /** Terminal-view state that must survive the xterm instance (charset decoder, stamper). */
+  textState: unknown = null;
 
   constructor(opts: SinkOptions = {}) {
     this.hidden = new ByteQueue(opts.cap ?? HIDDEN_BUFFER_CAP);
@@ -102,6 +112,8 @@ export class TerminalSink {
   dispose(): void {
     this.batcher.dispose();
     this.hidden.clear();
+    this.history.clear();
+    this.textState = null;
     this.writer = null;
   }
 

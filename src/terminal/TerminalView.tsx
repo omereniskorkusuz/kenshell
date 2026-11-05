@@ -1,7 +1,9 @@
 /**
- * xterm.js host for one tab (lazy chunk). One Terminal per tab, created once and kept alive
- * while the tab is hidden (the pane is hidden, not unmounted). Output arrives through the
- * tab's TerminalSink; input goes to the tabs store.
+ * xterm.js host for one tab (lazy chunk). The pane stays mounted while its tab is hidden, but
+ * the Terminal itself only lives while the tab is shown (plus a short grace period for quick
+ * tab switching): in WebKit one terminal with 10 000 lines of scrollback costs ~100 MB, while
+ * the sink's text history of the same output is ~1 MB. A recreated terminal replays that
+ * history, then continues with the output buffered meanwhile. Input goes to the tabs store.
  */
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
@@ -9,14 +11,15 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { copyText, readText } from '../lib/clipboard';
 import { isMac } from '../lib/ipc';
 import { useSettings } from '../stores/settings';
 import { useUi } from '../stores/ui';
 import { registerTerminal, unregisterTerminal, type SearchOptions } from './registry';
-import { cleanCopy, makeDecoder, Timestamper, type Charset } from './transform';
+import { cleanCopy, makeDecoder, Timestamper, type Charset, type Decoder } from './transform';
 import { useTabs } from '../stores/tabs';
+import { CHARS_PER_LINE } from './history';
 import { getSink } from './sink';
 import { readLineHeight, readMonoFont, readTerminalTheme } from './theme';
 import './terminal.css';
@@ -55,34 +58,41 @@ interface Props {
   focused: boolean;
 }
 
-/** Lines of scrollback carried over when a tab moves to another window. */
-const SNAPSHOT_LINES = 10_000;
+/** How long a hidden tab keeps its terminal (switching back within it costs nothing). */
+const HIDDEN_DISPOSE_MS = 5000;
 
-function bufferText(term: Terminal): string {
-  const buf = term.buffer.active;
-  const lines: string[] = [];
-  for (let i = Math.max(0, buf.length - SNAPSHOT_LINES); i < buf.length; i++) {
-    const line = buf.getLine(i);
-    if (!line) continue;
-    const text = line.translateToString(true);
-    // A wrapped row continues the previous line.
-    if (line.isWrapped && lines.length > 0) lines[lines.length - 1] += text;
-    else lines.push(text);
-  }
-  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-  return lines.join('\r\n');
+/** Charset decoder and timestamp state, kept on the sink across terminal instances. */
+interface TextState {
+  charset: Charset;
+  decode: Decoder;
+  stamper: Timestamper | null;
 }
+
+/** User font first, then the bundled/system mono stack from the design tokens. */
+const fontFamily = (custom: string) => (custom ? `${custom}, ${readMonoFont()}` : readMonoFont());
+
+const historyLimit = (scrollback: number) => (scrollback + 200) * CHARS_PER_LINE;
 
 export default function TerminalView({ tabKey, visible, focused }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<(() => void) | null>(null);
   const focusedRef = useRef(focused);
+  // The xterm instance exists while shown, and for a short while after being hidden.
+  const [disposed, setDisposed] = useState(!visible);
+  if (visible && disposed) setDisposed(false); // shown again: recreate (render-time update)
+  const alive = !disposed;
+
+  useEffect(() => {
+    if (visible) return;
+    const timer = setTimeout(() => setDisposed(true), HIDDEN_DISPOSE_MS);
+    return () => clearTimeout(timer);
+  }, [visible]);
 
   useEffect(() => {
     const host = hostRef.current;
     const sink = getSink(tabKey);
-    if (!host || !sink) return;
+    if (!host || !sink || !alive) return;
     let disposed = false;
     const cleanups: (() => void)[] = [];
 
@@ -91,12 +101,13 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       const s = useSettings.getState().values;
       const term = new Terminal({
         allowProposedApi: true, // unicode11 addon
-        fontFamily: readMonoFont(),
+        fontFamily: fontFamily(s['terminal.fontFamily']),
         fontSize: s['terminal.fontSize'],
-        lineHeight: readLineHeight(),
+        lineHeight: s['terminal.lineHeight'] || readLineHeight(),
         scrollback: s['terminal.scrollback'],
         theme: readTerminalTheme(),
-        cursorBlink: true,
+        cursorStyle: s['terminal.cursorStyle'],
+        cursorBlink: s['terminal.cursorBlink'],
         cursorInactiveStyle: 'outline',
         drawBoldTextInBrightColors: false,
         macOptionIsMeta: true,
@@ -134,12 +145,23 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
 
       const input = term.onData((data) => useTabs.getState().write(tabKey, data));
 
-      // ---- output: charset decoding + optional line timestamps
-      let decode = makeDecoder(s['terminal.charset'] as Charset);
-      let stamper: Timestamper | null = s['terminal.timestamps'] ? new Timestamper() : null;
+      // ---- output: charset decoding + optional line timestamps (state outlives the terminal)
+      const charset = s['terminal.charset'] as Charset;
+      const prev = sink.textState as TextState | null;
+      const text: TextState = {
+        charset,
+        decode: prev?.charset === charset ? prev.decode : makeDecoder(charset),
+        stamper: s['terminal.timestamps'] ? (prev?.stamper ?? new Timestamper()) : null,
+      };
+      sink.textState = text;
+      // Replay what this tab showed before (a hidden tab's terminal was disposed).
+      sink.history.setLimit(historyLimit(s['terminal.scrollback']));
+      for (const chunk of sink.history.replay()) term.write(chunk);
       sink.attach((data) => {
-        const decoded = typeof data === 'string' ? data : decode(data);
-        term.write(stamper ? stamper.feed(decoded) : decoded);
+        const decoded = typeof data === 'string' ? data : text.decode(data);
+        const shown = text.stamper ? text.stamper.feed(decoded) : decoded;
+        sink.history.push(shown);
+        term.write(shown);
       });
 
       // ---- clipboard
@@ -210,7 +232,6 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           term.clearSelection();
         },
         focus: () => term.focus(),
-        snapshot: () => new Promise((resolve) => term.write('', () => resolve(bufferText(term)))),
       });
 
       // Theme changes: re-read tokens whenever <html data-theme> flips.
@@ -226,14 +247,30 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           term.options.fontSize = v['terminal.fontSize'];
           doFit();
         }
+        if (v['terminal.fontFamily'] !== p['terminal.fontFamily']) {
+          term.options.fontFamily = fontFamily(v['terminal.fontFamily']);
+          doFit();
+        }
+        if (v['terminal.lineHeight'] !== p['terminal.lineHeight']) {
+          term.options.lineHeight = v['terminal.lineHeight'];
+          doFit();
+        }
+        if (v['terminal.cursorStyle'] !== p['terminal.cursorStyle']) {
+          term.options.cursorStyle = v['terminal.cursorStyle'];
+        }
+        if (v['terminal.cursorBlink'] !== p['terminal.cursorBlink']) {
+          term.options.cursorBlink = v['terminal.cursorBlink'];
+        }
         if (v['terminal.scrollback'] !== p['terminal.scrollback']) {
           term.options.scrollback = v['terminal.scrollback'];
+          sink.history.setLimit(historyLimit(v['terminal.scrollback']));
         }
         if (v['terminal.charset'] !== p['terminal.charset']) {
-          decode = makeDecoder(v['terminal.charset'] as Charset);
+          text.charset = v['terminal.charset'] as Charset;
+          text.decode = makeDecoder(text.charset);
         }
         if (v['terminal.timestamps'] !== p['terminal.timestamps']) {
-          stamper = v['terminal.timestamps'] ? new Timestamper() : null;
+          text.stamper = v['terminal.timestamps'] ? new Timestamper() : null;
         }
       });
 
@@ -261,7 +298,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       disposed = true;
       cleanups.forEach((fn) => fn());
     };
-  }, [tabKey]);
+  }, [tabKey, alive]);
 
   useEffect(() => {
     getSink(tabKey)?.setVisible(visible);

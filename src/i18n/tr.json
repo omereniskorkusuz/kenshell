@@ -372,7 +372,16 @@
     "credentials": "Kimlik profilleri",
     "data": "İçe / dışa aktar",
     "choose": "Seç…",
-    "keys": "SSH anahtarları"
+    "keys": "SSH anahtarları",
+    "fontFamily": "Yazı tipi",
+    "fontFamilyHint": "Boş = JetBrains Mono (gömülü). Yüklü herhangi bir eş aralıklı yazı tipi, ör. \"Cascadia Mono\".",
+    "lineHeight": "Satır aralığı",
+    "cursorStyle": "İmleç stili",
+    "cursorBlock": "Blok",
+    "cursorBar": "Çubuk",
+    "cursorUnderline": "Alt çizgi",
+    "cursorBlink": "Yanıp sönen imleç",
+    "cursorBlinkHint": "Varsayılan kapalı: sabit imleç işlemcinin boşta kalmasını sağlar."
   },
   "mode": {
     "user": "USER",

@@ -273,6 +273,11 @@ function TerminalSection() {
   const [charset, setCharset] = useSetting('terminal.charset');
   const [stamps, setStamps] = useSetting('terminal.timestamps');
   const [pasteDelay, setPasteDelay] = useSetting('terminal.pasteDelayMs');
+  const [font, setFont] = useSetting('terminal.fontFamily');
+  const [lineHeight, setLineHeight] = useSetting('terminal.lineHeight');
+  const [cursorStyle, setCursorStyle] = useSetting('terminal.cursorStyle');
+  const [cursorBlink, setCursorBlink] = useSetting('terminal.cursorBlink');
+  const [fontText, setFontText] = useState(font);
   return (
     <>
       <Row label={t('settings.fontSize')} hint={t('settings.rangeHint', LIMITS.fontSize)}>
@@ -285,6 +290,55 @@ function TerminalSection() {
             onCommit={setFontSize}
           />
         )}
+      </Row>
+      <Row label={t('settings.fontFamily')} hint={t('settings.fontFamilyHint')}>
+        {(id) => (
+          <input
+            id={id}
+            className="field mono w-64"
+            value={fontText}
+            placeholder="JetBrains Mono"
+            spellCheck={false}
+            onChange={(e) => setFontText(e.target.value)}
+            onBlur={() => setFont(fontText)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') setFont(fontText);
+            }}
+          />
+        )}
+      </Row>
+      <Row label={t('settings.lineHeight')} hint={t('settings.rangeHint', LIMITS.lineHeight)}>
+        {(id) => (
+          <select
+            id={id}
+            className="field w-48"
+            value={lineHeight}
+            onChange={(e) => setLineHeight(Number(e.target.value))}
+          >
+            {[1, 1.1, 1.2, 1.25, 1.3, 1.4, 1.5, 1.6].map((v) => (
+              <option key={v} value={v}>
+                {v.toFixed(2)}
+              </option>
+            ))}
+          </select>
+        )}
+      </Row>
+      <Row label={t('settings.cursorStyle')}>
+        {(id) => (
+          <select
+            id={id}
+            className="field w-48"
+            value={cursorStyle}
+            onChange={(e) => setCursorStyle(e.target.value as typeof cursorStyle)}
+          >
+            <option value="block">{t('settings.cursorBlock')}</option>
+            <option value="bar">{t('settings.cursorBar')}</option>
+            <option value="underline">{t('settings.cursorUnderline')}</option>
+          </select>
+        )}
+      </Row>
+      <Row label={t('settings.cursorBlink')} hint={t('settings.cursorBlinkHint')}>
+        {(id) => <Toggle id={id} checked={cursorBlink} onChange={setCursorBlink} />}
       </Row>
       <Row label={t('settings.scrollback')} hint={t('settings.rangeHint', LIMITS.scrollback)}>
         {(id) => (

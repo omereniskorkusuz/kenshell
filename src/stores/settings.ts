@@ -15,6 +15,13 @@ export interface AppSettings {
   'general.language': LanguagePref;
   'terminal.fontSize': number;
   'terminal.scrollback': number;
+  /** Empty = the bundled JetBrains Mono (with system mono fallbacks). */
+  'terminal.fontFamily': string;
+  /** Line spacing × font size (1.0–1.6). */
+  'terminal.lineHeight': number;
+  'terminal.cursorStyle': 'block' | 'bar' | 'underline';
+  /** Off by default (PuTTY habit; a blinking cursor also keeps the CPU awake). */
+  'terminal.cursorBlink': boolean;
   'console.hotplugToast': boolean;
   'console.autoReconnect': boolean;
   'connection.autoReconnect': boolean;
@@ -46,6 +53,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'general.language': 'system',
   'terminal.fontSize': 13,
   'terminal.scrollback': 10_000,
+  'terminal.fontFamily': '',
+  'terminal.lineHeight': 1.25,
+  'terminal.cursorStyle': 'block',
+  'terminal.cursorBlink': false,
   'console.hotplugToast': true,
   'console.autoReconnect': true,
   'connection.autoReconnect': false,
@@ -69,6 +80,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 export const LIMITS = {
   fontSize: { min: 8, max: 32 },
   scrollback: { min: 100, max: 100_000 },
+  lineHeight: { min: 1, max: 1.6 },
   sidebarWidth: { min: 180, max: 320 },
   sidePanelWidth: { min: 280, max: 480 },
 } as const;
@@ -99,6 +111,22 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
         return clampInt(value, LIMITS.fontSize.min, LIMITS.fontSize.max, d[k]);
       case 'terminal.scrollback':
         return clampInt(value, LIMITS.scrollback.min, LIMITS.scrollback.max, d[k]);
+      case 'terminal.lineHeight': {
+        const n = typeof value === 'number' ? value : Number(value);
+        if (!Number.isFinite(n)) return d[k];
+        const { min, max } = LIMITS.lineHeight;
+        return Math.round(Math.min(max, Math.max(min, n)) * 20) / 20;
+      }
+      case 'terminal.cursorStyle':
+        return oneOf(value, ['block', 'bar', 'underline'] as const, d[k]);
+      case 'terminal.fontFamily':
+        // A CSS font-family list; quotes and commas allowed, nothing that ends the value.
+        return typeof value === 'string'
+          ? value
+              .replace(/[;{}<>\\]/g, '')
+              .trim()
+              .slice(0, 200)
+          : d[k];
       case 'ui.sidebarWidth':
         return clampInt(value, LIMITS.sidebarWidth.min, LIMITS.sidebarWidth.max, d[k]);
       case 'ui.sidePanelWidth':
@@ -112,6 +140,7 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'terminal.copyOnSelect':
       case 'terminal.rightClickPaste':
       case 'terminal.timestamps':
+      case 'terminal.cursorBlink':
       case 'log.timestamps':
         return bool(value, d[k]);
       case 'terminal.backspace':

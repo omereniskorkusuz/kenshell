@@ -47,7 +47,6 @@ import {
   type SplitView,
 } from '../lib/split';
 import { normalizeEnv } from '../lib/tree';
-import { getTerminal } from '../terminal/registry';
 import { createSink, disposeSink, getSink } from '../terminal/sink';
 import { useLibrary } from './library';
 import { useSettings } from './settings';
@@ -728,7 +727,8 @@ export const useTabs = create<TabsState>()((set, get) => {
         await drained;
         const sink = getSink(cur.key);
         const pending = sink?.takePending() ?? new Uint8Array();
-        const screen = (await getTerminal(cur.key)?.snapshot()) ?? '';
+        // What the terminal showed, colours included (also when its xterm was disposed).
+        const screen = sink?.history.text() ?? '';
         const now = tab(cur.key) ?? cur;
         try {
           await api.windowDetach({

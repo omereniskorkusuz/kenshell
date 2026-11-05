@@ -372,7 +372,16 @@
     "credentials": "Logins",
     "data": "Import / export",
     "choose": "Choose…",
-    "keys": "SSH keys"
+    "keys": "SSH keys",
+    "fontFamily": "Font",
+    "fontFamilyHint": "Empty = JetBrains Mono (bundled). Any installed monospaced font, e.g. \"Cascadia Mono\".",
+    "lineHeight": "Line spacing",
+    "cursorStyle": "Cursor style",
+    "cursorBlock": "Block",
+    "cursorBar": "Bar",
+    "cursorUnderline": "Underline",
+    "cursorBlink": "Blinking cursor",
+    "cursorBlinkHint": "Off by default: a steady cursor lets the CPU idle."
   },
   "mode": {
     "user": "USER",

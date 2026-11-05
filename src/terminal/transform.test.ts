@@ -40,3 +40,43 @@ describe('copy and paste', () => {
     expect(wantsPacing('serial', 3, 0)).toBe(false);
   });
 });
+
+describe('Timestamper matches the per-character reference', () => {
+  it('on random text split into random chunks', () => {
+    const reference = (chunks: string[]) => {
+      let lineStart = true;
+      let out = '';
+      for (const ch of chunks.join('')) {
+        if (ch === '\n') {
+          out += ch;
+          lineStart = true;
+          continue;
+        }
+        if (lineStart && ch !== '\r') {
+          out += '\x1b[2m[T]\x1b[22m ';
+          lineStart = false;
+        }
+        out += ch;
+      }
+      return out;
+    };
+    let seed = 7;
+    const rnd = (n: number) => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed % n;
+    };
+    const alphabet = ['a', 'b', ' ', '\r', '\n', '\r\n', '#', 'ğ'];
+    for (let round = 0; round < 50; round++) {
+      let text = '';
+      for (let i = 0; i < 200; i++) text += alphabet[rnd(alphabet.length)];
+      const chunks: string[] = [];
+      for (let i = 0; i < text.length;) {
+        const n = 1 + rnd(20);
+        chunks.push(text.slice(i, i + n));
+        i += n;
+      }
+      const t = new Timestamper(() => 'T');
+      expect(chunks.map((c) => t.feed(c)).join('')).toBe(reference(chunks));
+    }
+  });
+});

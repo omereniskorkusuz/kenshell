@@ -9,19 +9,49 @@ use crate::{MAIN_WINDOW, PROCESS_START};
 /// Env var: when set, `app_ready` prints the startup time to stdout
 /// (`KENSHELL_READY_MS=<ms>`) so `bench/measure-app.mjs` can read it.
 const BENCH_ENV: &str = "KENSHELL_BENCH";
+/// Bench only (with `KENSHELL_BENCH`): `"<quick connect text>|<count>"`, e.g.
+/// `telnet 127.0.0.1 2323|10` — the main window opens that many tabs at start-up so
+/// `bench/measure-app.mjs --sessions N` can measure RAM with live sessions.
+const BENCH_OPEN_ENV: &str = "KENSHELL_BENCH_OPEN";
+const BENCH_MAX_TABS: u32 = 50;
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BenchOpen {
+    target: String,
+    count: u32,
+    /// Show each tab once (default); `KENSHELL_BENCH_VISIT=0` leaves them unrendered.
+    visit: bool,
+}
+
+fn parse_bench_open(raw: &str) -> Option<BenchOpen> {
+    let (target, count) = raw.rsplit_once('|')?;
+    let count: u32 = count.trim().parse().ok()?;
+    let target = target.trim();
+    (!target.is_empty() && count > 0).then(|| BenchOpen {
+        target: target.to_owned(),
+        count: count.min(BENCH_MAX_TABS),
+        visit: std::env::var("KENSHELL_BENCH_VISIT").map_or(true, |v| v != "0"),
+    })
+}
 
 /// Called once by each window's frontend after its first paint: shows that window.
+/// Returns the benchmark tabs to open (bench runs only, main window only).
 #[tauri::command]
-pub fn app_ready(window: WebviewWindow) {
+pub fn app_ready(window: WebviewWindow) -> Option<BenchOpen> {
     let _ = window.show();
     let _ = window.set_focus();
-    if window.label() == MAIN_WINDOW && std::env::var_os(BENCH_ENV).is_some() {
-        let ms = PROCESS_START
-            .get()
-            .map(|t| t.elapsed().as_millis())
-            .unwrap_or_default();
-        println!("KENSHELL_READY_MS={ms}");
+    if window.label() != MAIN_WINDOW || std::env::var_os(BENCH_ENV).is_none() {
+        return None;
     }
+    let ms = PROCESS_START
+        .get()
+        .map(|t| t.elapsed().as_millis())
+        .unwrap_or_default();
+    println!("KENSHELL_READY_MS={ms}");
+    std::env::var(BENCH_OPEN_ENV)
+        .ok()
+        .and_then(|raw| parse_bench_open(&raw))
 }
 
 #[derive(Debug, Serialize)]
@@ -63,7 +93,23 @@ fn is_safe_external_url(url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_safe_external_url;
+    use super::{BenchOpen, is_safe_external_url, parse_bench_open};
+
+    #[test]
+    fn bench_open_is_parsed_and_capped() {
+        assert_eq!(
+            parse_bench_open("telnet 127.0.0.1 2323|10"),
+            Some(BenchOpen {
+                target: "telnet 127.0.0.1 2323".into(),
+                count: 10,
+                visit: true,
+            })
+        );
+        assert_eq!(parse_bench_open("ssh x|999").map(|b| b.count), Some(50));
+        for bad in ["", "telnet x", "|3", "x|0", "x|ten"] {
+            assert_eq!(parse_bench_open(bad), None, "{bad}");
+        }
+    }
 
     #[test]
     fn only_https_links_are_opened() {

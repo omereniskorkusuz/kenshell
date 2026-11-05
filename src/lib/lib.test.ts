@@ -245,3 +245,13 @@ describe('error messages', () => {
     expect(errorCode({ code: 'bogus' })).toBe('internal');
   });
 });
+
+describe('uptime at minute resolution', () => {
+  it('formats and schedules the next change', async () => {
+    const { formatUptimeShort, msToNextMinute } = await import('./format');
+    expect(formatUptimeShort(3_725_000)).toBe('01:02');
+    expect(formatUptimeShort(59_999)).toBe('00:00');
+    expect(msToNextMinute(0)).toBe(60_000);
+    expect(msToNextMinute(61_500)).toBe(58_500);
+  });
+});

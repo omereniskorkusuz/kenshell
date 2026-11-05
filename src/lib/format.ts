@@ -24,6 +24,19 @@ export function formatUptime(ms: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
+/**
+ * Uptime as `HH:MM` (minute resolution). The identity bar shows this one: repainting a
+ * seconds clock every second kept WebKit and the compositor at a few % CPU per pane.
+ */
+export function formatUptimeShort(ms: number): string {
+  return formatUptime(ms).slice(0, 5);
+}
+
+/** Milliseconds until the minute value of an uptime of `ms` changes. */
+export function msToNextMinute(ms: number): number {
+  return 60_000 - (Math.max(0, ms) % 60_000);
+}
+
 /** Serial framing label, e.g. 8N1. */
 export function framingLabel(
   dataBits: number,

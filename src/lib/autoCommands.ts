@@ -12,8 +12,11 @@ const LOGIN_PROMPT = /(user ?name|login|password|passcode)\s*:\s*$/i;
 
 /** Keeps the last `max` characters of (latin-1 decoded) output. */
 export function appendTail(tail: string, bytes: Uint8Array, max = 256): string {
-  let s = tail;
-  for (const b of bytes) s += String.fromCharCode(b);
+  // Only the last `max` bytes can survive: never walk (or build strings from) the rest.
+  // Adding every byte with `+=` made ~1 temporary string per received byte (P2-T23: tens
+  // of MB of garbage per session for a large output burst in WebKit).
+  const take = bytes.length > max ? bytes.subarray(bytes.length - max) : bytes;
+  const s = tail + String.fromCharCode(...take);
   return s.length > max ? s.slice(s.length - max) : s;
 }
 

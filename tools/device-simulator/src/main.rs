@@ -38,6 +38,8 @@ struct Options {
     legacy_only: bool,
     /// OpenSSH public key lines accepted for publickey auth (repeatable).
     authorized_keys: Vec<String>,
+    /// Lines of `show`-like output sent on connect (fills scrollback for RAM benchmarks).
+    flood_lines: u32,
     port_set: bool,
     list: bool,
 }
@@ -55,6 +57,7 @@ fn parse_args() -> Result<Options, String> {
         host_key_seed: 1,
         legacy_only: false,
         authorized_keys: Vec::new(),
+        flood_lines: 0,
         port_set: false,
         list: false,
     };
@@ -71,6 +74,9 @@ fn parse_args() -> Result<Options, String> {
             "--ssh" => o.ssh = true,
             "--legacy-only" => o.legacy_only = true,
             "--authorized-key" => o.authorized_keys.push(val()?),
+            "--flood-lines" => {
+                o.flood_lines = val()?.parse().map_err(|e| format!("--flood-lines: {e}"))?;
+            }
             "--host-key-seed" => {
                 o.host_key_seed = val()?
                     .parse()
@@ -105,7 +111,7 @@ fn main() {
                 eprintln!("error: {e}");
             }
             eprintln!(
-                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--ssh [--host-key-seed N] [--legacy-only] [--authorized-key 'ssh-ed25519 AAAA…']] [--stdio] [--pty [--baud N]] [--list]"
+                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--ssh [--host-key-seed N] [--legacy-only] [--authorized-key 'ssh-ed25519 AAAA…']] [--flood-lines N] [--stdio] [--pty [--baud N]] [--list]"
             );
             std::process::exit(2);
         }
@@ -186,13 +192,14 @@ fn run_tcp(opts: &Options, profile: Arc<Profile>) -> std::io::Result<()> {
         let stream = stream?;
         let profile = Arc::clone(&profile);
         let raw = opts.raw;
+        let flood = opts.flood_lines;
         std::thread::spawn(move || {
             let peer = stream
                 .peer_addr()
                 .map(|a| a.to_string())
                 .unwrap_or_default();
             eprintln!("+ {peer}");
-            if let Err(e) = serve(stream, &profile, raw) {
+            if let Err(e) = serve(stream, &profile, raw, flood) {
                 eprintln!("  {peer}: {e}");
             }
             eprintln!("- {peer}");
@@ -201,13 +208,35 @@ fn run_tcp(opts: &Options, profile: Arc<Profile>) -> std::io::Result<()> {
     Ok(())
 }
 
-fn serve(mut stream: TcpStream, profile: &Profile, raw: bool) -> std::io::Result<()> {
+/// `n` lines resembling `show interfaces status` (about 80 columns, some colour-worthy words).
+fn flood_text(n: u32) -> Vec<u8> {
+    let mut out = String::with_capacity(n as usize * 82);
+    for i in 0..n {
+        let state = if i % 7 == 0 {
+            "notconnect"
+        } else {
+            "connected "
+        };
+        out.push_str(&format!(
+            "Gi1/0/{:<4} access-{:05}   {state}  {:>4}  a-full a-1000 10/100/1000BaseTX  \r\n",
+            i % 48 + 1,
+            i,
+            i % 4094 + 1,
+        ));
+    }
+    out.into_bytes()
+}
+
+fn serve(mut stream: TcpStream, profile: &Profile, raw: bool, flood: u32) -> std::io::Result<()> {
     stream.set_nodelay(true)?;
     let mut codec = telnet::Codec::new();
     let mut session = Session::new(profile);
     let encode = |b: Vec<u8>| if raw { b } else { telnet::Codec::encode(&b) };
     if !raw {
         stream.write_all(&telnet::Codec::initial_negotiation())?;
+    }
+    if flood > 0 {
+        stream.write_all(&encode(flood_text(flood)))?;
     }
     stream.write_all(&encode(session.start()))?;
     let mut buf = [0u8; 4096];

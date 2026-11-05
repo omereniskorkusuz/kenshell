@@ -14,10 +14,17 @@ const CP437_HIGH =
   '░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀' +
   'αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ';
 
+/** Code unit for every byte (all CP437 characters are in the BMP). */
+const CP437_UNITS = Uint16Array.from({ length: 256 }, (_, b) =>
+  b < 0x80 ? b : CP437_HIGH.charCodeAt(b - 0x80) || 0x3f,
+);
+const UTF16 = new TextDecoder('utf-16le');
+
+/** Bulk decode (no per-byte string building: large outputs must not make garbage). */
 export function decodeCp437(bytes: Uint8Array): string {
-  let s = '';
-  for (const b of bytes) s += b < 0x80 ? String.fromCharCode(b) : (CP437_HIGH[b - 0x80] ?? '?');
-  return s;
+  const units = new Uint16Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) units[i] = CP437_UNITS[bytes[i] as number] as number;
+  return UTF16.decode(units);
 }
 
 export type Decoder = (bytes: Uint8Array) => Uint8Array | string;
@@ -47,20 +54,34 @@ export class Timestamper {
 
   feed(chunk: Uint8Array | string): string {
     const text = typeof chunk === 'string' ? chunk : this.utf8.decode(chunk, { stream: true });
-    let out = '';
-    for (const ch of text) {
-      if (ch === '\n') {
-        out += ch;
-        this.lineStart = true;
-        continue;
-      }
-      if (this.lineStart && ch !== '\r') {
-        out += `${DIM}[${this.now()}]${UNDIM} `;
+    // Whole line segments at a time (no per-character string building).
+    const parts: string[] = [];
+    let i = 0;
+    while (i < text.length) {
+      if (this.lineStart) {
+        let j = i;
+        while (j < text.length && text.charCodeAt(j) === 13) j++; // CRs never get a stamp
+        if (j > i) parts.push(text.slice(i, j));
+        i = j;
+        if (i >= text.length) break;
+        if (text.charCodeAt(i) === 10) {
+          parts.push('\n'); // empty line: still at a line start
+          i++;
+          continue;
+        }
+        parts.push(`${DIM}[${this.now()}]${UNDIM} `);
         this.lineStart = false;
       }
-      out += ch;
+      const nl = text.indexOf('\n', i);
+      if (nl < 0) {
+        parts.push(text.slice(i));
+        break;
+      }
+      parts.push(text.slice(i, nl + 1));
+      this.lineStart = true;
+      i = nl + 1;
     }
-    return out;
+    return parts.join('');
   }
 }
 

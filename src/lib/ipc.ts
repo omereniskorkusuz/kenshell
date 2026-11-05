@@ -361,8 +361,17 @@ export interface AppInfo {
   arch: string;
 }
 
-export async function appReady(): Promise<void> {
-  if (inTauri()) await invoke('app_ready');
+/** Bench runs only: tabs to open at start-up (see bench/measure-app.mjs --sessions). */
+export interface BenchOpen {
+  target: string;
+  count: number;
+  /** Show each tab once so its terminal renders the output. */
+  visit: boolean;
+}
+
+/** Shows the window; resolves with benchmark tabs to open (null outside bench runs). */
+export async function appReady(): Promise<BenchOpen | null> {
+  return inTauri() ? invoke<BenchOpen | null>('app_ready') : null;
 }
 
 export async function appInfo(): Promise<AppInfo | null> {

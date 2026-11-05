@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { KeyRound, PanelRight, RotateCw } from 'lucide-react';
 import { useT, type TKey } from '../i18n';
 import { compactParts } from '../lib/compact';
-import { formatUptime } from '../lib/format';
+import { formatUptime, formatUptimeShort, msToNextMinute } from '../lib/format';
 import { isMac } from '../lib/ipc';
 import { protocolOf, serialOf, tabStatus, targetLabel, type LiveTab } from '../lib/sessionState';
 import { formatChord } from '../lib/shortcuts';
@@ -229,17 +229,21 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
   );
 }
 
+/** Connected time; minute resolution, re-rendered only when the minute changes. */
 function Uptime({ since, live }: { since: number; live: boolean }) {
   const t = useT();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!live) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [live]);
+    const id = setTimeout(() => setNow(Date.now()), msToNextMinute(Date.now() - since) + 50);
+    return () => clearTimeout(id);
+  }, [live, now, since]);
   return (
-    <span className="mono tabular shrink-0 text-xs text-secondary" title={t('identity.uptime')}>
-      {formatUptime(now - since)}
+    <span
+      className="mono tabular shrink-0 text-xs text-secondary"
+      title={`${t('identity.uptime')} · ${formatUptime(now - since)}`}
+    >
+      {formatUptimeShort(now - since)}
     </span>
   );
 }
