@@ -23,6 +23,7 @@ import { ownerKey, useNotes } from '../stores/notes';
 import { useTabs } from '../stores/tabs';
 import { CHARS_PER_LINE } from './history';
 import { getSink } from './sink';
+import { Highlighter, highlightColors, type HighlighterConfig } from './highlighter';
 import { readLineHeight, readMonoFont, readTerminalTheme } from './theme';
 import './terminal.css';
 
@@ -230,6 +231,28 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
         if (!tab) return undefined;
         return useNotes.getState().byOwner[ownerKey(tab.sessionId, tab.device.deviceId)];
       };
+      // ---- output colouring (P3-T10), visible rows only
+      const familyOf = () =>
+        useTabs.getState().tabs.find((x) => x.key === tabKey)?.device.vendor?.family ?? null;
+      const highlightConfig = (): HighlighterConfig => {
+        const v = useSettings.getState().values;
+        return {
+          enabled: v['terminal.highlight'],
+          family: familyOf(),
+          off: v['terminal.highlightOff'],
+          colors: highlightColors(term.options.theme ?? {}),
+        };
+      };
+      const highlighter = new Highlighter(term, highlightConfig());
+      let family = familyOf();
+      const unsubFamily = useTabs.subscribe(() => {
+        const f = familyOf();
+        if (f !== family) {
+          family = f;
+          highlighter.configure(highlightConfig());
+        }
+      });
+
       const links = term.registerLinkProvider({
         provideLinks(y, done) {
           const notes = notesOf();
@@ -279,6 +302,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       // Theme changes: re-read tokens whenever <html data-theme> flips.
       const mo = new MutationObserver(() => {
         term.options.theme = readTerminalTheme();
+        highlighter.configure(highlightConfig());
       });
       mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
@@ -311,6 +335,12 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           text.charset = v['terminal.charset'] as Charset;
           text.decode = makeDecoder(text.charset);
         }
+        if (
+          v['terminal.highlight'] !== p['terminal.highlight'] ||
+          v['terminal.highlightOff'] !== p['terminal.highlightOff']
+        ) {
+          highlighter.configure(highlightConfig());
+        }
         if (v['terminal.timestamps'] !== p['terminal.timestamps']) {
           text.stamper = v['terminal.timestamps'] ? new Timestamper() : null;
         }
@@ -319,6 +349,8 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       if (focusedRef.current) term.focus();
 
       cleanups.push(() => {
+        highlighter.dispose();
+        unsubFamily();
         links.dispose();
         tip.remove();
         window.clearTimeout(selTimer);

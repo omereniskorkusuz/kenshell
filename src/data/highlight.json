@@ -1,0 +1,65 @@
+{
+  "$comment": "Output colouring rules (P3-T10). Order matters: an earlier match wins where matches overlap. `families` limits a rule to those vendor families; `style` picks the colour (terminal ANSI theme). Interfaces are matched by src/lib/iface.ts (category `interfaces`).",
+  "rules": [
+    {
+      "category": "errors",
+      "style": "error",
+      "pattern": "% ?(?:Invalid input|Incomplete command|Ambiguous command|Unknown command|Unrecognized command|Error|Bad mask|Invalid)[^\\r\\n]*"
+    },
+    {
+      "category": "errors",
+      "style": "error",
+      "families": ["huawei"],
+      "pattern": "^Error: [^\\r\\n]*"
+    },
+    {
+      "category": "errors",
+      "style": "error",
+      "families": ["juniper"],
+      "pattern": "(?:^| )(?:unknown command|syntax error|error: [^\\r\\n]*)"
+    },
+    {
+      "category": "errors",
+      "style": "error",
+      "families": ["fortinet"],
+      "pattern": "(?:Command fail\\. Return code -?\\d+|Unknown action \\d+)"
+    },
+    {
+      "category": "errors",
+      "style": "error",
+      "families": ["alcatel", "aruba"],
+      "pattern": "^ERROR: [^\\r\\n]*"
+    },
+    {
+      "category": "errors",
+      "style": "warning",
+      "pattern": "\\b(?:err-disabled|errdisabled|errdisable|err-disable)\\b"
+    },
+    {
+      "category": "status",
+      "style": "down",
+      "families": ["huawei"],
+      "pattern": "\\*down\\b|\\^down\\b|\\(d\\)"
+    },
+    {
+      "category": "status",
+      "style": "down",
+      "pattern": "\\b(?:administratively down|down|DOWN|Down|notconnect|notconnected|not connected|disabled|Disabled|inactive|suspended|blocking|BLK|BKN)\\b"
+    },
+    {
+      "category": "status",
+      "style": "up",
+      "pattern": "\\b(?:up|UP|Up|connected|Connected|established|Established|ESTABLISHED|FULL|forwarding|FWD|active)\\b"
+    },
+    {
+      "category": "addresses",
+      "style": "mac",
+      "pattern": "\\b(?:[0-9a-fA-F]{4}\\.[0-9a-fA-F]{4}\\.[0-9a-fA-F]{4}|[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}|[0-9a-fA-F]{2}(?:[:-][0-9a-fA-F]{2}){5})\\b"
+    },
+    {
+      "category": "addresses",
+      "style": "ip",
+      "pattern": "(?<![\\d.])(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)(?:/(?:3[0-2]|[12]?\\d))?(?![\\d.]*\\d)"
+    }
+  ]
+}

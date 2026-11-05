@@ -391,7 +391,16 @@
     "cursorBlink": "Blinking cursor",
     "cursorBlinkHint": "Off by default: a steady cursor lets the CPU idle.",
     "identify": "Identify devices after login",
-    "identifyHint": "Read-only show version once per connection, hidden from the terminal. Can be turned off per session."
+    "identifyHint": "Read-only show version once per connection, hidden from the terminal. Can be turned off per session.",
+    "highlight": "Output colouring",
+    "highlightHint": "Colours up/down, errors, IP/MAC addresses and interface names on screen; the log is unchanged.",
+    "highlightRules": "Colour",
+    "highlightCat": {
+      "status": "up / down",
+      "errors": "Errors, err-disabled",
+      "addresses": "IP and MAC",
+      "interfaces": "Interfaces"
+    }
   },
   "mode": {
     "user": "USER",

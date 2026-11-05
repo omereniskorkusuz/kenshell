@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { api, type Settings } from '../lib/ipc';
 import { NO_COLORS, sanitizeColors, type ColorSettings } from '../lib/modeColors';
+import { HIGHLIGHT_CATEGORIES, type HighlightCategory } from '../terminal/highlight';
 
 export type ThemePref = 'dark' | 'light' | 'system';
 export type LanguagePref = 'system' | 'tr' | 'en';
@@ -25,6 +26,9 @@ export interface AppSettings {
   'terminal.cursorStyle': 'block' | 'bar' | 'underline';
   /** Off by default (PuTTY habit; a blinking cursor also keeps the CPU awake). */
   'terminal.cursorBlink': boolean;
+  /** Output colouring (P3-T10): on/off and the switched-off rule categories. */
+  'terminal.highlight': boolean;
+  'terminal.highlightOff': HighlightCategory[];
   'console.hotplugToast': boolean;
   'console.autoReconnect': boolean;
   'connection.autoReconnect': boolean;
@@ -63,6 +67,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'terminal.lineHeight': 1.25,
   'terminal.cursorStyle': 'block',
   'terminal.cursorBlink': false,
+  'terminal.highlight': true,
+  'terminal.highlightOff': [],
   'console.hotplugToast': true,
   'console.autoReconnect': true,
   'connection.autoReconnect': false,
@@ -151,8 +157,11 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'terminal.rightClickPaste':
       case 'terminal.timestamps':
       case 'terminal.cursorBlink':
+      case 'terminal.highlight':
       case 'log.timestamps':
         return bool(value, d[k]);
+      case 'terminal.highlightOff':
+        return Array.isArray(value) ? HIGHLIGHT_CATEGORIES.filter((c) => value.includes(c)) : d[k];
       case 'terminal.backspace':
         return oneOf(value, ['del', 'ctrlH'] as const, d[k]);
       case 'terminal.charset':

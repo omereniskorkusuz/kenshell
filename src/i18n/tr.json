@@ -391,7 +391,16 @@
     "cursorBlink": "Yanıp sönen imleç",
     "cursorBlinkHint": "Varsayılan kapalı: sabit imleç işlemcinin boşta kalmasını sağlar.",
     "identify": "Girişten sonra cihazı tanı",
-    "identifyHint": "Bağlantı başına bir kez salt-okunur show version, terminalde görünmez. Oturum bazında kapatılabilir."
+    "identifyHint": "Bağlantı başına bir kez salt-okunur show version, terminalde görünmez. Oturum bazında kapatılabilir.",
+    "highlight": "Çıktı renklendirme",
+    "highlightHint": "Ekrandaki up/down, hata, IP/MAC adresi ve interface adlarını renklendirir; log değişmez.",
+    "highlightRules": "Renklendir",
+    "highlightCat": {
+      "status": "up / down",
+      "errors": "Hatalar, err-disabled",
+      "addresses": "IP ve MAC",
+      "interfaces": "Interface'ler"
+    }
   },
   "mode": {
     "user": "USER",

@@ -1,6 +1,7 @@
 /**
  * Settings (lazy chunk). Every change applies instantly and is persisted — no Save/OK.
  */
+import { HIGHLIGHT_CATEGORIES } from '../terminal/highlight';
 import { useEffect, useId, useState, type ReactNode, type FormEvent } from 'react';
 import { Dialog } from '../components/Dialog';
 import ColorsSection from './ColorsSection';
@@ -279,6 +280,8 @@ function TerminalSection() {
   const [lineHeight, setLineHeight] = useSetting('terminal.lineHeight');
   const [cursorStyle, setCursorStyle] = useSetting('terminal.cursorStyle');
   const [cursorBlink, setCursorBlink] = useSetting('terminal.cursorBlink');
+  const [highlight, setHighlight] = useSetting('terminal.highlight');
+  const [highlightOff, setHighlightOff] = useSetting('terminal.highlightOff');
   const [fontText, setFontText] = useState(font);
   return (
     <>
@@ -342,6 +345,37 @@ function TerminalSection() {
       <Row label={t('settings.cursorBlink')} hint={t('settings.cursorBlinkHint')}>
         {(id) => <Toggle id={id} checked={cursorBlink} onChange={setCursorBlink} />}
       </Row>
+      <Row label={t('settings.highlight')} hint={t('settings.highlightHint')}>
+        {(id) => <Toggle id={id} checked={highlight} onChange={setHighlight} />}
+      </Row>
+      {highlight && (
+        <Row label={t('settings.highlightRules')}>
+          {() => (
+            <div
+              role="group"
+              aria-label={t('settings.highlightRules')}
+              className="flex flex-wrap gap-x-4 gap-y-1"
+            >
+              {HIGHLIGHT_CATEGORIES.map((c) => (
+                <label key={c} className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={!highlightOff.includes(c)}
+                    onChange={(e) =>
+                      setHighlightOff(
+                        e.target.checked
+                          ? highlightOff.filter((x) => x !== c)
+                          : [...highlightOff, c],
+                      )
+                    }
+                  />
+                  {t(`settings.highlightCat.${c}`)}
+                </label>
+              ))}
+            </div>
+          )}
+        </Row>
+      )}
       <Row label={t('settings.scrollback')} hint={t('settings.rangeHint', LIMITS.scrollback)}>
         {(id) => (
           <NumberField
