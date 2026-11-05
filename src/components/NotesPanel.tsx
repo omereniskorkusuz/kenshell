@@ -5,7 +5,7 @@
  * (`Gi1/0/24: camera`) is linked to that interface. Markdown is shown, never executed.
  */
 import { Pencil, Pin, PinOff, Trash2, Download } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n';
 import { describeError } from '../lib/errors';
 import { api, type Note } from '../lib/ipc';
@@ -38,7 +38,29 @@ export function NotesPanel() {
 function NotesList({ sessionId, deviceId }: { sessionId: number | null; deviceId: number | null }) {
   const t = useT();
   const [notes, setNotes] = useState<Note[]>([]);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => useUi.getState().noteDraft ?? '');
+  const draftRef = useRef<HTMLTextAreaElement>(null);
+  // "Add note" from the terminal: focus with the caret after the prefilled interface name
+  // (after the menu that started it has returned focus).
+  const focusDraftEnd = () =>
+    window.setTimeout(() => {
+      const el = draftRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    }, 0);
+  const startedWithDraft = useRef(draft !== '');
+  useEffect(() => {
+    if (startedWithDraft.current) {
+      useUi.getState().takeNoteDraft();
+      focusDraftEnd();
+    }
+    return useUi.subscribe((s) => {
+      if (s.noteDraft === null) return;
+      setDraft(useUi.getState().takeNoteDraft() ?? '');
+      focusDraftEnd();
+    });
+  }, []);
   const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
 
   const load = useCallback(() => {
@@ -118,6 +140,7 @@ function NotesList({ sessionId, deviceId }: { sessionId: number | null; deviceId
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-col gap-1 border-b border-subtle p-2">
         <textarea
+          ref={draftRef}
           className="field min-h-14 text-sm"
           rows={2}
           aria-label={t('notes.add')}

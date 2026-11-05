@@ -32,6 +32,10 @@ interface UiState {
   editor: EditorState | null;
   sidePanelOpen: boolean;
   sidePanelTab: SidePanelTab;
+  /** Text to start a new note with (terminal "Add note"); the notes panel takes it. */
+  noteDraft: string | null;
+  startNote(text: string): void;
+  takeNoteDraft(): string | null;
   statusMessage: { id: number; text: string } | null;
   announcement: { id: number; text: string } | null;
   quickConnectFocus: number;
@@ -71,6 +75,7 @@ export const useUi = create<UiState>()((set, get) => ({
   editor: null,
   sidePanelOpen: false,
   sidePanelTab: 'notes',
+  noteDraft: null,
   statusMessage: null,
   announcement: null,
   quickConnectFocus: 0,
@@ -88,6 +93,12 @@ export const useUi = create<UiState>()((set, get) => ({
   closeEditor: () => set({ editor: null }),
   toggleSidePanel: (open) => set({ sidePanelOpen: open ?? !get().sidePanelOpen }),
   setSidePanelTab: (tab) => set({ sidePanelTab: tab, sidePanelOpen: true }),
+  startNote: (text) => set({ noteDraft: text, sidePanelTab: 'notes', sidePanelOpen: true }),
+  takeNoteDraft() {
+    const d = get().noteDraft;
+    if (d !== null) set({ noteDraft: null });
+    return d;
+  },
   flash(text) {
     if (flashTimer) clearTimeout(flashTimer);
     const id = seq++;

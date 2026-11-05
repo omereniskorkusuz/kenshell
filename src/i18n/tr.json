@@ -170,7 +170,15 @@
   },
   "terminal": {
     "dropped": "— Sekme gizliyken {{size}} eski çıktı atlandı —",
-    "pasted": "{{count}} satır yapıştırıldı"
+    "pasted": "{{count}} satır yapıştırıldı",
+    "linkMenu": "{{text}} için işlemler",
+    "ssh": "{{text}} adresine SSH",
+    "telnet": "{{text}} adresine Telnet",
+    "ping": "Cihazdan ping",
+    "copy": "Kopyala",
+    "showIface": "Interface durumunu göster",
+    "showIfaceConfig": "Interface yapılandırmasını göster",
+    "addNote": "Not ekle"
   },
   "library": {
     "add": "Ekle",

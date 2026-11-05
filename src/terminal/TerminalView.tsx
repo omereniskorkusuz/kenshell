@@ -18,11 +18,12 @@ import { useSettings } from '../stores/settings';
 import { useUi } from '../stores/ui';
 import { registerTerminal, unregisterTerminal, type SearchOptions } from './registry';
 import { cleanCopy, makeDecoder, Timestamper, type Charset, type Decoder } from './transform';
-import { scanIfaces } from '../lib/iface';
 import { ownerKey, useNotes } from '../stores/notes';
 import { useTabs } from '../stores/tabs';
 import { CHARS_PER_LINE } from './history';
 import { getSink } from './sink';
+import { LinkMenu, type LinkMenuState } from './LinkMenu';
+import { findLinks } from './links';
 import { Highlighter, highlightColors, type HighlighterConfig } from './highlighter';
 import { readLineHeight, readMonoFont, readTerminalTheme } from './theme';
 import './terminal.css';
@@ -81,6 +82,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<(() => void) | null>(null);
   const focusedRef = useRef(focused);
+  const [linkMenu, setLinkMenu] = useState<LinkMenuState | null>(null);
   // The xterm instance exists while shown, and for a short while after being hidden.
   const [disposed, setDisposed] = useState(!visible);
   if (visible && disposed) setDisposed(false); // shown again: recreate (render-time update)
@@ -253,23 +255,24 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
         }
       });
 
+      // Clickable IPs / interfaces (P3-T11); an interface with a note shows it on hover.
       const links = term.registerLinkProvider({
         provideLinks(y, done) {
+          const line = term.buffer.active.getLine(y - 1)?.translateToString(true) ?? '';
           const notes = notesOf();
-          const line = notes ? term.buffer.active.getLine(y - 1)?.translateToString(true) : '';
-          if (!notes || !line) {
-            done(undefined);
-            return;
-          }
-          const found = scanIfaces(line)
-            .filter((h) => notes[h.iface.key] !== undefined)
-            .map((h) => ({
-              range: { start: { x: h.start + 1, y }, end: { x: h.end, y } },
-              text: line.slice(h.start, h.end),
-              decorations: { pointerCursor: false, underline: true },
-              activate: () => undefined,
+          const found = findLinks(line).map((l) => {
+            const note = l.kind === 'iface' ? notes?.[l.iface.key] : undefined;
+            return {
+              range: { start: { x: l.start + 1, y }, end: { x: l.end, y } },
+              text: l.text,
+              decorations: { pointerCursor: true, underline: true },
+              activate: (e: MouseEvent) => {
+                tip.hidden = true;
+                setLinkMenu({ x: e.clientX, y: e.clientY + 4, link: l });
+              },
               hover: (e: MouseEvent) => {
-                tip.textContent = (notes[h.iface.key] ?? '').slice(0, 500);
+                if (note === undefined) return;
+                tip.textContent = note.slice(0, 500);
                 tip.style.left = `${Math.min(e.clientX + 12, window.innerWidth - 320)}px`;
                 tip.style.top = `${e.clientY + 16}px`;
                 tip.hidden = false;
@@ -277,7 +280,8 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
               leave: () => {
                 tip.hidden = true;
               },
-            }));
+            };
+          });
           done(found.length ? found : undefined);
         },
       });
@@ -398,7 +402,12 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
     }
   }, [tabKey, focused]);
 
-  return <div ref={hostRef} className="terminal-host min-h-0 flex-1" />;
+  return (
+    <>
+      <div ref={hostRef} className="terminal-host min-h-0 flex-1" />
+      {linkMenu && <LinkMenu tabKey={tabKey} menu={linkMenu} onClose={() => setLinkMenu(null)} />}
+    </>
+  );
 }
 
 /** Search highlight colors from the design tokens (warning = all matches, accent = current). */

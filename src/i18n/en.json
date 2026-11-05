@@ -170,7 +170,15 @@
   },
   "terminal": {
     "dropped": "— {{size}} of older output skipped while this tab was hidden —",
-    "pasted": "Pasted {{count}} lines"
+    "pasted": "Pasted {{count}} lines",
+    "linkMenu": "Actions for {{text}}",
+    "ssh": "SSH to {{text}}",
+    "telnet": "Telnet to {{text}}",
+    "ping": "Ping from the device",
+    "copy": "Copy",
+    "showIface": "Show interface",
+    "showIfaceConfig": "Show interface config",
+    "addNote": "Add note"
   },
   "library": {
     "add": "Add",
