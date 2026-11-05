@@ -279,7 +279,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
         }
         for (const line of tracker.feed(data)) record(line);
         hideGhost();
-        useTabs.getState().write(tabKey, data);
+        useTabs.getState().input(tabKey, data);
       });
 
       // ---- output: charset decoding + optional line timestamps (state outlives the terminal)
@@ -311,7 +311,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           if (!text) return;
           tracker.lose();
           hideGhost();
-          useTabs.getState().paste(tabKey, text);
+          useTabs.getState().pasteInput(tabKey, text);
         });
       };
       term.attachCustomKeyEventHandler((e) => {
@@ -340,7 +340,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           useSettings.getState().values['terminal.backspace'] === 'ctrlH'
         ) {
           tracker.feed('\x08');
-          useTabs.getState().write(tabKey, '\x08');
+          useTabs.getState().input(tabKey, '\x08');
           return false;
         }
         return true;

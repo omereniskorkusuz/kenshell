@@ -52,6 +52,7 @@ export function StatusBar() {
   const t = useT();
   const activeKey = useTabs((s) => s.activeKey);
   const tabs = useTabs((s) => s.tabs);
+  const broadcast = useTabs((s) => s.broadcast);
   const message = useUi((s) => s.statusMessage);
   const counters = useActiveCounters(activeKey);
   const activeLog = tabs.find((x) => x.key === activeKey)?.logPath ?? null;
@@ -86,6 +87,16 @@ export function StatusBar() {
         <span className="truncate text-secondary" key={message.id}>
           {message.text}
         </span>
+      )}
+      {broadcast.length > 0 && (
+        <button
+          type="button"
+          className="shrink-0 font-medium text-warning hover:underline"
+          title={t('actions.stopBroadcast')}
+          onClick={() => useTabs.getState().stopBroadcast()}
+        >
+          {t('status.broadcast', { count: broadcast.length })}
+        </button>
       )}
       <span className="ml-auto shrink-0">
         {tabs.length === 0

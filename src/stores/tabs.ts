@@ -73,6 +73,8 @@ interface TabsState {
   closed: ClosedTab[];
   /** Tabs shown side by side (2–4); empty keys = single view of the active tab. */
   view: SplitView;
+  /** Broadcast group (P3-T13): typing or pasting in one of these tabs goes to all of them. */
+  broadcast: string[];
 
   openSerial(settings: SerialSettings, meta?: OpenMeta): string;
   /** Opens any target (serial reuses the tab owning the port). */
@@ -89,6 +91,14 @@ interface TabsState {
   sendBreak(key?: string | null): void;
   changeBaud(key: string, baud: number | null): void;
   write(key: string, data: string): void;
+  /** Keyboard input of a tab (to the whole broadcast group when the tab is in it). */
+  input(key: string, data: string): void;
+  /** A paste in a tab (to the whole broadcast group when the tab is in it). */
+  pasteInput(key: string, text: string): void;
+  /** Adds the tab to / removes it from the broadcast group (default: the active tab). */
+  toggleBroadcast(key?: string | null): void;
+  broadcastAll(): void;
+  stopBroadcast(): void;
   /** Pastes text: CR line ends; serial/telnet multi-line pastes are paced per line. */
   paste(key: string, text: string): void;
   /** Forgets the stored SSH host key of this tab's host and reconnects. */
@@ -315,6 +325,18 @@ export const useTabs = create<TabsState>()((set, get) => {
    * Removes a tab: closes its session (unless it moved to another window) and optionally
    * offers "Reopen".
    */
+  /** Where input typed in `key` goes: the tab itself, plus the other connected tabs of its
+   * broadcast group (not ones waiting for a login answer, which stays per tab). */
+  const broadcastTargets = (key: string): string[] => {
+    const { broadcast, tabs } = get();
+    if (!broadcast.includes(key)) return [key];
+    const others = tabs.filter(
+      (x) =>
+        x.key !== key && broadcast.includes(x.key) && x.state === 'connected' && x.prompt === null,
+    );
+    return [key, ...others.map((x) => x.key)];
+  };
+
   const remove = (cur: LiveTab, opts: { reopen: boolean; keepSession?: boolean }) => {
     if (!opts.keepSession) closeRuntime(cur);
     disposeSink(cur.key);
@@ -341,6 +363,7 @@ export const useTabs = create<TabsState>()((set, get) => {
       tabs: rest,
       activeKey: nextActive,
       view: removePane(s.view, cur.key),
+      broadcast: s.broadcast.filter((k) => k !== cur.key),
       closed: opts.keepSession ? s.closed : [...s.closed, closed].slice(-MAX_CLOSED),
     }));
     if (opts.reopen) {
@@ -357,6 +380,33 @@ export const useTabs = create<TabsState>()((set, get) => {
     activeKey: null,
     closed: [],
     view: { keys: [], dir: 'cols' },
+    broadcast: [],
+
+    input(key, data) {
+      for (const k of broadcastTargets(key)) get().write(k, data);
+    },
+
+    pasteInput(key, text) {
+      for (const k of broadcastTargets(key)) get().paste(k, text);
+    },
+
+    toggleBroadcast(key) {
+      const k = resolveKey(key);
+      if (!k) return;
+      set((s) => ({
+        broadcast: s.broadcast.includes(k)
+          ? s.broadcast.filter((x) => x !== k)
+          : [...s.broadcast, k],
+      }));
+    },
+
+    broadcastAll() {
+      set((s) => ({ broadcast: s.tabs.map((x) => x.key) }));
+    },
+
+    stopBroadcast() {
+      set({ broadcast: [] });
+    },
 
     openSerial(settings, meta = {}) {
       return get().openTarget({ type: 'serial', settings }, meta);

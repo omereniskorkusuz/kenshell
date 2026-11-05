@@ -413,3 +413,16 @@
 .tree-row[data-subtitle='true'] {
   height: 38px;
 }
+
+/* Broadcast (P3-T13): tabs and panes in the group carry a warning-coloured mark. */
+.tab[data-broadcast] {
+  box-shadow: inset 0 2px 0 var(--warning);
+}
+.pane[data-broadcast]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--warning);
+}

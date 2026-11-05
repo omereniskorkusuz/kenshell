@@ -60,7 +60,10 @@
     "focusPane": "Komşu bölmeye geç",
     "moveTabLeft": "Sekmeyi sola taşı",
     "moveTabRight": "Sekmeyi sağa taşı",
-    "detachTab": "Sekmeyi yeni pencereye taşı"
+    "detachTab": "Sekmeyi yeni pencereye taşı",
+    "toggleBroadcast": "Broadcast: bu sekmeyi ekle / çıkar",
+    "broadcastAll": "Tüm sekmelere broadcast",
+    "stopBroadcast": "Broadcast'i durdur"
   },
   "quick": {
     "label": "Hızlı bağlan",
@@ -102,7 +105,9 @@
     "breakSent": "BREAK gönderildi",
     "breakNeedsConnection": "BREAK için bağlı bir oturum gerekir.",
     "loggingIn": "Giriş yapılıyor…",
-    "logOn": "Log: {{file}}"
+    "logOn": "Log: {{file}}",
+    "broadcast_one": "Broadcast · {{count}} sekme",
+    "broadcast_other": "Broadcast · {{count}} sekme"
   },
   "autobaud": {
     "detecting": "Hız algılanıyor…",
@@ -166,7 +171,8 @@
     "detachDuringLogin": "Sekmeyi taşımadan önce girişi tamamlayın",
     "detachFailed": "Sekme yeni pencereye taşınamadı",
     "dropOutside": "Yeni pencerede açmak için bırakın",
-    "dragHint": "Sekmeyi sıralamak için sürükleyin; bölmek için bir bölmenin üstüne, ayırmak için pencere dışına bırakın"
+    "dragHint": "Sekmeyi sıralamak için sürükleyin; bölmek için bir bölmenin üstüne, ayırmak için pencere dışına bırakın",
+    "broadcasting": "broadcast açık"
   },
   "terminal": {
     "dropped": "— Sekme gizliyken {{size}} eski çıktı atlandı —",

@@ -44,6 +44,7 @@ export function Pane({ tab, visible, focused, rect }: Props) {
   const ref = useRef<HTMLElement>(null);
   const [layout, setLayout] = useState<Layout>({ compact: false, width: 0 });
   const searching = useUi((s) => s.findKey === tab.key);
+  const casting = useTabs((s) => s.broadcast.includes(tab.key));
   const dropZone = useUi((s) => (s.tabDrag?.pane === tab.key ? s.tabDrag.zone : null));
   const box: CSSProperties | undefined = rect
     ? {
@@ -84,6 +85,7 @@ export function Pane({ tab, visible, focused, rect }: Props) {
       data-pane={tab.key}
       data-split={rect ? 'true' : undefined}
       data-focused={focused}
+      data-broadcast={casting || undefined}
       style={box}
       className={`pane absolute flex bg-terminal ${rect ? '' : 'inset-0'}`}
       // In split view a click anywhere in a pane makes it the active one.

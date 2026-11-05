@@ -5,7 +5,7 @@
  * handling can swallow): along the strip → reorder; onto a pane → split view (edge) or
  * replace (center); out of the window → move to a new window (P2-T19).
  */
-import { Plus, X } from 'lucide-react';
+import { Plus, Radio, X } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -54,6 +54,7 @@ export function TabBar() {
   const tabs = useTabs((s) => s.tabs);
   const activeKey = useTabs((s) => s.activeKey);
   const view = useTabs((s) => s.view);
+  const broadcast = useTabs((s) => s.broadcast);
   const mac = isMac();
   const listRef = useRef<HTMLDivElement>(null);
   const drag = useRef<DragState | null>(null);
@@ -183,6 +184,17 @@ export function TabBar() {
     entries.push(
       { kind: 'separator' },
       {
+        label: t('actions.toggleBroadcast'),
+        hint: formatChord('mod+alt+b', mac),
+        checked: st.broadcast.includes(key),
+        onSelect: () => st.toggleBroadcast(key),
+      },
+      { label: t('actions.broadcastAll'), onSelect: () => st.broadcastAll() },
+      ...(st.broadcast.length > 0
+        ? [{ label: t('actions.stopBroadcast'), onSelect: () => st.stopBroadcast() }]
+        : []),
+      { kind: 'separator' },
+      {
         label: t('actions.closeTab'),
         hint: formatChord('mod+w', mac),
         onSelect: () => st.close(key),
@@ -229,6 +241,7 @@ export function TabBar() {
           const status = tabStatus(tab, t);
           const env = envKind(tab.envTag);
           const inView = view.keys.includes(tab.key);
+          const casting = broadcast.includes(tab.key);
           return (
             <div
               key={tab.key}
@@ -237,13 +250,16 @@ export function TabBar() {
               data-tab={tab.key}
               aria-selected={selected}
               aria-controls={`pane-${tab.key}`}
-              aria-label={`${tab.name}, ${status.text}${inView ? `, ${t('tabs.inView')}` : ''}`}
+              aria-label={`${tab.name}, ${status.text}${inView ? `, ${t('tabs.inView')}` : ''}${
+                casting ? `, ${t('tabs.broadcasting')}` : ''
+              }`}
               tabIndex={selected ? 0 : -1}
               data-mode={tab.mode}
               data-vendor={tab.device.vendor?.family}
               data-env={env ?? undefined}
               data-state={tab.state}
               data-in-view={inView || undefined}
+              data-broadcast={casting || undefined}
               className="tab cursor-default"
               title={`${tab.name} — ${status.text}`}
               onPointerDown={(e) => onPointerDown(e, tab.key)}
@@ -264,6 +280,14 @@ export function TabBar() {
               }}
             >
               <span className="status-dot" data-tone={status.tone} aria-hidden />
+              {casting && (
+                <Radio
+                  size={12}
+                  className="shrink-0 text-warning"
+                  aria-hidden
+                  data-testid="broadcast-mark"
+                />
+              )}
               <span className="tab-title mono min-w-0 flex-1 truncate">{tab.name}</span>
               {env && (
                 <span className="env-letter" title={envLabel(tab.envTag) ?? ''}>
