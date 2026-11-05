@@ -437,3 +437,15 @@
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 14%, transparent);
 }
+
+/* Analyzer virtual table (P4-T01). */
+.vtable-head {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.vtable-row:nth-child(even) {
+  background: color-mix(in srgb, var(--bg-hover) 50%, transparent);
+}
+.vtable-row:hover {
+  background: var(--bg-hover);
+}

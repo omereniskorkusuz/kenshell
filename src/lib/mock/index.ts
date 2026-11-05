@@ -809,6 +809,18 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
       }
       case 'notes_export':
         return undefined;
+      case 'analyzer_parsers':
+        return [
+          {
+            id: 'cisco.show_ip_interface_brief',
+            command: 'show ip interface brief',
+            families: ['cisco', 'ruijie'],
+          },
+        ];
+      case 'analyze_output':
+        return mockAnalyze(String(a.text), (a.command as string | null) ?? null);
+      case 'analyzer_export_csv':
+        return undefined;
       case 'snippets_list':
         return mockSnippets;
       case 'snippet_create': {
@@ -1060,4 +1072,51 @@ const demo = {
 if (typeof window !== 'undefined') {
   (window as unknown as { kenshellMock: typeof demo }).kenshellMock = demo;
   if (/demo=hotplug/.test(window.location.search)) setTimeout(() => demo.plug(), 3000);
+}
+
+/** Browser demo of the Rust `show ip interface brief` parser (layout of the fake CLI). */
+function mockAnalyze(text: string, command: string | null) {
+  const lines = text.split(/\r?\n/);
+  const cmd =
+    command ??
+    lines
+      .find((l) => l.trim())
+      ?.replace(/^.*?[#>]/, '')
+      .trim() ??
+    '';
+  const words = cmd.split(/\s+/);
+  const canon = ['show', 'ip', 'interface', 'brief'];
+  if (
+    words.length !== 4 ||
+    !words.every((w, i) => (canon[i] as string).startsWith(w.toLowerCase()))
+  )
+    return null;
+  const rows = lines
+    .filter((l) => /^[A-Za-z]+\S*\d/.test(l) && !/[#>]\s*$/.test(l) && !/[#>]\S/.test(l))
+    .map((l) => l.trim().split(/\s+/))
+    .filter((w) => w.length >= 6)
+    .map((w) => [
+      w[0] ?? '',
+      w[1] ?? '',
+      '',
+      w[2] ?? '',
+      w[3] ?? '',
+      w.slice(4, -1).join(' '),
+      w[w.length - 1] ?? '',
+    ]);
+  return {
+    parser: 'cisco.show_ip_interface_brief',
+    command: 'show ip interface brief',
+    columns: [
+      { key: 'interface', kind: 'iface' },
+      { key: 'ip', kind: 'ip' },
+      { key: 'secondary', kind: 'ip' },
+      { key: 'ok', kind: 'text' },
+      { key: 'method', kind: 'text' },
+      { key: 'status', kind: 'status' },
+      { key: 'protocol', kind: 'status' },
+    ],
+    rows,
+    truncated: false,
+  };
 }

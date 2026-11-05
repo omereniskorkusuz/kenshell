@@ -145,6 +145,28 @@ export interface Note {
   updatedAt: number;
 }
 
+export type ColumnKind = 'text' | 'number' | 'iface' | 'ip' | 'status';
+
+export interface AnalyzerColumn {
+  /** Stable id; label = `analyzer.col.<key>` (falls back to the key). */
+  key: string;
+  kind: ColumnKind;
+}
+
+export interface AnalyzerTable {
+  parser: string;
+  command: string;
+  columns: AnalyzerColumn[];
+  rows: string[][];
+  truncated: boolean;
+}
+
+export interface ParserInfo {
+  id: string;
+  command: string;
+  families: string[];
+}
+
 export interface Snippet {
   id: number;
   /** `Ports/Access` style path; empty = top level. */
@@ -557,6 +579,11 @@ export const api = {
   notesSearch: (text: string) => call<NoteHit[]>('notes_search', { text }),
   notesExport: (path: string) => call<undefined>('notes_export', { path }),
   notesPinned: () => call<PinnedNote[]>('notes_pinned'),
+  analyzeOutput: (text: string, family: string | null, command: string | null) =>
+    call<AnalyzerTable | null>('analyze_output', { text, family, command }),
+  analyzerParsers: () => call<ParserInfo[]>('analyzer_parsers'),
+  analyzerExportCsv: (path: string, headers: string[], rows: string[][]) =>
+    call<undefined>('analyzer_export_csv', { path, headers, rows }),
   snippetsList: () => call<Snippet[]>('snippets_list'),
   snippetCreate: (input: SnippetInput) => call<Snippet>('snippet_create', { input }),
   snippetUpdate: (id: number, input: SnippetInput) =>

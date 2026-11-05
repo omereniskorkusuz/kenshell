@@ -1,5 +1,6 @@
 //! KenShell backend entry point.
 
+mod analyzer;
 mod commands;
 mod console_detect;
 mod device;
@@ -70,6 +71,9 @@ pub fn run() {
             commands::storage::notes_export,
             commands::storage::notes_pinned,
             commands::storage::history_list,
+            commands::analyzer::analyze_output,
+            commands::analyzer::analyzer_parsers,
+            commands::analyzer::analyzer_export_csv,
             commands::storage::snippets_list,
             commands::storage::snippet_create,
             commands::storage::snippet_update,

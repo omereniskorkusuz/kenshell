@@ -1,0 +1,5 @@
+Interface                        IP-Address(Pri)      IP-Address(Sec)      Status                 Protocol
+GigabitEthernet 0/1              192.168.1.1/24       no address           up                     up
+Mgmt 0                           172.16.0.10/24       no address           up                     up
+VLAN 10                          10.10.10.1/24        10.10.11.1/24        down                   down
+VLAN 20                          no address           no address           administratively down  down

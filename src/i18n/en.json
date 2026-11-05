@@ -621,5 +621,28 @@
     "fillTitle": "Values for {{name}}",
     "preview": "Preview",
     "sendFilled": "Send"
+  },
+  "analyzer": {
+    "analyzeLast": "Analyze last output",
+    "analyzeSelection": "Analyze selection",
+    "exportCsv": "Export CSV",
+    "filter": "Filter rows",
+    "rows_one": "{{count}} row",
+    "rows_other": "{{count}} rows",
+    "truncated": "truncated",
+    "hint": "Run a known show command, or press “Analyze last output”. Tables appear here automatically.",
+    "noOutput": "No command output found above the prompt (or nothing selected).",
+    "unknown": "No parser for “{{command}}” yet.",
+    "supported": "Supported:",
+    "exported": "Table saved to {{path}}",
+    "col": {
+      "interface": "Interface",
+      "ip": "IP address",
+      "secondary": "Secondary IP",
+      "ok": "OK?",
+      "method": "Method",
+      "status": "Status",
+      "protocol": "Protocol"
+    }
   }
 }

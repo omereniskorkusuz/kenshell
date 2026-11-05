@@ -12,6 +12,10 @@ export interface TerminalHandle {
   findPrevious(query: string, opts: SearchOptions): boolean;
   clearSearch(): void;
   focus(): void;
+  /** Selected text ('' when nothing is selected). */
+  selection(): string;
+  /** Output of the last command (rows between its `prompt command` line and the prompt now). */
+  lastOutput(): { command: string; text: string } | null;
 }
 
 const handles = new Map<string, TerminalHandle>();

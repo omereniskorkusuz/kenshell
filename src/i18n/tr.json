@@ -621,5 +621,28 @@
     "fillTitle": "{{name}} için değerler",
     "preview": "Önizleme",
     "sendFilled": "Gönder"
+  },
+  "analyzer": {
+    "analyzeLast": "Son çıktıyı analiz et",
+    "analyzeSelection": "Seçimi analiz et",
+    "exportCsv": "CSV olarak dışa aktar",
+    "filter": "Satırları filtrele",
+    "rows_one": "{{count}} satır",
+    "rows_other": "{{count}} satır",
+    "truncated": "kırpıldı",
+    "hint": "Bilinen bir show komutu çalıştırın ya da “Son çıktıyı analiz et”e basın. Tablolar burada kendiliğinden görünür.",
+    "noOutput": "İstemin üstünde komut çıktısı bulunamadı (ya da seçim yok).",
+    "unknown": "“{{command}}” için henüz ayrıştırıcı yok.",
+    "supported": "Desteklenenler:",
+    "exported": "Tablo {{path}} dosyasına kaydedildi",
+    "col": {
+      "interface": "Interface",
+      "ip": "IP adresi",
+      "secondary": "İkincil IP",
+      "ok": "OK?",
+      "method": "Yöntem",
+      "status": "Durum",
+      "protocol": "Protokol"
+    }
   }
 }

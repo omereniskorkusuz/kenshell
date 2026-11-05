@@ -23,6 +23,7 @@ import { useTabs } from '../stores/tabs';
 import { CHARS_PER_LINE } from './history';
 import { getSink } from './sink';
 import { LineTracker, storable, suggest } from './autocomplete';
+import { useAnalyzer } from '../stores/analyzer';
 import { historyKey, useHistory } from '../stores/history';
 import { LinkMenu, type LinkMenuState } from './LinkMenu';
 import { findLinks } from './links';
@@ -241,14 +242,21 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           }
           // Typed ahead: the echo can land on a later row than the cursor was on at Enter.
           const want = p.line.trimEnd();
-          let found = false;
+          let found = -1;
           for (let y = p.marker.line; y < cursorRow && y < p.marker.line + 200; y++) {
             if (!b.getLine(y)?.isWrapped && afterPrompt(rowText(y), want)) {
-              found = true;
+              found = y;
               break;
             }
           }
-          if (!found) continue;
+          if (found < 0) continue;
+          const echo = rowText(found).trimEnd();
+          // P4-T01: tell the analyzer once the prompt is back after this command.
+          awaitDone = {
+            command: p.line.trim(),
+            prompt: echo.slice(0, echo.length - want.length).trimEnd(),
+            row: found,
+          };
           const t = tabNow();
           if (t && t.mode !== 'unknown') {
             const key = historyKey(tabKey, t.sessionId, t.device.deviceId);
@@ -258,6 +266,19 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           pending.splice(pending.indexOf(p), 1);
         }
       };
+      let awaitDone: { command: string; prompt: string; row: number } | null = null;
+      const checkDone = () => {
+        if (!awaitDone) return;
+        const b = term.buffer.active;
+        const row = b.baseY + b.cursorY;
+        if (row <= awaitDone.row) return;
+        const line = b.getLine(row)?.translateToString(false) ?? '';
+        if (line.slice(0, b.cursorX).trimEnd() !== awaitDone.prompt) return;
+        if (line.slice(b.cursorX).trim() !== '') return;
+        const { command } = awaitDone;
+        awaitDone = null;
+        void useAnalyzer.getState().commandDone(tabKey, command);
+      };
       const record = (line: string) => {
         if (!storable(line) || pending.length > 20) return;
         const marker = term.registerMarker(0);
@@ -266,6 +287,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       const ghostWatch = [
         term.onWriteParsed(() => {
           if (pending.length) checkPending();
+          checkDone();
           updateGhost();
         }),
         term.onResize(hideGhost),
@@ -437,6 +459,32 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           term.clearSelection();
         },
         focus: () => term.focus(),
+        selection: () => term.getSelection(),
+        lastOutput: () => {
+          // The rows between the last `prompt command` line and the current prompt.
+          const b = term.buffer.active;
+          const cur = b.baseY + b.cursorY;
+          const prompt = (b.getLine(cur)?.translateToString(false) ?? '')
+            .slice(0, b.cursorX)
+            .trimEnd();
+          if (!/[#>\]$%)]$/.test(prompt)) return null;
+          for (let y = cur - 1; y >= 0 && y > cur - 20000; y--) {
+            if (b.getLine(y)?.isWrapped) continue;
+            const row = rowText(y).trimEnd();
+            if (!row.startsWith(prompt) || row.length === prompt.length) continue;
+            const command = row.slice(prompt.length).trim();
+            const lines: string[] = [];
+            for (let n = y + 1; n < cur; n++) {
+              const l = b.getLine(n);
+              if (!l) break;
+              const text = l.translateToString(true);
+              if (l.isWrapped && lines.length) lines[lines.length - 1] += text;
+              else lines.push(text);
+            }
+            return { command, text: lines.join('\n') };
+          }
+          return null;
+        },
       });
 
       // Theme changes: re-read tokens whenever <html data-theme> flips.
