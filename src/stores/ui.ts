@@ -1,9 +1,20 @@
 /** Transient UI state (not persisted): overlays, side panel, status message, announcements. */
 import { create } from 'zustand';
 import type { SessionInput } from '../lib/ipc';
+import type { DropZone } from '../lib/split';
 
 export type PaletteScope = 'all' | 'consoles';
 export type SidePanelTab = 'notes' | 'analyzer' | 'snippets' | 'tools';
+
+/** A tab being dragged: where it would land (P2-T19). */
+export interface TabDrag {
+  key: string;
+  /** Pane under the pointer and the zone of that pane. */
+  pane: string | null;
+  zone: DropZone | null;
+  /** Pointer outside the window: releasing detaches the tab. */
+  outside: boolean;
+}
 
 export interface EditorState {
   /** Saved session being edited, or null for a new one. */
@@ -44,6 +55,8 @@ interface UiState {
   /** Screen reader announcement (aria-live polite). */
   announce(text: string): void;
   focusQuickConnect(): void;
+  tabDrag: TabDrag | null;
+  setTabDrag(drag: TabDrag | null): void;
 }
 
 let seq = 1;
@@ -85,4 +98,6 @@ export const useUi = create<UiState>()((set, get) => ({
   },
   announce: (text) => set({ announcement: { id: seq++, text } }),
   focusQuickConnect: () => set({ quickConnectFocus: seq++ }),
+  tabDrag: null,
+  setTabDrag: (tabDrag) => set({ tabDrag }),
 }));

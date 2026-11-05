@@ -106,6 +106,9 @@ export function applySessionEvent(tab: LiveTab, ev: SessionEvent, now: number): 
     case 'health':
       if (ev.kind === 'noData' && tab.state !== 'connected') return tab;
       return { ...tab, health: ev.kind };
+    case 'parked':
+      // Handled by the tabs store (end marker while the tab moves to another window).
+      return tab;
   }
 }
 

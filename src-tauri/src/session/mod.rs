@@ -14,6 +14,7 @@
 //! unit-tested with fakes (`tests.rs`).
 
 mod backend;
+mod router;
 mod task;
 #[cfg(test)]
 mod tests;
@@ -34,6 +35,7 @@ use std::time::Duration;
 use tokio::sync::mpsc::{self, UnboundedSender};
 
 use self::backend::{Backend, RealBackend};
+use self::router::Router;
 use self::task::{Command, SessionTask, Shared};
 use crate::console_detect::ConsoleRegistry;
 use crate::error::{AppError, Result};
@@ -53,6 +55,10 @@ type Spawner = Arc<dyn Fn(BoxFuture) + Send + Sync>;
 struct Handle {
     cmds: UnboundedSender<Command>,
     shared: Arc<Shared>,
+    /// Output switch used to move the session to another window.
+    router: Arc<Router>,
+    /// Label of the window that shows this session (closed with that window).
+    owner: String,
 }
 
 type Registry = Mutex<HashMap<RuntimeId, Handle>>;
@@ -175,11 +181,14 @@ impl SessionManager {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::unbounded_channel();
         let shared = Arc::new(Shared::new(path.clone()));
+        let router = Arc::new(Router::new(out));
         self.registry().insert(
             id,
             Handle {
                 cmds: tx,
                 shared: Arc::clone(&shared),
+                router: Arc::clone(&router),
+                owner: String::new(),
             },
         );
         tracing::debug!(session = id, target = %path, "session open");
@@ -187,7 +196,7 @@ impl SessionManager {
             id,
             req.session_id,
             req.target,
-            out,
+            router,
             Arc::clone(&self.backend),
             shared,
             self.timing,
@@ -253,6 +262,54 @@ impl SessionManager {
     /// A no-op while the session is connected or connecting.
     pub fn reconnect(&self, id: RuntimeId) -> Result<()> {
         self.send(id, Command::Reconnect)
+    }
+
+    /// Records which window shows the session (see [`Self::close_owned_by`]).
+    pub fn set_owner(&self, id: RuntimeId, owner: &str) -> Result<()> {
+        let mut map = self.registry();
+        let h = map.get_mut(&id).ok_or_else(|| not_found(id))?;
+        owner.clone_into(&mut h.owner);
+        Ok(())
+    }
+
+    /// Holds the session's output while its tab moves to another window; the current
+    /// window receives end markers first.
+    pub fn park(&self, id: RuntimeId) -> Result<()> {
+        let router = Arc::clone(
+            &self
+                .registry()
+                .get(&id)
+                .ok_or_else(|| not_found(id))?
+                .router,
+        );
+        router.park();
+        Ok(())
+    }
+
+    /// Sends the session's output (held output first) to `out`, owned by window `owner`.
+    pub fn attach(&self, id: RuntimeId, out: Arc<dyn SessionOutput>, owner: &str) -> Result<()> {
+        let router = {
+            let mut map = self.registry();
+            let h = map.get_mut(&id).ok_or_else(|| not_found(id))?;
+            owner.clone_into(&mut h.owner);
+            Arc::clone(&h.router)
+        };
+        router.attach(out);
+        Ok(())
+    }
+
+    /// Closes every session shown by window `owner` (that window was destroyed).
+    pub fn close_owned_by(&self, owner: &str) -> usize {
+        let ids: Vec<RuntimeId> = self
+            .registry()
+            .iter()
+            .filter(|(_, h)| h.owner == owner)
+            .map(|(id, _)| *id)
+            .collect();
+        for id in &ids {
+            let _ = self.close(*id);
+        }
+        ids.len()
     }
 
     /// Called on every console hotplug change: sessions whose port vanished get

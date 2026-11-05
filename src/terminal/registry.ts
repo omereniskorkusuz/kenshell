@@ -12,6 +12,8 @@ export interface TerminalHandle {
   findPrevious(query: string, opts: SearchOptions): boolean;
   clearSearch(): void;
   focus(): void;
+  /** Scrollback + screen as plain text, after xterm has parsed everything written. */
+  snapshot(): Promise<string>;
 }
 
 const handles = new Map<string, TerminalHandle>();

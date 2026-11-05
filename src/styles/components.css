@@ -212,7 +212,7 @@
   }
   .tree-row[data-drop='true'] {
     background: var(--bg-selected);
-    box-shadow: inset 0 0 0 1px var(--border-strong);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
   }
   .mode-rail {
     width: var(--env-rail-width);
@@ -266,6 +266,49 @@
   }
   .tab[data-state='disconnected'] .tab-title {
     font-style: italic;
+  }
+  /* Shown in split view: a quiet underline (the top edge stays the mode color). */
+  .tab[data-in-view] {
+    box-shadow: inset 0 -2px 0 var(--text-muted);
+  }
+  .tab[data-in-view][aria-selected='true'] {
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+
+  /* Split view (P2-T19): hairline between panes, focused pane outlined. */
+  .pane[data-split] {
+    border-right: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .pane[data-split][data-focused='true']::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+
+  /* Where a dragged tab would land. */
+  .drop-hint {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--info) 18%, transparent);
+    border: 2px solid var(--info);
+    border-radius: var(--radius-sm);
+  }
+  .drop-hint[data-zone='left'] {
+    right: 50%;
+  }
+  .drop-hint[data-zone='right'] {
+    left: 50%;
+  }
+  .drop-hint[data-zone='top'] {
+    bottom: 50%;
+  }
+  .drop-hint[data-zone='bottom'] {
+    top: 50%;
   }
 
   /* Resize handles. */

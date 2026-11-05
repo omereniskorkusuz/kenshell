@@ -1,7 +1,7 @@
 //! App-level commands: lifecycle and build info.
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, WebviewWindow};
 
 use crate::error::{AppError, Result};
 use crate::{MAIN_WINDOW, PROCESS_START};
@@ -10,14 +10,12 @@ use crate::{MAIN_WINDOW, PROCESS_START};
 /// (`KENSHELL_READY_MS=<ms>`) so `bench/measure-app.mjs` can read it.
 const BENCH_ENV: &str = "KENSHELL_BENCH";
 
-/// Called once by the frontend after its first paint.
+/// Called once by each window's frontend after its first paint: shows that window.
 #[tauri::command]
-pub fn app_ready(app: AppHandle) {
-    if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
-        let _ = w.show();
-        let _ = w.set_focus();
-    }
-    if std::env::var_os(BENCH_ENV).is_some() {
+pub fn app_ready(window: WebviewWindow) {
+    let _ = window.show();
+    let _ = window.set_focus();
+    if window.label() == MAIN_WINDOW && std::env::var_os(BENCH_ENV).is_some() {
         let ms = PROCESS_START
             .get()
             .map(|t| t.elapsed().as_millis())

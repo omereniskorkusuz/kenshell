@@ -3,8 +3,8 @@
 
 use std::sync::Arc;
 
-use tauri::State;
 use tauri::ipc::{Channel, InvokeResponseBody};
+use tauri::{State, Window};
 
 use crate::error::Result;
 use crate::model::{OpenRequest, RuntimeId, SessionEvent};
@@ -32,6 +32,7 @@ impl SessionOutput for ChannelOutput {
 
 #[tauri::command]
 pub fn live_open(
+    window: Window,
     state: State<'_, AppState>,
     request: OpenRequest,
     on_data: Channel<InvokeResponseBody>,
@@ -41,7 +42,32 @@ pub fn live_open(
         data: on_data,
         events: on_event,
     });
-    state.sessions.open(request, out)
+    let id = state.sessions.open(request, out)?;
+    state.sessions.set_owner(id, window.label())?;
+    Ok(id)
+}
+
+/// Holds the session's output while its tab moves to another window (P2-T19). The
+/// current channels receive end markers: an empty data batch and a `parked` event.
+#[tauri::command]
+pub fn live_park(state: State<'_, AppState>, id: RuntimeId) -> Result<()> {
+    state.sessions.park(id)
+}
+
+/// Routes the session's output (held output first) to the calling window's channels.
+#[tauri::command]
+pub fn live_attach(
+    window: Window,
+    state: State<'_, AppState>,
+    id: RuntimeId,
+    on_data: Channel<InvokeResponseBody>,
+    on_event: Channel<SessionEvent>,
+) -> Result<()> {
+    let out = Arc::new(ChannelOutput {
+        data: on_data,
+        events: on_event,
+    });
+    state.sessions.attach(id, out, window.label())
 }
 
 /// `data` is what the terminal produced (UTF-8 text; charset mapping comes in P2-T18).

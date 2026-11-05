@@ -8,17 +8,21 @@ import { describeError } from '../lib/errors';
 import { formatBytes } from '../lib/format';
 import {
   api,
+  canDetach,
   DEFAULT_PORTS,
   DEFAULT_SERIAL,
   DEFAULT_SSH,
+  liveAttach,
   liveOpen,
   type ConsolePort,
+  type Handoff,
   type OpenTarget,
   type SerialSettings,
   type SessionEvent,
   type SessionRecord,
 } from '../lib/ipc';
 import { appendTail, MAX_WAIT_MS, readyToSend } from '../lib/autoCommands';
+import { decodeHandoff, encodeHandoff } from '../lib/handoff';
 import { normalizePaste, pasteChunks, wantsPacing } from '../lib/paste';
 import { feedPrompt, promptIntro, startPrompt } from '../lib/prompt';
 import {
@@ -29,7 +33,21 @@ import {
   tabStatus,
   type LiveTab,
 } from '../lib/sessionState';
+import {
+  activateIn,
+  addPane,
+  dropOn,
+  MAX_PANES,
+  moveItem,
+  neighbor,
+  removePane,
+  type Arrow,
+  type DropZone,
+  type SplitDir,
+  type SplitView,
+} from '../lib/split';
 import { normalizeEnv } from '../lib/tree';
+import { getTerminal } from '../terminal/registry';
 import { createSink, disposeSink, getSink } from '../terminal/sink';
 import { useLibrary } from './library';
 import { useSettings } from './settings';
@@ -53,6 +71,8 @@ interface TabsState {
   tabs: LiveTab[];
   activeKey: string | null;
   closed: ClosedTab[];
+  /** Tabs shown side by side (2–4); empty keys = single view of the active tab. */
+  view: SplitView;
 
   openSerial(settings: SerialSettings, meta?: OpenMeta): string;
   /** Opens any target (serial reuses the tab owning the port). */
@@ -74,6 +94,23 @@ interface TabsState {
   /** Forgets the stored SSH host key of this tab's host and reconnects. */
   forgetHostKey(key?: string | null): void;
   resize(key: string, cols: number, rows: number): void;
+
+  /** Moves a tab to position `to` in the tab strip. */
+  move(key: string, to: number): void;
+  /** Moves the active tab one place left (-1) or right (+1). */
+  moveBy(delta: number): void;
+  /** Shows another tab beside the active one (default: the next tab not yet shown). */
+  splitAdd(dir: SplitDir, key?: string): void;
+  /** A tab dragged onto a shown pane (edge = beside it, center = in its place). */
+  dropTab(drag: string, target: string, zone: DropZone): void;
+  /** Takes a tab out of the split view (default: the active one). */
+  unsplit(key?: string | null): void;
+  singleView(): void;
+  focusPane(arrow: Arrow): void;
+  /** Moves a tab with its live session into a new window (dropped at screen point `at`). */
+  detach(key?: string | null, at?: { x: number; y: number }): Promise<void>;
+  /** Detached window start-up: takes over the tab handed to this window. */
+  adopt(handoff: Handoff): void;
 }
 
 /** Last measured terminal grid; used for the initial size of new sessions. */
@@ -88,6 +125,16 @@ const lastData = new Map<string, number>();
 const autoMeta = new Map<string, string[]>();
 const encoder = new TextEncoder();
 const REOPEN_TOAST_MS = 10_000;
+/** End markers (empty data batch + `parked` event) per tab being moved to another window. */
+const drains = new Map<string, { data: boolean; event: boolean; done: () => void }>();
+const DRAIN_TIMEOUT_MS = 1500;
+
+function markDrained(key: string, part: 'data' | 'event'): void {
+  const d = drains.get(key);
+  if (!d) return;
+  d[part] = true;
+  if (d.data && d.event) d.done();
+}
 
 const samePort = (a: string, b: string) =>
   a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0;
@@ -129,11 +176,44 @@ export const useTabs = create<TabsState>()((set, get) => {
       health: x.health === 'cableReturned' ? x.health : null,
     }));
     sentGrid.delete(key);
+    const { onData, onEvent } = wire(key, generation);
+    const isCurrent = () => tab(key)?.generation === generation;
+
+    try {
+      const runtimeId = await liveOpen(
+        {
+          sessionId: cur.sessionId,
+          target: cur.target,
+          cols: lastGrid.cols,
+          rows: lastGrid.rows,
+        },
+        onData,
+        onEvent,
+      );
+      if (!isCurrent()) {
+        void api.liveClose(runtimeId).catch(() => {});
+        return;
+      }
+      update(key, (x) => ({ ...x, runtimeId }));
+      sentGrid.set(key, `${lastGrid.cols}x${lastGrid.rows}`);
+    } catch (e) {
+      if (!isCurrent()) return;
+      update(key, (x) => ({ ...x, state: 'disconnected', error: describeErrorAsApp(e) }));
+      announce(key);
+    }
+  };
+
+  /** Output and event handlers of one session generation of a tab. */
+  const wire = (key: string, generation: number) => {
     const isCurrent = () => tab(key)?.generation === generation;
     const sink = getSink(key);
 
     const onData = (bytes: Uint8Array) => {
       if (!isCurrent()) return;
+      if (bytes.length === 0) {
+        markDrained(key, 'data');
+        return;
+      }
       sink?.push(bytes);
       tails.set(key, appendTail(tails.get(key) ?? '', bytes));
       lastData.set(key, Date.now());
@@ -143,6 +223,10 @@ export const useTabs = create<TabsState>()((set, get) => {
       if (!isCurrent()) return;
       const before = tab(key);
       if (!before) return;
+      if (ev.type === 'parked') {
+        markDrained(key, 'event');
+        return;
+      }
       if (ev.type === 'prompt') {
         sink?.push(encoder.encode(promptIntro(ev.request)));
         update(key, (x) => ({ ...x, prompt: startPrompt(ev.request) }));
@@ -168,29 +252,34 @@ export const useTabs = create<TabsState>()((set, get) => {
         runAutoCommands(key, generation);
       }
     };
+    return { onData, onEvent };
+  };
 
+  /** Points the tab's live session output at this window again (after a failed move). */
+  const reattach = async (key: string, runtimeId: number) => {
+    const cur = tab(key);
+    if (!cur) return;
+    const { onData, onEvent } = wire(key, cur.generation);
     try {
-      const runtimeId = await liveOpen(
-        {
-          sessionId: cur.sessionId,
-          target: cur.target,
-          cols: lastGrid.cols,
-          rows: lastGrid.rows,
-        },
-        onData,
-        onEvent,
-      );
-      if (!isCurrent()) {
-        void api.liveClose(runtimeId).catch(() => {});
-        return;
-      }
-      update(key, (x) => ({ ...x, runtimeId }));
-      sentGrid.set(key, `${lastGrid.cols}x${lastGrid.rows}`);
+      await liveAttach(runtimeId, onData, onEvent);
     } catch (e) {
-      if (!isCurrent()) return;
-      update(key, (x) => ({ ...x, state: 'disconnected', error: describeErrorAsApp(e) }));
-      announce(key);
+      update(key, (x) => ({
+        ...x,
+        runtimeId: null,
+        state: 'disconnected',
+        error: describeErrorAsApp(e),
+      }));
     }
+  };
+
+  /** Activates `key`; in split view a tab not shown takes the focused pane's place. */
+  const show = (key: string) => {
+    if (!tab(key)) return;
+    set((s) => ({ activeKey: key, view: activateIn(s.view, s.activeKey, key) }));
+  };
+  const shownKeys = (): string[] => {
+    const { view, activeKey } = get();
+    return view.keys.length >= 2 ? view.keys : activeKey ? [activeKey] : [];
   };
 
   /** Sends the saved session's post-connect commands, one by one, at a quiet prompt. */
@@ -222,19 +311,28 @@ export const useTabs = create<TabsState>()((set, get) => {
     if (x.runtimeId !== null) void api.liveClose(x.runtimeId).catch(() => {});
   };
 
-  /** Closes a tab's session and removes it; optionally offers "Reopen". */
-  const remove = (cur: LiveTab, offerReopen: boolean) => {
-    closeRuntime(cur);
+  /**
+   * Removes a tab: closes its session (unless it moved to another window) and optionally
+   * offers "Reopen".
+   */
+  const remove = (cur: LiveTab, opts: { reopen: boolean; keepSession?: boolean }) => {
+    if (!opts.keepSession) closeRuntime(cur);
     disposeSink(cur.key);
     tails.delete(cur.key);
     lastData.delete(cur.key);
     autoMeta.delete(cur.key);
     sentGrid.delete(cur.key);
-    const { tabs, activeKey } = get();
+    const { tabs, activeKey, view } = get();
     const i = tabs.findIndex((x) => x.key === cur.key);
     const rest = tabs.filter((x) => x.key !== cur.key);
-    const nextActive =
+    let nextActive =
       activeKey === cur.key ? (rest[Math.min(i, rest.length - 1)]?.key ?? null) : activeKey;
+    // Closing a shown pane focuses a neighbouring pane, not a hidden tab.
+    const at = view.keys.indexOf(cur.key);
+    if (activeKey === cur.key && at >= 0) {
+      const others = view.keys.filter((k) => k !== cur.key);
+      nextActive = others[Math.min(at, others.length - 1)] ?? nextActive;
+    }
     const closed: ClosedTab = {
       target: cur.target,
       meta: { sessionId: cur.sessionId, name: cur.name, envTag: cur.envTag },
@@ -242,9 +340,10 @@ export const useTabs = create<TabsState>()((set, get) => {
     set((s) => ({
       tabs: rest,
       activeKey: nextActive,
-      closed: [...s.closed, closed].slice(-MAX_CLOSED),
+      view: removePane(s.view, cur.key),
+      closed: opts.keepSession ? s.closed : [...s.closed, closed].slice(-MAX_CLOSED),
     }));
-    if (offerReopen) {
+    if (opts.reopen) {
       toast({
         message: t('tabs.closed', { name: cur.name }),
         durationMs: REOPEN_TOAST_MS,
@@ -257,6 +356,7 @@ export const useTabs = create<TabsState>()((set, get) => {
     tabs: [],
     activeKey: null,
     closed: [],
+    view: { keys: [], dir: 'cols' },
 
     openSerial(settings, meta = {}) {
       return get().openTarget({ type: 'serial', settings }, meta);
@@ -281,7 +381,7 @@ export const useTabs = create<TabsState>()((set, get) => {
         else useUi.getState().flash(t('tabs.alreadyOpen', { port: portLabel(existing) }));
         return existing.key;
       }
-      if (existing) remove(existing, false);
+      if (existing) remove(existing, { reopen: false });
 
       const key = `t${keySeq++}`;
       createSink(key, {
@@ -308,7 +408,8 @@ export const useTabs = create<TabsState>()((set, get) => {
         mode: 'unknown',
       };
       autoMeta.set(key, meta.autoCommands ?? []);
-      set((s) => ({ tabs: [...s.tabs, fresh], activeKey: key }));
+      set((s) => ({ tabs: [...s.tabs, fresh] }));
+      show(key);
       void start(key);
       return key;
     },
@@ -351,31 +452,31 @@ export const useTabs = create<TabsState>()((set, get) => {
     },
 
     activate(key) {
-      if (tab(key)) set({ activeKey: key });
+      show(key);
     },
     next() {
       const { tabs, activeKey } = get();
       if (tabs.length < 2) return;
       const i = tabs.findIndex((x) => x.key === activeKey);
-      set({ activeKey: (tabs[(i + 1) % tabs.length] as LiveTab).key });
+      show((tabs[(i + 1) % tabs.length] as LiveTab).key);
     },
     prev() {
       const { tabs, activeKey } = get();
       if (tabs.length < 2) return;
       const i = tabs.findIndex((x) => x.key === activeKey);
-      set({ activeKey: (tabs[(i - 1 + tabs.length) % tabs.length] as LiveTab).key });
+      show((tabs[(i - 1 + tabs.length) % tabs.length] as LiveTab).key);
     },
     selectIndex(index) {
       const { tabs } = get();
       // Index 8 (⌘9) always means "last tab", like browsers.
       const target = index >= 8 ? tabs[tabs.length - 1] : tabs[index];
-      if (target) set({ activeKey: target.key });
+      if (target) show(target.key);
     },
 
     close(key) {
       const k = resolveKey(key);
       const cur = k ? tab(k) : undefined;
-      if (cur) remove(cur, true);
+      if (cur) remove(cur, { reopen: true });
     },
 
     reopenClosed() {
@@ -529,6 +630,160 @@ export const useTabs = create<TabsState>()((set, get) => {
           api.liveResize(cur.runtimeId, cols, rows).catch(() => {});
         }, 100),
       );
+    },
+
+    move(key, to) {
+      const { tabs } = get();
+      const from = tabs.findIndex((x) => x.key === key);
+      if (from < 0 || from === to) return;
+      set({ tabs: moveItem(tabs, from, to) });
+    },
+
+    moveBy(delta) {
+      const { tabs, activeKey } = get();
+      const from = tabs.findIndex((x) => x.key === activeKey);
+      const to = from + delta;
+      if (from < 0 || to < 0 || to >= tabs.length) return;
+      set({ tabs: moveItem(tabs, from, to) });
+    },
+
+    splitAdd(dir, key) {
+      const { tabs, activeKey, view } = get();
+      if (!activeKey) return;
+      const shown = shownKeys();
+      if (shown.length >= MAX_PANES) {
+        useUi.getState().flash(t('tabs.splitFull'));
+        return;
+      }
+      const i = tabs.findIndex((x) => x.key === activeKey);
+      const candidate =
+        key ??
+        Array.from({ length: tabs.length - 1 }, (_, j) => tabs[(i + j + 1) % tabs.length])
+          .map((x) => x?.key)
+          .find((k): k is string => k !== undefined && !shown.includes(k));
+      const next = candidate ? addPane(view, activeKey, candidate, dir) : null;
+      if (!next || !candidate) {
+        useUi.getState().flash(t('tabs.splitNeedsTab'));
+        return;
+      }
+      set({ view: next, activeKey: candidate });
+    },
+
+    dropTab(drag, target, zone) {
+      const { view, activeKey } = get();
+      if (!activeKey || !tab(drag)) return;
+      if (zone === 'center' && view.keys.length < 2) {
+        show(drag);
+        return;
+      }
+      const next = dropOn(view, activeKey, drag, target, zone);
+      if (next !== view) set({ view: next, activeKey: drag });
+    },
+
+    unsplit(key) {
+      const { view, activeKey } = get();
+      const k = resolveKey(key);
+      if (view.keys.length < 2 || !k || !view.keys.includes(k)) return;
+      const others = view.keys.filter((x) => x !== k);
+      const nextActive =
+        activeKey === k
+          ? (others[Math.min(view.keys.indexOf(k), others.length - 1)] ?? null)
+          : activeKey;
+      set({ view: removePane(view, k), activeKey: nextActive });
+    },
+
+    singleView() {
+      set((s) => ({ view: { ...s.view, keys: [] } }));
+    },
+
+    focusPane(arrow) {
+      const { view, activeKey } = get();
+      if (view.keys.length < 2 || !activeKey) return;
+      const i = view.keys.indexOf(activeKey);
+      const j = neighbor(i, view.keys.length, view.dir, arrow);
+      const target = j === null ? undefined : view.keys[j];
+      if (target) set({ activeKey: target });
+    },
+
+    async detach(key, at) {
+      const k = resolveKey(key);
+      const cur = k ? tab(k) : undefined;
+      if (!cur || !canDetach() || drains.has(cur.key)) return;
+      if (cur.runtimeId === null) {
+        useUi.getState().flash(t('tabs.detachNeedsSession'));
+        return;
+      }
+      if (cur.prompt) {
+        useUi.getState().flash(t('tabs.detachDuringLogin'));
+        return;
+      }
+      const id = cur.runtimeId;
+      const drained = new Promise<void>((resolve) => {
+        drains.set(cur.key, { data: false, event: false, done: resolve });
+        setTimeout(resolve, DRAIN_TIMEOUT_MS);
+      });
+      try {
+        await api.livePark(id);
+        // Everything the backend sent before parking has arrived once both markers did.
+        await drained;
+        const sink = getSink(cur.key);
+        const pending = sink?.takePending() ?? new Uint8Array();
+        const screen = (await getTerminal(cur.key)?.snapshot()) ?? '';
+        const now = tab(cur.key) ?? cur;
+        try {
+          await api.windowDetach({
+            runtimeId: id,
+            title: now.name,
+            payload: encodeHandoff(now, screen, pending),
+            x: at?.x ?? null,
+            y: at?.y ?? null,
+          });
+        } catch (e) {
+          // No new window: keep the tab here and take its output back.
+          if (sink && pending.length > 0) {
+            sink.rx -= pending.length;
+            sink.push(pending);
+          }
+          await reattach(cur.key, id);
+          const d = describeError(e, t);
+          toast({ kind: 'error', message: t('tabs.detachFailed'), detail: d.detail });
+          return;
+        }
+        remove(now, { reopen: false, keepSession: true });
+      } catch (e) {
+        // Parking failed (session gone): nothing moved.
+        const d = describeError(e, t);
+        toast({ kind: 'error', message: t('tabs.detachFailed'), detail: d.detail });
+      } finally {
+        drains.delete(cur.key);
+      }
+    },
+
+    adopt(handoff) {
+      const snap = decodeHandoff(handoff.payload);
+      if (!snap) {
+        void api.liveClose(handoff.runtimeId).catch(() => {});
+        toast({ kind: 'error', message: t('tabs.detachFailed') });
+        return;
+      }
+      const key = `t${keySeq++}`;
+      const sink = createSink(key, {
+        dropNotice: (n) =>
+          `\r\n\x1b[2m${t('terminal.dropped', { size: formatBytes(n) })}\x1b[22m\r\n`,
+      });
+      if (snap.screen) sink.writeLocal(snap.screen);
+      if (snap.pending.length > 0) sink.push(snap.pending);
+      const fresh: LiveTab = {
+        ...snap.tab,
+        key,
+        runtimeId: handoff.runtimeId,
+        generation: 1,
+        prompt: null,
+      };
+      autoMeta.set(key, []);
+      set((s) => ({ tabs: [...s.tabs, fresh] }));
+      show(key);
+      void reattach(key, handoff.runtimeId);
     },
   };
 });

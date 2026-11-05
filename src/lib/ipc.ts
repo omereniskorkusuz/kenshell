@@ -341,7 +341,9 @@ export type SessionEvent =
   | { type: 'netLink'; link: NetLink }
   | { type: 'prompt'; request: PromptRequest }
   | { type: 'logging'; path: string | null; error: AppError | null }
-  | { type: 'health'; kind: HealthKind };
+  | { type: 'health'; kind: HealthKind }
+  /** Last event before the session moves to another window (P2-T19). */
+  | { type: 'parked' };
 
 // ------------------------------------------------------------------ plumbing
 
@@ -497,7 +499,48 @@ export const api = {
   liveAnswer: (id: RuntimeId, answers: string[]) => call<undefined>('live_answer', { id, answers }),
   knownHostForget: (host: string, port: number) =>
     call<undefined>('known_host_forget', { host, port }),
+
+  /** Holds the session's output while its tab moves; the channels get end markers. */
+  livePark: (id: RuntimeId) => invoke<undefined>('live_park', { id }),
+  /** Opens a window for a parked session; resolves with its label. */
+  windowDetach: (request: DetachRequest) => invoke<string>('window_detach', { request }),
+  /** The tab handed to this window (detached windows only; null in the main window). */
+  windowAdopt: () => (inTauri() ? invoke<Handoff | null>('window_adopt') : Promise.resolve(null)),
 };
+
+/** Moving tabs between windows needs the desktop app (no mock). */
+export const canDetach = (): boolean => inTauri();
+
+export interface DetachRequest {
+  runtimeId: RuntimeId;
+  title: string;
+  /** Opaque tab snapshot (see stores/tabs.ts). */
+  payload: string;
+  x: number | null;
+  y: number | null;
+}
+
+export interface Handoff {
+  runtimeId: RuntimeId;
+  payload: string;
+}
+
+function channels(onData: (bytes: Uint8Array) => void, onEvent: (event: SessionEvent) => void) {
+  const data = new Channel<ArrayBuffer>();
+  data.onmessage = (buf) => onData(new Uint8Array(buf));
+  const events = new Channel<SessionEvent>();
+  events.onmessage = onEvent;
+  return { onData: data, onEvent: events };
+}
+
+/** Routes a live session's output (held output first) to this window. */
+export function liveAttach(
+  id: RuntimeId,
+  onData: (bytes: Uint8Array) => void,
+  onEvent: (event: SessionEvent) => void,
+): Promise<undefined> {
+  return invoke<undefined>('live_attach', { id, ...channels(onData, onEvent) });
+}
 
 /**
  * Opens a live session. `onData` receives raw device bytes; `onEvent` state changes.
@@ -509,11 +552,7 @@ export async function liveOpen(
   onEvent: (event: SessionEvent) => void,
 ): Promise<RuntimeId> {
   if (!inTauri()) return (await loadMock()).liveOpen(request, onData, onEvent);
-  const data = new Channel<ArrayBuffer>();
-  data.onmessage = (buf) => onData(new Uint8Array(buf));
-  const events = new Channel<SessionEvent>();
-  events.onmessage = onEvent;
-  return invoke<RuntimeId>('live_open', { request, onData: data, onEvent: events });
+  return invoke<RuntimeId>('live_open', { request, ...channels(onData, onEvent) });
 }
 
 export async function onConsoleChanged(cb: (change: ConsoleChange) => void): Promise<UnlistenFn> {

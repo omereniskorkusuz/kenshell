@@ -66,6 +66,8 @@ const KEY_LABELS: Record<string, string> = {
   arrowright: '→',
   arrowup: '↑',
   arrowdown: '↓',
+  pageup: 'PgUp',
+  pagedown: 'PgDn',
   ',': ',',
 };
 

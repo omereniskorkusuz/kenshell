@@ -9,3 +9,4 @@ pub mod keys;
 pub mod secrets;
 pub mod session;
 pub mod storage;
+pub mod window;

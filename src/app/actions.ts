@@ -3,7 +3,8 @@
  * lists them, the global keyboard handler triggers them and menus show their shortcut hint.
  */
 import { t, type TKey } from '../i18n';
-import { DEFAULT_SERIAL } from '../lib/ipc';
+import { canDetach, DEFAULT_SERIAL } from '../lib/ipc';
+import type { Arrow } from '../lib/split';
 import { useConsoles } from '../stores/consoles';
 import { useLibrary } from '../stores/library';
 import { getSetting, useSettings } from '../stores/settings';
@@ -51,6 +52,18 @@ function toggleSidebar(): void {
   const s = useSettings.getState();
   s.set('ui.sidebarCollapsed', !s.values['ui.sidebarCollapsed']);
 }
+
+const inSplit = () => useTabs.getState().view.keys.length >= 2;
+
+const paneFocus: AppAction[] = (['left', 'right', 'up', 'down'] as Arrow[]).map((arrow) => ({
+  id: `pane.focus.${arrow}`,
+  title: 'actions.focusPane' as TKey,
+  group: 'actions' as const,
+  shortcut: `mod+alt+arrow${arrow}`,
+  hidden: true,
+  enabled: inSplit,
+  run: () => useTabs.getState().focusPane(arrow),
+}));
 
 const tabSelectors: AppAction[] = Array.from({ length: 9 }, (_, i) => ({
   id: `tab.select${i + 1}`,
@@ -149,6 +162,61 @@ export const ACTIONS: readonly AppAction[] = [
     shortcut: 'ctrl+shift+tab',
     enabled: () => useTabs.getState().tabs.length > 1,
     run: () => useTabs.getState().prev(),
+  },
+  {
+    id: 'tab.moveLeft',
+    title: 'actions.moveTabLeft',
+    group: 'actions',
+    shortcut: 'mod+shift+pageup',
+    keywords: ['reorder', 'sırala', 'tab', 'sekme'],
+    enabled: () => useTabs.getState().tabs.length > 1,
+    run: () => useTabs.getState().moveBy(-1),
+  },
+  {
+    id: 'tab.moveRight',
+    title: 'actions.moveTabRight',
+    group: 'actions',
+    shortcut: 'mod+shift+pagedown',
+    keywords: ['reorder', 'sırala', 'tab', 'sekme'],
+    enabled: () => useTabs.getState().tabs.length > 1,
+    run: () => useTabs.getState().moveBy(1),
+  },
+  {
+    id: 'pane.splitRight',
+    title: 'actions.splitRight',
+    group: 'actions',
+    // Terminator's split keys; Ctrl+D stays EOF in the terminal on Windows/Linux.
+    shortcut: 'mod+shift+e',
+    keywords: ['split', 'böl', 'pane', 'bölme', 'side by side', 'yan yana'],
+    enabled: hasActiveTab,
+    run: () => useTabs.getState().splitAdd('cols'),
+  },
+  {
+    id: 'pane.splitDown',
+    title: 'actions.splitDown',
+    group: 'actions',
+    shortcut: 'mod+shift+o',
+    keywords: ['split', 'böl', 'pane', 'bölme'],
+    enabled: hasActiveTab,
+    run: () => useTabs.getState().splitAdd('rows'),
+  },
+  {
+    id: 'pane.single',
+    title: 'actions.singleView',
+    group: 'actions',
+    shortcut: 'mod+shift+x',
+    keywords: ['split', 'böl', 'unsplit', 'single', 'tek'],
+    enabled: inSplit,
+    run: () => useTabs.getState().singleView(),
+  },
+  {
+    id: 'tab.detach',
+    title: 'actions.detachTab',
+    group: 'actions',
+    shortcut: 'mod+shift+n',
+    keywords: ['window', 'pencere', 'detach', 'ayır', 'tear off'],
+    enabled: () => canDetach() && activeTab()?.runtimeId != null,
+    run: () => void useTabs.getState().detach(),
   },
   {
     id: 'session.break',
@@ -266,6 +334,7 @@ export const ACTIONS: readonly AppAction[] = [
     keywords: ['preferences', 'tercihler', 'ayarlar'],
     run: () => useUi.getState().setSettingsOpen(true),
   },
+  ...paneFocus,
   ...tabSelectors,
 ];
 

@@ -4,7 +4,7 @@
  */
 import { lazy, Suspense, useEffect } from 'react';
 import { useT } from '../i18n';
-import { appReady } from '../lib/ipc';
+import { api, appReady } from '../lib/ipc';
 import { describeError } from '../lib/errors';
 import { LiveRegion } from '../components/LiveRegion';
 import { SessionEditor } from '../components/SessionEditor';
@@ -16,11 +16,15 @@ import { Workspace } from '../components/Workspace';
 import { loadTerminalView } from '../components/Pane';
 import { useConsoles } from '../stores/consoles';
 import { useLibrary } from '../stores/library';
+import { useTabs } from '../stores/tabs';
 import { setPersistErrorHandler, useSettings } from '../stores/settings';
 import { toast } from '../stores/toasts';
 import { useUi } from '../stores/ui';
 import { installSettingsEffects } from './effects';
 import { installShortcuts } from './keyboard';
+
+/** Windows opened by moving a tab out (P2-T19) show only their sessions: no library. */
+const DETACHED = typeof location !== 'undefined' && location.hash === '#detached';
 
 const loadPalette = () => import('../palette/CommandPalette');
 const loadSettings = () => import('../settings/SettingsView');
@@ -59,6 +63,13 @@ export function App() {
     void useSettings.getState().load();
     void useLibrary.getState().load();
     void useConsoles.getState().load();
+    // A moved tab waits for this window in the backend (null in the main window).
+    void api
+      .windowAdopt()
+      .then((h) => {
+        if (h) useTabs.getState().adopt(h);
+      })
+      .catch(() => {});
     let unlisten: (() => void) | null = null;
     let cancelled = false;
     void useConsoles
@@ -85,7 +96,7 @@ export function App() {
     <div className="flex h-full flex-col">
       <TopBar />
       <div className="flex min-h-0 flex-1">
-        <Sidebar />
+        {!DETACHED && <Sidebar />}
         <Workspace />
       </div>
       <StatusBar />

@@ -4,10 +4,11 @@
  *
  * The pane carries data-mode / data-env; Phase 3 only has to change data-mode.
  */
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { compactParts, isCompact } from '../lib/compact';
 import type { LiveTab } from '../lib/sessionState';
 import { envKind } from '../lib/tree';
+import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
 import { IdentityBar } from './IdentityBar';
 import { SearchBar } from './SearchBar';
@@ -18,6 +19,10 @@ const TerminalView = lazy(loadTerminalView);
 interface Props {
   tab: LiveTab;
   visible: boolean;
+  /** The active tab (keyboard focus; highlighted in split view). */
+  focused: boolean;
+  /** Box in percent of the workspace when shown in split view, else full size. */
+  rect: { left: number; top: number; width: number; height: number } | null;
 }
 
 interface Layout {
@@ -35,10 +40,19 @@ function layoutFor(width: number, height: number): Layout {
   return { compact, width: bucket };
 }
 
-export function Pane({ tab, visible }: Props) {
+export function Pane({ tab, visible, focused, rect }: Props) {
   const ref = useRef<HTMLElement>(null);
   const [layout, setLayout] = useState<Layout>({ compact: false, width: 0 });
   const searching = useUi((s) => s.findKey === tab.key);
+  const dropZone = useUi((s) => (s.tabDrag?.pane === tab.key ? s.tabDrag.zone : null));
+  const box: CSSProperties | undefined = rect
+    ? {
+        left: `${rect.left}%`,
+        top: `${rect.top}%`,
+        width: `${rect.width}%`,
+        height: `${rect.height}%`,
+      }
+    : undefined;
 
   useEffect(() => {
     const el = ref.current;
@@ -66,7 +80,15 @@ export function Pane({ tab, visible }: Props) {
       data-mode={tab.mode}
       data-env={envKind(tab.envTag) ?? undefined}
       data-state={tab.state}
-      className="pane absolute inset-0 flex bg-terminal"
+      data-pane={tab.key}
+      data-split={rect ? 'true' : undefined}
+      data-focused={focused}
+      style={box}
+      className={`pane absolute flex bg-terminal ${rect ? '' : 'inset-0'}`}
+      // In split view a click anywhere in a pane makes it the active one.
+      onPointerDownCapture={() => {
+        if (rect && !focused) useTabs.getState().activate(tab.key);
+      }}
     >
       <div className="mode-stripe shrink-0" aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -74,10 +96,11 @@ export function Pane({ tab, visible }: Props) {
         <div className="relative flex min-h-0 flex-1 flex-col">
           {searching && visible && <SearchBar tabKey={tab.key} />}
           <Suspense fallback={<div className="min-h-0 flex-1 bg-terminal" />}>
-            <TerminalView tabKey={tab.key} visible={visible} />
+            <TerminalView tabKey={tab.key} visible={visible} focused={visible && focused} />
           </Suspense>
         </div>
       </div>
+      {dropZone && <div className="drop-hint" data-zone={dropZone} aria-hidden />}
     </section>
   );
 }

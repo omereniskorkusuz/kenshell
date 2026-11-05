@@ -53,7 +53,14 @@
     "openSettings": "Ayarları aç",
     "find": "Geçmişte ara",
     "toggleTimestamps": "Satır zaman damgası aç/kapat",
-    "searchSessions": "Oturum ara"
+    "searchSessions": "Oturum ara",
+    "splitRight": "Sağa böl",
+    "splitDown": "Aşağı böl",
+    "singleView": "Tek görünüm (bölmeyi kapat)",
+    "focusPane": "Komşu bölmeye geç",
+    "moveTabLeft": "Sekmeyi sola taşı",
+    "moveTabRight": "Sekmeyi sağa taşı",
+    "detachTab": "Sekmeyi yeni pencereye taşı"
   },
   "quick": {
     "label": "Hızlı bağlan",
@@ -143,7 +150,17 @@
     "closeTab": "{{name}} kapat",
     "closed": "{{name}} kapatıldı.",
     "reopen": "Yeniden aç",
-    "alreadyOpen": "{{port}} zaten bir sekmede açık."
+    "alreadyOpen": "{{port}} zaten bir sekmede açık.",
+    "menu": "Sekme menüsü",
+    "removeFromSplit": "Bölünmüş görünümden çıkar",
+    "inView": "bölünmüş görünümde",
+    "splitNeedsTab": "Görünümü bölmek için başka bir sekme açın",
+    "splitFull": "Bölünmüş görünüm en çok 4 bölme alır",
+    "detachNeedsSession": "Bu sekmede taşınacak canlı oturum yok",
+    "detachDuringLogin": "Sekmeyi taşımadan önce girişi tamamlayın",
+    "detachFailed": "Sekme yeni pencereye taşınamadı",
+    "dropOutside": "Yeni pencerede açmak için bırakın",
+    "dragHint": "Sekmeyi sıralamak için sürükleyin; bölmek için bir bölmenin üstüne, ayırmak için pencere dışına bırakın"
   },
   "terminal": {
     "dropped": "— Sekme gizliyken {{size}} eski çıktı atlandı —",

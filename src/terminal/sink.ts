@@ -90,6 +90,15 @@ export class TerminalSink {
     else this.hidden.push(bytes);
   }
 
+  /**
+   * Removes and returns every byte not yet handed to xterm (batched or hidden), e.g. to
+   * move the tab to another window. Dropped-output notices are not repeated.
+   */
+  takePending(): Uint8Array {
+    this.park();
+    return this.hidden.drain().bytes;
+  }
+
   dispose(): void {
     this.batcher.dispose();
     this.hidden.clear();

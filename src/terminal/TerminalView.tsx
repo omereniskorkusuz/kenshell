@@ -51,13 +51,33 @@ function tryWebgl(term: Terminal): void {
 interface Props {
   tabKey: string;
   visible: boolean;
+  /** Takes keyboard focus (the active pane; in split view several panes are visible). */
+  focused: boolean;
 }
 
-export default function TerminalView({ tabKey, visible }: Props) {
+/** Lines of scrollback carried over when a tab moves to another window. */
+const SNAPSHOT_LINES = 10_000;
+
+function bufferText(term: Terminal): string {
+  const buf = term.buffer.active;
+  const lines: string[] = [];
+  for (let i = Math.max(0, buf.length - SNAPSHOT_LINES); i < buf.length; i++) {
+    const line = buf.getLine(i);
+    if (!line) continue;
+    const text = line.translateToString(true);
+    // A wrapped row continues the previous line.
+    if (line.isWrapped && lines.length > 0) lines[lines.length - 1] += text;
+    else lines.push(text);
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  return lines.join('\r\n');
+}
+
+export default function TerminalView({ tabKey, visible, focused }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<(() => void) | null>(null);
-  const visibleRef = useRef(visible);
+  const focusedRef = useRef(focused);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -190,6 +210,7 @@ export default function TerminalView({ tabKey, visible }: Props) {
           term.clearSelection();
         },
         focus: () => term.focus(),
+        snapshot: () => new Promise((resolve) => term.write('', () => resolve(bufferText(term)))),
       });
 
       // Theme changes: re-read tokens whenever <html data-theme> flips.
@@ -216,7 +237,7 @@ export default function TerminalView({ tabKey, visible }: Props) {
         }
       });
 
-      if (visibleRef.current) term.focus();
+      if (focusedRef.current) term.focus();
 
       cleanups.push(() => {
         window.clearTimeout(selTimer);
@@ -243,17 +264,19 @@ export default function TerminalView({ tabKey, visible }: Props) {
   }, [tabKey]);
 
   useEffect(() => {
-    visibleRef.current = visible;
     getSink(tabKey)?.setVisible(visible);
-    if (visible) {
-      fitRef.current?.();
-      // Keep focus where keyboard navigation is happening (tab strip), otherwise type here.
-      const ae = document.activeElement;
-      if (!ae || ae === document.body || !ae.closest('[role="tablist"]')) {
-        termRef.current?.focus();
-      }
-    }
+    if (visible) fitRef.current?.();
   }, [tabKey, visible]);
+
+  useEffect(() => {
+    focusedRef.current = focused;
+    if (!focused) return;
+    // Keep focus where keyboard navigation is happening (tab strip), otherwise type here.
+    const ae = document.activeElement;
+    if (!ae || ae === document.body || !ae.closest('[role="tablist"]')) {
+      termRef.current?.focus();
+    }
+  }, [tabKey, focused]);
 
   return <div ref={hostRef} className="terminal-host min-h-0 flex-1" />;
 }

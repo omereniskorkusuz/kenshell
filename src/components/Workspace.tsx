@@ -5,6 +5,7 @@ import { isMac } from '../lib/ipc';
 import { formatChord } from '../lib/shortcuts';
 import { newSerialSession } from '../app/actions';
 import { chipLabel, useConsoles } from '../stores/consoles';
+import { cellRect } from '../lib/split';
 import { useTabs } from '../stores/tabs';
 import { Pane } from './Pane';
 import { SidePanel } from './SidePanel';
@@ -13,15 +14,27 @@ import { TabBar } from './TabBar';
 export function Workspace() {
   const tabs = useTabs((s) => s.tabs);
   const activeKey = useTabs((s) => s.activeKey);
+  const view = useTabs((s) => s.view);
+  const split = view.keys.length >= 2;
+  const shown = split ? view.keys : activeKey ? [activeKey] : [];
 
   return (
     <div className="relative flex min-w-0 flex-1">
       <main className="flex min-w-0 flex-1 flex-col">
         {tabs.length > 0 && <TabBar />}
         <div className="relative min-h-0 flex-1 bg-terminal">
-          {tabs.map((tab) => (
-            <Pane key={tab.key} tab={tab} visible={tab.key === activeKey} />
-          ))}
+          {tabs.map((tab) => {
+            const i = shown.indexOf(tab.key);
+            return (
+              <Pane
+                key={tab.key}
+                tab={tab}
+                visible={i >= 0}
+                focused={tab.key === activeKey}
+                rect={split && i >= 0 ? cellRect(i, shown.length, view.dir) : null}
+              />
+            );
+          })}
           {tabs.length === 0 && <EmptyState />}
         </div>
       </main>

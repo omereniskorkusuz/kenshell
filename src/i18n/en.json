@@ -53,7 +53,14 @@
     "openSettings": "Open settings",
     "find": "Find in scrollback",
     "toggleTimestamps": "Line timestamps on/off",
-    "searchSessions": "Search sessions"
+    "searchSessions": "Search sessions",
+    "splitRight": "Split right",
+    "splitDown": "Split down",
+    "singleView": "Single view (close split)",
+    "focusPane": "Focus neighbouring pane",
+    "moveTabLeft": "Move tab left",
+    "moveTabRight": "Move tab right",
+    "detachTab": "Move tab to new window"
   },
   "quick": {
     "label": "Quick connect",
@@ -143,7 +150,17 @@
     "closeTab": "Close {{name}}",
     "closed": "{{name}} closed.",
     "reopen": "Reopen",
-    "alreadyOpen": "{{port}} is already open in a tab."
+    "alreadyOpen": "{{port}} is already open in a tab.",
+    "menu": "Tab menu",
+    "removeFromSplit": "Remove from split view",
+    "inView": "shown in split view",
+    "splitNeedsTab": "Open another tab to split the view",
+    "splitFull": "Split view holds up to 4 panes",
+    "detachNeedsSession": "This tab has no live session to move",
+    "detachDuringLogin": "Finish the login before moving the tab",
+    "detachFailed": "Could not move the tab to a new window",
+    "dropOutside": "Release to open in a new window",
+    "dragHint": "Drag tabs to reorder, onto a pane to split, or out of the window to detach"
   },
   "terminal": {
     "dropped": "— {{size}} of older output skipped while this tab was hidden —",

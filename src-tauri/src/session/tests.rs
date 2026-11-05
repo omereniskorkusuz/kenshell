@@ -1081,3 +1081,52 @@ async fn network_drop_stays_disconnected_when_disabled_or_clean_or_auth() {
     assert_eq!(out.count_state(ConnState::Connected), 1);
     assert_eq!(backend.transport_count(), 1);
 }
+
+// ---------------------------------------------------------------- moving between windows (P2-T19)
+
+#[tokio::test]
+async fn parked_session_moves_to_a_new_output_without_losing_bytes() {
+    let (backend, mgr, out) = setup();
+    let id = open_connected(&backend, &mgr, &out, Some(9600)).await;
+    mgr.set_owner(id, "main").unwrap();
+    let sink = backend.sink(0);
+    sink.try_send(TransportEvent::Data(b"before".to_vec()))
+        .unwrap();
+    until("first data", || !out.data().is_empty()).await;
+
+    mgr.park(id).unwrap();
+    assert!(matches!(out.events().last(), Some(SessionEvent::Parked)));
+    assert_eq!(
+        out.data().last(),
+        Some(&Vec::new()),
+        "empty batch = end marker"
+    );
+    sink.try_send(TransportEvent::Data(b"while moving".to_vec()))
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(20)).await;
+
+    let moved = Arc::new(Recorder::default());
+    mgr.attach(id, moved.clone(), "session-1").unwrap();
+    sink.try_send(TransportEvent::Data(b" after".to_vec()))
+        .unwrap();
+    until("data in new window", || {
+        moved.data().concat().ends_with(b" after")
+    })
+    .await;
+    assert_eq!(moved.data().concat(), b"while moving after");
+    assert_eq!(
+        out.data().concat(),
+        b"before",
+        "old window got nothing more"
+    );
+
+    // Input still reaches the device, and the session now dies with its new window.
+    mgr.write(id, b"show ver\r").unwrap();
+    assert_eq!(mgr.close_owned_by("main"), 0);
+    assert_eq!(mgr.close_owned_by("session-1"), 1);
+    assert_eq!(mgr.park(id).unwrap_err().code, ErrorCode::NotFound);
+    assert_eq!(
+        mgr.attach(id, moved, "x").unwrap_err().code,
+        ErrorCode::NotFound
+    );
+}

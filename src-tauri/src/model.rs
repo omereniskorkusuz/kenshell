@@ -336,6 +336,8 @@ pub enum SessionEvent {
     Health {
         kind: HealthKind,
     },
+    /// Last event before the session's output moves to another window (P2-T19).
+    Parked,
 }
 
 // ---------------------------------------------------------------- network sessions (Phase 2)

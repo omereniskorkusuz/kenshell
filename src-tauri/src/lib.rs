@@ -4,6 +4,7 @@ mod commands;
 mod console_detect;
 mod error;
 mod events;
+mod handoff;
 mod import;
 mod keys;
 mod logging;
@@ -28,7 +29,7 @@ use crate::storage::Db;
 /// Instant captured as early as possible in `run()`; used for startup metrics.
 pub(crate) static PROCESS_START: OnceLock<Instant> = OnceLock::new();
 
-/// Label of the single main window.
+/// Label of the main window (detached session windows are `session-N`).
 pub(crate) const MAIN_WINDOW: &str = "main";
 
 /// The window is created hidden (avoids a white flash) and shown when the
@@ -72,6 +73,10 @@ pub fn run() {
             commands::session::live_close,
             commands::session::live_reconnect,
             commands::session::live_answer,
+            commands::session::live_park,
+            commands::session::live_attach,
+            commands::window::window_detach,
+            commands::window::window_adopt,
             commands::session::known_host_forget,
             commands::import::import_detect,
             commands::import::import_sessions,
@@ -90,6 +95,18 @@ pub fn run() {
             commands::secrets::session_password_set,
             commands::secrets::session_password_exists,
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Destroyed = event
+                && let Some(state) = window.try_state::<AppState>()
+            {
+                // Sessions live as long as the window that shows them.
+                let closed = state.sessions.close_owned_by(window.label());
+                state.handoffs.take(window.label());
+                if closed > 0 {
+                    tracing::debug!(window = window.label(), closed, "window closed");
+                }
+            }
+        })
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
@@ -116,21 +133,26 @@ pub fn run() {
                 consoles,
                 sessions,
                 secrets,
+                handoffs: handoff::Handoffs::default(),
             });
 
-            let handle = app.handle().clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(SHOW_FALLBACK);
-                if let Some(w) = handle.get_webview_window(MAIN_WINDOW)
-                    && !w.is_visible().unwrap_or(true)
-                {
-                    let _ = w.show();
-                }
-            });
+            show_later(app.handle().clone(), MAIN_WINDOW.to_owned());
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running KenShell");
+}
+
+/// Shows window `label` after [`SHOW_FALLBACK`] if its frontend never reported ready.
+pub(crate) fn show_later(handle: tauri::AppHandle, label: String) {
+    std::thread::spawn(move || {
+        std::thread::sleep(SHOW_FALLBACK);
+        if let Some(w) = handle.get_webview_window(&label)
+            && !w.is_visible().unwrap_or(true)
+        {
+            let _ = w.show();
+        }
+    });
 }
 
 /// `KENSHELL_LOG=debug` (env-filter syntax) controls verbosity; default `warn`.
