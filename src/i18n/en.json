@@ -63,7 +63,8 @@
     "detachTab": "Move tab to new window",
     "toggleBroadcast": "Broadcast: add / remove this tab",
     "broadcastAll": "Broadcast to all tabs",
-    "stopBroadcast": "Stop broadcast"
+    "stopBroadcast": "Stop broadcast",
+    "disablePaging": "Disable paging (terminal length 0)"
   },
   "quick": {
     "label": "Quick connect",
@@ -416,7 +417,9 @@
       "interfaces": "Interfaces"
     },
     "autocomplete": "Autocomplete",
-    "autocompleteHint": "Dim suggestion from this device's command history (then common commands); Tab or → accepts. Lines the device did not echo and lines with password/secret/key words are never saved."
+    "autocompleteHint": "Dim suggestion from this device's command history (then common commands); Tab or → accepts. Lines the device did not echo and lines with password/secret/key words are never saved.",
+    "autoMore": "Continue --More-- automatically",
+    "autoMoreHint": "Answers the device's pager (--More--, ---- More ----, ---(more)---) with a space so long output runs through. Off by default; \"Disable paging\" in the command palette sends the vendor's terminal length 0 instead."
   },
   "mode": {
     "user": "USER",

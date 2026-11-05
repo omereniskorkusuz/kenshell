@@ -688,6 +688,18 @@ impl SessionTask {
                         continue;
                     }
                     self.show(buf, log.as_ref());
+                    // P3-T14: answer the pager when auto-continue is on (read live, so
+                    // the setting applies at once; only when a pager prompt shows).
+                    if self.observer.at_more()
+                        && self
+                            .ctx
+                            .call(|b| b.auto_more_enabled())
+                            .await
+                            .unwrap_or(false)
+                        && let Err(e) = transport.write(b" ").await
+                    {
+                        tracing::debug!(session = self.ctx.id, "auto more: {e}");
+                    }
                 }
                 Ev::Transport(Some(TransportEvent::Closed(err))) => {
                     return self.link_lost(transport, err).await;

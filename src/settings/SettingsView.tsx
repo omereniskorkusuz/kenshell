@@ -282,6 +282,7 @@ function TerminalSection() {
   const [cursorBlink, setCursorBlink] = useSetting('terminal.cursorBlink');
   const [highlight, setHighlight] = useSetting('terminal.highlight');
   const [autocomplete, setAutocomplete] = useSetting('terminal.autocomplete');
+  const [autoMore, setAutoMore] = useSetting('terminal.autoMore');
   const [highlightOff, setHighlightOff] = useSetting('terminal.highlightOff');
   const [fontText, setFontText] = useState(font);
   return (
@@ -379,6 +380,9 @@ function TerminalSection() {
       )}
       <Row label={t('settings.autocomplete')} hint={t('settings.autocompleteHint')}>
         {(id) => <Toggle id={id} checked={autocomplete} onChange={setAutocomplete} />}
+      </Row>
+      <Row label={t('settings.autoMore')} hint={t('settings.autoMoreHint')}>
+        {(id) => <Toggle id={id} checked={autoMore} onChange={setAutoMore} />}
       </Row>
       <Row label={t('settings.scrollback')} hint={t('settings.rangeHint', LIMITS.scrollback)}>
         {(id) => (

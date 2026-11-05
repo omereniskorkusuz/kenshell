@@ -82,6 +82,7 @@ struct FakeState {
     auto_reconnect: bool,
     net_auto_reconnect: bool,
     identify: bool,
+    auto_more: bool,
     devices: Vec<(String, crate::device::modes::DeviceFacts)>,
 }
 
@@ -103,6 +104,7 @@ impl FakeBackend {
             auto_reconnect: true,
             net_auto_reconnect: false,
             identify: false,
+            auto_more: false,
             devices: vec![],
         })))
     }
@@ -229,6 +231,10 @@ impl Backend for FakeBackend {
 
     fn identify_enabled(&self, _session_id: Option<i64>) -> bool {
         self.st().identify
+    }
+
+    fn auto_more_enabled(&self) -> bool {
+        self.st().auto_more
     }
 
     fn record_device(
@@ -1223,4 +1229,47 @@ async fn identity_command_is_off_when_disabled() {
         .unwrap();
     tokio::time::sleep(crate::device::probe::QUIET + Duration::from_millis(200)).await;
     assert!(backend.transport(0).lock().unwrap().writes.is_empty());
+}
+
+// ---------------------------------------------------------------- auto --More-- (P3-T14)
+
+#[tokio::test]
+async fn pager_is_answered_only_when_auto_more_is_on() {
+    let (backend, mgr, out) = setup();
+    let _id = open_connected(&backend, &mgr, &out, Some(9600)).await;
+    let sink = backend.sink(0);
+    let log = backend.transport(0);
+    sink.try_send(TransportEvent::Data(
+        b"sw1#show run\r\nversion 15.2\r\n --More-- ".to_vec(),
+    ))
+    .unwrap();
+    until("page shown", || {
+        String::from_utf8_lossy(&out.data().concat()).contains("--More--")
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(log.lock().unwrap().writes.is_empty(), "off by default");
+
+    backend.st().auto_more = true;
+    sink.try_send(TransportEvent::Data(
+        b"\r          \rhostname sw1\r\n --More-- ".to_vec(),
+    ))
+    .unwrap();
+    until("space sent", || {
+        log.lock().unwrap().writes.iter().any(|w| w == b" ")
+    })
+    .await;
+    sink.try_send(TransportEvent::Data(b"\r          \rend\r\nsw1#".to_vec()))
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(
+        log.lock()
+            .unwrap()
+            .writes
+            .iter()
+            .filter(|w| *w == b" ")
+            .count(),
+        1,
+        "nothing more once the prompt is back"
+    );
 }

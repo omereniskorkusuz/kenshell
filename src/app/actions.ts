@@ -2,6 +2,7 @@
  * Central action registry. Every user-facing command lives here once; the command palette
  * lists them, the global keyboard handler triggers them and menus show their shortcut hint.
  */
+import { pagingDisableCommand } from '../lib/paging';
 import { t, type TKey } from '../i18n';
 import { canDetach, DEFAULT_SERIAL } from '../lib/ipc';
 import type { Arrow } from '../lib/split';
@@ -210,12 +211,29 @@ export const ACTIONS: readonly AppAction[] = [
     run: () => useTabs.getState().singleView(),
   },
   {
+    id: 'terminal.disablePaging',
+    title: 'actions.disablePaging',
+    group: 'actions',
+    keywords: ['more', 'paging', 'sayfa', 'terminal length', 'screen-length'],
+    enabled: () => {
+      const tab = activeTab();
+      return (
+        tab?.state === 'connected' && pagingDisableCommand(tab.device.vendor?.id ?? null) !== null
+      );
+    },
+    run: () => {
+      const tab = activeTab();
+      const cmd = tab ? pagingDisableCommand(tab.device.vendor?.id ?? null) : null;
+      if (tab && cmd) useTabs.getState().write(tab.key, `${cmd}\r`);
+    },
+  },
+  {
     id: 'broadcast.toggle',
     title: 'actions.toggleBroadcast',
     group: 'actions',
     shortcut: 'mod+alt+b',
     keywords: ['broadcast', 'yayın', 'multi', 'çoklu', 'all', 'hepsi'],
-    enabled: () => activeTab() !== undefined,
+    enabled: hasActiveTab,
     run: () => useTabs.getState().toggleBroadcast(),
   },
   {

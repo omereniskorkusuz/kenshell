@@ -30,6 +30,8 @@ export interface AppSettings {
   'terminal.highlight': boolean;
   /** Dim suggestion from history / built-ins, Tab or → accepts (P3-T12). */
   'terminal.autocomplete': boolean;
+  /** Answer the device's `--More--` pager automatically (P3-T14, default off). */
+  'terminal.autoMore': boolean;
   'terminal.highlightOff': HighlightCategory[];
   'console.hotplugToast': boolean;
   'console.autoReconnect': boolean;
@@ -71,6 +73,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'terminal.cursorBlink': false,
   'terminal.highlight': true,
   'terminal.autocomplete': true,
+  'terminal.autoMore': false,
   'terminal.highlightOff': [],
   'console.hotplugToast': true,
   'console.autoReconnect': true,
@@ -162,6 +165,7 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'terminal.cursorBlink':
       case 'terminal.highlight':
       case 'terminal.autocomplete':
+      case 'terminal.autoMore':
       case 'log.timestamps':
         return bool(value, d[k]);
       case 'terminal.highlightOff':

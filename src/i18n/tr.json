@@ -63,7 +63,8 @@
     "detachTab": "Sekmeyi yeni pencereye taşı",
     "toggleBroadcast": "Broadcast: bu sekmeyi ekle / çıkar",
     "broadcastAll": "Tüm sekmelere broadcast",
-    "stopBroadcast": "Broadcast'i durdur"
+    "stopBroadcast": "Broadcast'i durdur",
+    "disablePaging": "Sayfalamayı kapat (terminal length 0)"
   },
   "quick": {
     "label": "Hızlı bağlan",
@@ -416,7 +417,9 @@
       "interfaces": "Interface'ler"
     },
     "autocomplete": "Otomatik tamamlama",
-    "autocompleteHint": "Bu cihazın komut geçmişinden (sonra yaygın komutlardan) soluk öneri; Tab ya da → kabul eder. Cihazın ekrana yazmadığı satırlar ve password/secret/key içerenler hiç kaydedilmez."
+    "autocompleteHint": "Bu cihazın komut geçmişinden (sonra yaygın komutlardan) soluk öneri; Tab ya da → kabul eder. Cihazın ekrana yazmadığı satırlar ve password/secret/key içerenler hiç kaydedilmez.",
+    "autoMore": "--More-- otomatik devam",
+    "autoMoreHint": "Cihazın sayfalayıcısına (--More--, ---- More ----, ---(more)---) boşlukla cevap verir, uzun çıktı akıp gider. Varsayılan kapalı; komut paletindeki \"Sayfalamayı kapat\" bunun yerine üreticinin terminal length 0 komutunu gönderir."
   },
   "mode": {
     "user": "USER",

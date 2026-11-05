@@ -136,6 +136,12 @@ impl Observer {
         self.profile.match_prompt(line).map(|m| m.mode)
     }
 
+    /// The device is waiting at its pager (`--More--`, `---- More ----` …).
+    pub fn at_more(&self) -> bool {
+        let line = self.lines.current().trim();
+        !line.is_empty() && line.contains(self.profile.more.as_str())
+    }
+
     fn end_line(&mut self, line: String, out: &mut Vec<Observation>) {
         if !self.reloading && modes::is_reload_line(&line) {
             self.reloading = true;
@@ -318,6 +324,19 @@ mod tests {
             [(CliMode::User, None)],
             "mode reported again after a reconnect"
         );
+    }
+
+    #[test]
+    fn pager_prompt_is_seen_per_vendor() {
+        let mut o = Observer::new();
+        o.feed(b"sw1#show run\r\nversion 15.2\r\n --More-- ");
+        assert!(o.at_more());
+        o.feed(b"\r          \rhostname sw1\r\n");
+        assert!(!o.at_more());
+        let mut h = Observer::new();
+        h.feed(b"\r\n<HW>");
+        h.feed(b"display current-configuration\r\nsysname HW\r\n  ---- More ----");
+        assert!(h.at_more());
     }
 
     #[test]

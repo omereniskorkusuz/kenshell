@@ -23,6 +23,7 @@ pub const AUTO_RECONNECT_SETTING: &str = "console.autoReconnect";
 pub const NET_AUTO_RECONNECT_SETTING: &str = "connection.autoReconnect";
 /// Background identity command after login (P3-T04), default on.
 pub const IDENTIFY_SETTING: &str = "device.identify";
+pub const AUTO_MORE_SETTING: &str = "terminal.autoMore";
 
 /// Synchronous by design: implementations may block briefly (DB, port enumeration);
 /// the session task calls them from `spawn_blocking`.
@@ -70,6 +71,11 @@ pub(crate) trait Backend: Send + Sync + 'static {
     /// Run the background identity command: setting `device.identify` (default on) and,
     /// for saved sessions, the session's own switch.
     fn identify_enabled(&self, session_id: Option<i64>) -> bool;
+    /// `terminal.autoMore` (default off): answer the device's pager (`--More--`) with a
+    /// space so long output runs through (P3-T14).
+    fn auto_more_enabled(&self) -> bool {
+        false
+    }
     /// Stores the device the identity command described; its id (errors are logged).
     fn record_device(
         &self,
@@ -291,6 +297,17 @@ impl Backend for RealBackend {
             Ok(None) => false,
             Err(e) => {
                 tracing::warn!("read {NET_AUTO_RECONNECT_SETTING}: {e}");
+                false
+            }
+        }
+    }
+
+    fn auto_more_enabled(&self) -> bool {
+        match self.db.get_setting(AUTO_MORE_SETTING) {
+            Ok(Some(v)) => v.as_bool().unwrap_or(false),
+            Ok(None) => false,
+            Err(e) => {
+                tracing::warn!("read {AUTO_MORE_SETTING}: {e}");
                 false
             }
         }
