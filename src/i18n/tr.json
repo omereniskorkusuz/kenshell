@@ -64,7 +64,11 @@
     "toggleBroadcast": "Broadcast: bu sekmeyi ekle / çıkar",
     "broadcastAll": "Tüm sekmelere broadcast",
     "stopBroadcast": "Broadcast'i durdur",
-    "disablePaging": "Sayfalamayı kapat (terminal length 0)"
+    "disablePaging": "Sayfalamayı kapat (terminal length 0)",
+    "panelNotes": "Notları göster",
+    "panelAnalyzer": "Analizi göster",
+    "panelSnippets": "Snippet'leri göster",
+    "panelTools": "Araçları göster"
   },
   "quick": {
     "label": "Hızlı bağlan",
@@ -323,7 +327,7 @@
     "identifyHint": "Arka planda bir kez salt-okunur show version çalıştırır; çıktısı terminalde görünmez."
   },
   "palette": {
-    "placeholder": "Oturum, konsol ve eylem ara…",
+    "placeholder": "Oturum, snippet, konsol ve eylem ara…",
     "empty": "Sonuç yok.",
     "sessions": "Oturumlar",
     "consoles": "Algılanan konsollar",
@@ -331,7 +335,12 @@
     "settings": "Ayarlar",
     "connectConsole": "{{port}} bağlan",
     "prefixActions": "yalnız eylemler",
-    "prefixSessions": "yalnız oturumlar"
+    "prefixSessions": "yalnız oturumlar",
+    "snippets": "Snippet'ler",
+    "prefixSnippets": "yalnız snippet'ler",
+    "on": "Açık",
+    "off": "Kapalı",
+    "toggled": "{{name}}: {{state}}"
   },
   "panel": {
     "label": "Yan panel",

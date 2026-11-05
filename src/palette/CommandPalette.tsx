@@ -1,11 +1,20 @@
 /**
- * Command palette (Ctrl/Cmd+K, lazy chunk). Groups: Sessions, Detected consoles, Actions,
- * Settings. Prefix ">" = actions only, "@" = sessions only.
+ * Command palette (Ctrl/Cmd+K, lazy chunk). Groups: Sessions, Snippets, Detected consoles,
+ * Actions, Settings (actions + on/off switches). Prefix ">" = actions only, "@" = sessions
+ * only, "/" = snippets only. A snippet with {{variables}} opens its fill-in form.
  */
 import { Command, defaultFilter } from 'cmdk';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Settings2, SquareTerminal, Usb, Zap } from 'lucide-react';
+import {
+  Settings2,
+  SquareCode,
+  SquareTerminal,
+  ToggleLeft,
+  ToggleRight,
+  Usb,
+  Zap,
+} from 'lucide-react';
 import { useT } from '../i18n';
 import { isMac } from '../lib/ipc';
 import { formatChord } from '../lib/shortcuts';
@@ -15,7 +24,17 @@ import { chipLabel, useConsoles } from '../stores/consoles';
 import { useLibrary } from '../stores/library';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
-import { parsePaletteQuery } from '../lib/paletteQuery';
+import { PALETTE_TOGGLES, parsePaletteQuery } from '../lib/paletteQuery';
+import {
+  VENDOR_FAMILIES,
+  snippetPayload,
+  snippetVariables,
+  STARTER,
+  toItem,
+  type SnippetItem,
+} from '../lib/snippets';
+import { useSettings } from '../stores/settings';
+import { useSnippets } from '../stores/snippets';
 
 export default function CommandPalette() {
   const t = useT();
@@ -25,6 +44,11 @@ export default function CommandPalette() {
   const sessions = useLibrary((s) => s.sessions);
   const folders = useLibrary((s) => s.folders);
   const ports = useConsoles((s) => s.snapshot.ports);
+  const userSnippets = useSnippets((s) => s.list);
+  const snippetsLoaded = useSnippets((s) => s.loaded);
+  const settings = useSettings((s) => s.values);
+  const activeTab = useTabs((s) => s.tabs.find((x) => x.key === s.activeKey));
+  const family = activeTab?.device.vendor?.family ?? null;
   const mac = isMac();
   const [opener] = useState(() => document.activeElement as HTMLElement | null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,10 +84,34 @@ export default function CommandPalette() {
     [sessions],
   );
 
+  useEffect(() => {
+    if (!snippetsLoaded) void useSnippets.getState().load();
+  }, [snippetsLoaded]);
+
+  // The active device's vendor first, then vendor-neutral, then the rest.
+  const snippets = useMemo(() => {
+    const rank = (s: SnippetItem) => (s.vendor === family ? 0 : s.vendor === null ? 1 : 2);
+    return [...userSnippets.map(toItem), ...STARTER].sort((a, b) => rank(a) - rank(b));
+  }, [userSnippets, family]);
+
+  const sendSnippet = (s: SnippetItem) => {
+    const tab = useTabs.getState().tabs.find((x) => x.key === useTabs.getState().activeKey);
+    if (!tab || tab.state !== 'connected') {
+      useUi.getState().flash(t('snippets.connectFirst'));
+      return;
+    }
+    if (snippetVariables(s.body).length > 0) {
+      useUi.getState().openSnippetFill(s.key);
+      return;
+    }
+    useTabs.getState().pasteInput(tab.key, snippetPayload(s.body));
+  };
+
   const actions = ACTIONS.filter((a) => !a.hidden && isEnabled(a));
   const showSessions = mode === 'all' || mode === 'sessions';
   const showConsoles = mode === 'all' || mode === 'consoles';
   const showActions = mode === 'all' || mode === 'actions';
+  const showSnippets = mode === 'all' || mode === 'snippets';
 
   return createPortal(
     <div
@@ -123,6 +171,31 @@ export default function CommandPalette() {
             </Command.Group>
           )}
 
+          {showSnippets && snippets.length > 0 && (
+            <Command.Group heading={t('palette.snippets')}>
+              {snippets.map((s) => (
+                <Command.Item
+                  key={s.key}
+                  value={`${s.name}\u2063${s.key}`}
+                  // Not the body: fuzzy matching over long text matches nearly any query.
+                  keywords={[s.folder, s.vendor ?? '', 'snippet', ...snippetVariables(s.body)]}
+                  onSelect={() => run(() => sendSnippet(s))}
+                >
+                  <SquareCode size={14} className="shrink-0 text-muted" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                  <span className="truncate text-xs text-muted">
+                    {[
+                      ...new Set([s.folder, VENDOR_FAMILIES.find(([id]) => id === s.vendor)?.[1]]),
+                      snippetVariables(s.body).length > 0 ? '{{…}}' : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </Command.Item>
+              ))}
+            </Command.Group>
+          )}
+
           {showConsoles && ports.length > 0 && (
             <Command.Group heading={t('palette.consoles')}>
               {ports.map((p) => (
@@ -175,6 +248,38 @@ export default function CommandPalette() {
                       {a.shortcut && <span className="kbd">{formatChord(a.shortcut, mac)}</span>}
                     </Command.Item>
                   ))}
+                {PALETTE_TOGGLES.map(([key, title]) => {
+                  const on = settings[key];
+                  const Icon = on ? ToggleRight : ToggleLeft;
+                  return (
+                    <Command.Item
+                      key={key}
+                      value={`${t(title)}\u2063${key}`}
+                      keywords={[key, 'toggle', 'aç', 'kapat', 'on', 'off']}
+                      onSelect={() =>
+                        run(() => {
+                          useSettings.getState().set(key, !on);
+                          useUi.getState().flash(
+                            t('palette.toggled', {
+                              name: t(title),
+                              state: t(on ? 'palette.off' : 'palette.on'),
+                            }),
+                          );
+                        })
+                      }
+                    >
+                      <Icon
+                        size={14}
+                        className={`shrink-0 ${on ? 'text-success' : 'text-muted'}`}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1 truncate">{t(title)}</span>
+                      <span className="text-xs text-muted">
+                        {t(on ? 'palette.on' : 'palette.off')}
+                      </span>
+                    </Command.Item>
+                  );
+                })}
               </Command.Group>
             </>
           )}
@@ -185,6 +290,9 @@ export default function CommandPalette() {
           </span>
           <span>
             <span className="kbd">@</span> {t('palette.prefixSessions')}
+          </span>
+          <span>
+            <span className="kbd">/</span> {t('palette.prefixSnippets')}
           </span>
         </div>
       </Command>

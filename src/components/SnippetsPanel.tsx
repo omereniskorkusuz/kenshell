@@ -18,22 +18,14 @@ import {
   snippetVariables,
   STARTER,
   toItem,
+  VENDOR_FAMILIES,
   type SnippetItem,
 } from '../lib/snippets';
 import { useSnippets } from '../stores/snippets';
 import { useActiveTab, useTabs } from '../stores/tabs';
 import { toast } from '../stores/toasts';
+import { useUi } from '../stores/ui';
 
-/** Vendor families (brand names, not translated). */
-export const VENDOR_FAMILIES: [string, string][] = [
-  ['cisco', 'Cisco'],
-  ['ruijie', 'Ruijie'],
-  ['juniper', 'Juniper'],
-  ['alcatel', 'Alcatel-Lucent'],
-  ['aruba', 'Aruba / HPE'],
-  ['huawei', 'Huawei'],
-  ['fortinet', 'Fortinet'],
-];
 const vendorLabel = (v: string | null) => VENDOR_FAMILIES.find(([id]) => id === v)?.[1] ?? '';
 
 type Draft = SnippetInput & { id: number | null };
@@ -55,14 +47,23 @@ export function SnippetsPanel() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState<Draft | null>(null);
   const [filling, setFilling] = useState<SnippetItem | null>(null);
+  // "Send snippet" from the palette for a template: open its form here.
+  const allItems = useMemo(() => [...list.map(toItem), ...STARTER], [list]);
+  const pendingFill = useUi((s) => s.snippetFill);
+  useEffect(() => {
+    if (pendingFill === null || !loaded) return;
+    const key = useUi.getState().takeSnippetFill();
+    const item = allItems.find((s) => s.key === key);
+    if (item) queueMicrotask(() => setFilling(item));
+  }, [pendingFill, loaded, allItems]);
 
   useEffect(() => {
     if (!loaded) void useSnippets.getState().load();
   }, [loaded]);
 
   const groups = useMemo(
-    () => groupSnippets(filterSnippets([...list.map(toItem), ...STARTER], vendor, query)),
-    [list, vendor, query],
+    () => groupSnippets(filterSnippets(allItems, vendor, query)),
+    [allItems, vendor, query],
   );
   const folders = useMemo(() => [...new Set(list.map((s) => s.folder).filter(Boolean))], [list]);
   const canSend = tab?.state === 'connected';

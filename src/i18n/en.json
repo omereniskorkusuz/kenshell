@@ -64,7 +64,11 @@
     "toggleBroadcast": "Broadcast: add / remove this tab",
     "broadcastAll": "Broadcast to all tabs",
     "stopBroadcast": "Stop broadcast",
-    "disablePaging": "Disable paging (terminal length 0)"
+    "disablePaging": "Disable paging (terminal length 0)",
+    "panelNotes": "Show notes",
+    "panelAnalyzer": "Show analyzer",
+    "panelSnippets": "Show snippets",
+    "panelTools": "Show tools"
   },
   "quick": {
     "label": "Quick connect",
@@ -323,7 +327,7 @@
     "identifyHint": "Runs a read-only show version once in the background; its output never appears in the terminal."
   },
   "palette": {
-    "placeholder": "Search sessions, consoles and actions…",
+    "placeholder": "Search sessions, snippets, consoles and actions…",
     "empty": "No results.",
     "sessions": "Sessions",
     "consoles": "Detected consoles",
@@ -331,7 +335,12 @@
     "settings": "Settings",
     "connectConsole": "Connect {{port}}",
     "prefixActions": "actions only",
-    "prefixSessions": "sessions only"
+    "prefixSessions": "sessions only",
+    "snippets": "Snippets",
+    "prefixSnippets": "snippets only",
+    "on": "On",
+    "off": "Off",
+    "toggled": "{{name}}: {{state}}"
   },
   "panel": {
     "label": "Side panel",

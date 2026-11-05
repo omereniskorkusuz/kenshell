@@ -34,6 +34,10 @@ interface UiState {
   sidePanelTab: SidePanelTab;
   /** Text to start a new note with (terminal "Add note"); the notes panel takes it. */
   noteDraft: string | null;
+  /** Snippet (item key) whose fill-in form the snippets panel opens (palette, P3-T17). */
+  snippetFill: string | null;
+  openSnippetFill(key: string): void;
+  takeSnippetFill(): string | null;
   startNote(text: string): void;
   takeNoteDraft(): string | null;
   statusMessage: { id: number; text: string } | null;
@@ -76,6 +80,7 @@ export const useUi = create<UiState>()((set, get) => ({
   sidePanelOpen: false,
   sidePanelTab: 'notes',
   noteDraft: null,
+  snippetFill: null,
   statusMessage: null,
   announcement: null,
   quickConnectFocus: 0,
@@ -93,6 +98,13 @@ export const useUi = create<UiState>()((set, get) => ({
   closeEditor: () => set({ editor: null }),
   toggleSidePanel: (open) => set({ sidePanelOpen: open ?? !get().sidePanelOpen }),
   setSidePanelTab: (tab) => set({ sidePanelTab: tab, sidePanelOpen: true }),
+  openSnippetFill: (key) =>
+    set({ snippetFill: key, sidePanelTab: 'snippets', sidePanelOpen: true }),
+  takeSnippetFill() {
+    const k = get().snippetFill;
+    if (k !== null) set({ snippetFill: null });
+    return k;
+  },
   startNote: (text) => set({ noteDraft: text, sidePanelTab: 'notes', sidePanelOpen: true }),
   takeNoteDraft() {
     const d = get().noteDraft;

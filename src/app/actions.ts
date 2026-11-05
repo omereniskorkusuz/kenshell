@@ -210,6 +210,20 @@ export const ACTIONS: readonly AppAction[] = [
     enabled: inSplit,
     run: () => useTabs.getState().singleView(),
   },
+  ...(
+    [
+      ['notes', 'actions.panelNotes', ['not', 'note']],
+      ['analyzer', 'actions.panelAnalyzer', ['analiz', 'analyzer', 'parser']],
+      ['snippets', 'actions.panelSnippets', ['snippet', 'şablon', 'template']],
+      ['tools', 'actions.panelTools', ['araç', 'tool', 'subnet', 'ping']],
+    ] as const
+  ).map(([tab, title, keywords]): AppAction => ({
+    id: `panel.${tab}`,
+    title,
+    group: 'actions',
+    keywords: [...keywords],
+    run: () => useUi.getState().setSidePanelTab(tab),
+  })),
   {
     id: 'terminal.disablePaging',
     title: 'actions.disablePaging',
