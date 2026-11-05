@@ -494,5 +494,39 @@
     "copyPublic": "Açık anahtarı kopyala",
     "copied": "Açık anahtar kopyalandı",
     "copyFailed": "Panoya kopyalanamadı"
+  },
+  "details": {
+    "title": "Ayrıntılar · {{name}}",
+    "open": "Bağlantı ve cihaz ayrıntıları",
+    "connection": "Bağlantı",
+    "target": "Hedef",
+    "state": "Durum",
+    "since": "Bağlantı başlangıcı",
+    "security": "Güvenlik (SSH)",
+    "hostKey": "Sunucu anahtarı",
+    "fingerprint": "Parmak izi",
+    "kex": "Anahtar değişimi",
+    "cipher": "Şifreleme",
+    "mac": "MAC",
+    "serial": "Seri port",
+    "autoDetected": "algılandı",
+    "chip": "USB çipi",
+    "device": "Cihaz",
+    "hostname": "Cihaz adı",
+    "vendor": "Üretici",
+    "model": "Model",
+    "noDevice": "Henüz bilgi yok: cihaz girişten sonra tanınır.",
+    "cli": "CLI",
+    "mode": "Mod",
+    "submode": "Alt mod",
+    "log": "Log",
+    "logFile": "Dosya",
+    "copy": "{{what}} kopyala",
+    "copied": "Kopyalandı",
+    "flow": {
+      "none": "Yok",
+      "rtscts": "RTS/CTS",
+      "xonxoff": "XON/XOFF"
+    }
   }
 }

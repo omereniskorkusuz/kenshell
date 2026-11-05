@@ -406,6 +406,8 @@ async fn net_e2e_ssh_saved_password_logs_in_without_prompt_and_wrong_one_falls_b
     let id = m.open(req.clone(), out.clone()).unwrap();
     until("connected", || connected(&out)).await;
     assert!(out.prompts().is_empty(), "saved password must not prompt");
+    let key = out.link().and_then(|l| l.host_key).expect("ssh host key info");
+    assert!(key.kex.is_some() && key.cipher.is_some() && key.mac.is_some(), "{key:?}");
     until("prompt", || out.text().contains("core-sw-01>")).await;
     m.close(id).unwrap();
 

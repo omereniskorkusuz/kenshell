@@ -94,6 +94,8 @@ struct Client {
     keys: Arc<dyn HostKeyStore>,
     verdict: Arc<Mutex<Option<KeyVerdict>>>,
     remote: RemoteMap,
+    /// Negotiated (kex, cipher, mac) names — never the shared secret.
+    algorithms: Arc<Mutex<Option<[String; 3]>>>,
 }
 
 impl Client {
@@ -109,6 +111,9 @@ impl Client {
                     algorithm,
                     fingerprint,
                     first_seen: false,
+                    kex: None,
+                    cipher: None,
+                    mac: None,
                 })
             }
             Ok(Some(stored)) => KeyVerdict::Changed {
@@ -129,6 +134,9 @@ impl Client {
                         algorithm,
                         fingerprint,
                         first_seen: true,
+                        kex: None,
+                        cipher: None,
+                        mac: None,
                     }),
                     Err(e) => KeyVerdict::Rejected(format!("cannot store host key: {e}")),
                 }
@@ -140,6 +148,22 @@ impl Client {
 
 impl client::Handler for Client {
     type Error = russh::Error;
+
+    async fn kex_done(
+        &mut self,
+        _shared_secret: Option<&[u8]>,
+        names: &russh::Names,
+        _session: &mut client::Session,
+    ) -> std::result::Result<(), Self::Error> {
+        if let Ok(mut a) = self.algorithms.lock() {
+            *a = Some([
+                names.kex.as_ref().to_owned(),
+                names.cipher.as_ref().to_owned(),
+                names.client_mac.as_ref().to_owned(),
+            ]);
+        }
+        Ok(())
+    }
 
     async fn check_server_key(
         &mut self,
@@ -280,12 +304,14 @@ impl Login {
     ) -> Result<(Handle<Client>, HostKeyInfo)> {
         let target = self.target();
         let verdict = Arc::new(Mutex::new(None));
+        let algorithms = Arc::new(Mutex::new(None));
         let client = Client {
             host: self.host.clone(),
             port: self.port,
             keys: Arc::clone(&self.keys),
             verdict: Arc::clone(&verdict),
             remote,
+            algorithms: Arc::clone(&algorithms),
         };
         let handshake = client::connect_stream(Arc::new(self.config()), stream, client);
         let result = tokio::time::timeout(HANDSHAKE_TIMEOUT, handshake).await;
@@ -303,7 +329,14 @@ impl Login {
                 format!("{target}: handshake"),
             )),
             (Ok(Err(e)), _) => Err(map_ssh(&target, e)),
-            (Ok(Ok(h)), Some(KeyVerdict::Accepted(info))) => Ok((h, info)),
+            (Ok(Ok(h)), Some(KeyVerdict::Accepted(mut info))) => {
+                if let Some([kex, cipher, mac]) = algorithms.lock().ok().and_then(|a| a.clone()) {
+                    info.kex = Some(kex);
+                    info.cipher = Some(cipher);
+                    info.mac = Some(mac);
+                }
+                Ok((h, info))
+            }
             (Ok(Ok(_)), None) => Err(AppError::internal("host key was not checked")),
         }
     }

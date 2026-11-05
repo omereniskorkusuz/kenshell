@@ -518,6 +518,13 @@ pub struct HostKeyInfo {
     pub fingerprint: String,
     /// First connection to this host: the key was just learned and stored.
     pub first_seen: bool,
+    /// Negotiated key exchange, cipher and MAC (P3-T06 detail view).
+    #[serde(default)]
+    pub kex: Option<String>,
+    #[serde(default)]
+    pub cipher: Option<String>,
+    #[serde(default)]
+    pub mac: Option<String>,
 }
 
 /// One question during login (PuTTY-style, answered inside the terminal).

@@ -494,5 +494,39 @@
     "copyPublic": "Copy public key",
     "copied": "Public key copied",
     "copyFailed": "Could not copy to the clipboard"
+  },
+  "details": {
+    "title": "Details · {{name}}",
+    "open": "Connection and device details",
+    "connection": "Connection",
+    "target": "Target",
+    "state": "State",
+    "since": "Connected since",
+    "security": "Security (SSH)",
+    "hostKey": "Host key",
+    "fingerprint": "Fingerprint",
+    "kex": "Key exchange",
+    "cipher": "Cipher",
+    "mac": "MAC",
+    "serial": "Serial port",
+    "autoDetected": "detected",
+    "chip": "USB chip",
+    "device": "Device",
+    "hostname": "Host name",
+    "vendor": "Vendor",
+    "model": "Model",
+    "noDevice": "Nothing known yet: the device is identified after login.",
+    "cli": "CLI",
+    "mode": "Mode",
+    "submode": "Sub-mode",
+    "log": "Log",
+    "logFile": "File",
+    "copy": "Copy {{what}}",
+    "copied": "Copied",
+    "flow": {
+      "none": "None",
+      "rtscts": "RTS/CTS",
+      "xonxoff": "XON/XOFF"
+    }
   }
 }

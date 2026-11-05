@@ -525,6 +525,9 @@ class MockNetLive {
                 algorithm: 'ssh-ed25519',
                 fingerprint: 'SHA256:mockmockmockmockmockmockmockmockmockmockmo',
                 firstSeen: true,
+                kex: 'curve25519-sha256',
+                cipher: 'chacha20-poly1305@openssh.com',
+                mac: 'hmac-sha2-256-etm@openssh.com',
               }
             : null,
       },

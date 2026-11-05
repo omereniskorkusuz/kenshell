@@ -307,6 +307,10 @@ export interface HostKeyInfo {
   fingerprint: string;
   /** First connection: the key was learned and stored just now. */
   firstSeen: boolean;
+  /** Negotiated algorithms (null on older backends). */
+  kex: string | null;
+  cipher: string | null;
+  mac: string | null;
 }
 
 export interface NetLink {

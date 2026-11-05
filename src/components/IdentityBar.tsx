@@ -8,7 +8,7 @@
  * Mode/env colors come from data-mode/data-env on the pane (CSS variables), never React state.
  */
 import { useEffect, useState } from 'react';
-import { KeyRound, PanelRight, RotateCw } from 'lucide-react';
+import { Info, KeyRound, PanelRight, RotateCw } from 'lucide-react';
 import { useT, type TKey } from '../i18n';
 import { compactParts } from '../lib/compact';
 import { formatUptime, formatUptimeShort, msToNextMinute } from '../lib/format';
@@ -18,6 +18,7 @@ import { formatChord } from '../lib/shortcuts';
 import { envLabel } from '../lib/tree';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
+import { IdentityDetails } from './IdentityDetails';
 import { Menu, useMenu, type MenuEntry } from './Menu';
 
 export const COMMON_BAUDS = [9600, 19200, 38400, 57600, 115200] as const;
@@ -35,6 +36,7 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
   const status = tabStatus(tab, t);
   const sidePanelOpen = useUi((s) => s.sidePanelOpen);
   const baudMenu = useMenu();
+  const [details, setDetails] = useState(false);
   const parts = compact ? compactParts(width) : { uptime: true, chip: true, protocol: true };
   const env = envLabel(tab.envTag);
   const connected = tab.state === 'connected';
@@ -91,9 +93,14 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
     </span>
   );
   const name = (
-    <span className="mono min-w-0 shrink truncate font-semibold text-primary" title={tab.name}>
+    <button
+      type="button"
+      className="mono min-w-0 shrink truncate rounded-sm px-0.5 text-left font-semibold text-primary hover:bg-hover"
+      title={`${tab.name} — ${t('details.open')}`}
+      onClick={() => setDetails(true)}
+    >
       {tab.name}
-    </span>
+    </button>
   );
   const modeChip = (
     <span
@@ -207,6 +214,16 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
       <button
         type="button"
         className="icon-btn"
+        aria-label={t('details.open')}
+        title={t('details.open')}
+        aria-haspopup="dialog"
+        onClick={() => setDetails(true)}
+      >
+        <Info size={15} />
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
         aria-pressed={sidePanelOpen}
         aria-label={t('actions.toggleSidePanel')}
         title={`${t('actions.toggleSidePanel')} (${formatChord('mod+j', mac)})`}
@@ -254,6 +271,7 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
           </div>
         </div>
       )}
+      {details && <IdentityDetails tab={tab} onClose={() => setDetails(false)} />}
       {baudMenu.at && (
         <Menu
           x={baudMenu.at.x}
