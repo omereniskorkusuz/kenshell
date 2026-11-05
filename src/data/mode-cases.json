@@ -1,0 +1,108 @@
+{
+  "_comment": "Test vectors for src/data/modes.json (P3-T02).",
+  "prompts": [
+    { "profile": "cisco-ios", "line": "core-sw-01>", "mode": "user", "host": "core-sw-01" },
+    { "profile": "cisco-ios", "line": "core-sw-01#", "mode": "privileged", "host": "core-sw-01" },
+    { "profile": "cisco-ios", "line": "core-sw-01#  ", "mode": "privileged", "host": "core-sw-01" },
+    {
+      "profile": "cisco-ios",
+      "line": "core-sw-01(config)#",
+      "mode": "config",
+      "host": "core-sw-01",
+      "sub": "config"
+    },
+    {
+      "profile": "cisco-ios",
+      "line": "core-sw-01(config-if)#",
+      "mode": "config",
+      "host": "core-sw-01",
+      "sub": "config-if"
+    },
+    {
+      "profile": "cisco-ios",
+      "line": "R1(config-router)#",
+      "mode": "config",
+      "host": "R1",
+      "sub": "config-router"
+    },
+    { "profile": "cisco-ios", "line": "rommon 1 >", "mode": "boot" },
+    { "profile": "cisco-ios", "line": "rommon 2>", "mode": "boot" },
+    { "profile": "cisco-ios", "line": "switch:", "mode": "boot" },
+    {
+      "profile": "cisco-nxos",
+      "line": "n9k-a(config-if)#",
+      "mode": "config",
+      "host": "n9k-a",
+      "sub": "config-if"
+    },
+    { "profile": "cisco-nxos", "line": "loader>", "mode": "boot" },
+    { "profile": "ruijie-rgos", "line": "access-sw-02>", "mode": "user", "host": "access-sw-02" },
+    {
+      "profile": "ruijie-rgos",
+      "line": "access-sw-02(config)#",
+      "mode": "config",
+      "host": "access-sw-02",
+      "sub": "config"
+    },
+    {
+      "profile": "ruijie-rgos",
+      "line": "access-sw-02(config-if-GigabitEthernet 0/24)#",
+      "mode": "config",
+      "host": "access-sw-02",
+      "sub": "config-if-GigabitEthernet 0/24"
+    },
+    {
+      "profile": "ruijie-rgos",
+      "line": "access-sw-02(config-if-AggregatePort 1)#",
+      "mode": "config",
+      "host": "access-sw-02",
+      "sub": "config-if-AggregatePort 1"
+    },
+    {
+      "profile": "ruijie-rgos",
+      "line": "access-sw-02(config-vlan)#",
+      "mode": "config",
+      "host": "access-sw-02",
+      "sub": "config-vlan"
+    },
+    { "profile": "ruijie-rgos", "line": "BootLoader>", "mode": "boot" },
+    { "profile": "ruijie-reyee", "line": "Ruijie#", "mode": "privileged", "host": "Ruijie" },
+    {
+      "profile": "cisco-like",
+      "line": "edge-01(config-line)#",
+      "mode": "config",
+      "host": "edge-01",
+      "sub": "config-line"
+    },
+    { "profile": "cisco-like", "line": "Username:", "mode": null },
+    { "profile": "cisco-like", "line": "Password:", "mode": null },
+    { "profile": "cisco-like", "line": "show run | i #", "mode": null },
+    { "profile": "cisco-like", "line": " --More-- ", "mode": null },
+    { "profile": "cisco-like", "line": "Building configuration...", "mode": null },
+    { "profile": "cisco-like", "line": "% Invalid input detected at '^' marker.", "mode": null },
+    { "profile": "cisco-like", "line": "core sw#", "mode": null },
+    { "profile": "cisco-like", "line": "", "mode": null }
+  ],
+  "identify": [
+    {
+      "text": "Cisco IOS XE Software, Version 17.09.04a\nCisco IOS Software [Cupertino], Catalyst L3 Switch Software (CAT9K_IOSXE)",
+      "profile": "cisco-ios"
+    },
+    {
+      "text": "Cisco IOS Software, C2960X Software (C2960X-UNIVERSALK9-M), Version 15.2(7)E8\nTechnical Support: http://www.cisco.com/techsupport",
+      "profile": "cisco-ios"
+    },
+    {
+      "text": "Cisco Nexus Operating System (NX-OS) Software\nTAC support: http://www.cisco.com/tac\n  NXOS: version 10.3(4a)",
+      "profile": "cisco-nxos"
+    },
+    {
+      "text": "System description      : Ruijie Full Gigabit Security & Intelligence Access Switch(S5750-48GT4XS-E) By Ruijie Networks\nSystem software version : S5750_RGOS 11.4(1)B12P10S2",
+      "profile": "ruijie-rgos"
+    },
+    { "text": "Ruijie Networks Co., Ltd.\nRGOS 12.5(4)B0903", "profile": "ruijie-rgos" },
+    { "text": "Reyee RG-ES226GC-P\nReyeeOS 1.218.2421", "profile": "ruijie-reyee" },
+    { "text": "User Access Verification\n\nUsername:", "profile": null },
+    { "text": "Welcome to the switch. Unauthorized access prohibited.", "profile": null }
+  ]
+}

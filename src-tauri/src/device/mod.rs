@@ -6,3 +6,6 @@
 // Used by interface notes and output colouring (P3-T09/T10); until then only by tests.
 #[cfg_attr(not(test), allow(dead_code))]
 pub mod iface;
+// Used by the DeviceObserver (P3-T03); until then only by tests.
+#[cfg_attr(not(test), allow(dead_code))]
+pub mod modes;

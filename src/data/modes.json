@@ -1,0 +1,94 @@
+{
+  "_comment": "Vendor CLI profiles (P3-T02): prompt → mode patterns and identification clues. Applied by the backend DeviceObserver to the last output line (ANSI removed). Patterns are Rust `regex` syntax; prompts are tried in order (first match wins), `host`/`sub` named groups are optional. `identify`: case-insensitive patterns over banner / login / `show version` text, each with a weight; the best total ≥ `minScore` wins. Ruijie and Cisco prompts look alike: without a vendor clue a session stays `cisco-like` (spec 7.3).",
+  "minScore": 3,
+  "defaultProfile": "cisco-like",
+  "profiles": [
+    {
+      "id": "cisco-like",
+      "label": "Cisco-like CLI",
+      "family": "generic",
+      "identify": [],
+      "prompts": [
+        { "mode": "boot", "re": "^rommon \\d+ ?>\\s*$" },
+        { "mode": "boot", "re": "^(?:switch|loader):\\s*$" },
+        { "mode": "config", "re": "^(?P<host>[\\w.\\-]+)\\((?P<sub>config[^)]*)\\)#\\s*$" },
+        { "mode": "privileged", "re": "^(?P<host>[\\w.\\-]+)#\\s*$" },
+        { "mode": "user", "re": "^(?P<host>[\\w.\\-]+)>\\s*$" }
+      ],
+      "paging": { "more": "--More--", "disable": "terminal length 0" }
+    },
+    {
+      "id": "cisco-ios",
+      "label": "Cisco IOS / IOS-XE",
+      "family": "cisco",
+      "identify": [
+        { "re": "Cisco IOS(?:[ -]XE)? Software", "weight": 5 },
+        { "re": "Cisco Internetwork Operating System", "weight": 5 },
+        { "re": "\\bIOS-XE\\b", "weight": 3 },
+        { "re": "cisco Systems, Inc\\.", "weight": 2 },
+        { "re": "\\bcisco (?:WS-C|C9\\d{3}|ISR|ASR|C\\d{4})", "weight": 3 }
+      ],
+      "prompts": [
+        { "mode": "boot", "re": "^rommon \\d+ ?>\\s*$" },
+        { "mode": "boot", "re": "^switch:\\s*$" },
+        { "mode": "config", "re": "^(?P<host>[\\w.\\-]+)\\((?P<sub>config[^)]*)\\)#\\s*$" },
+        { "mode": "privileged", "re": "^(?P<host>[\\w.\\-]+)#\\s*$" },
+        { "mode": "user", "re": "^(?P<host>[\\w.\\-]+)>\\s*$" }
+      ],
+      "paging": { "more": "--More--", "disable": "terminal length 0" }
+    },
+    {
+      "id": "cisco-nxos",
+      "label": "Cisco NX-OS",
+      "family": "cisco",
+      "identify": [
+        { "re": "Cisco Nexus Operating System", "weight": 6 },
+        { "re": "\\bNX-OS\\b", "weight": 5 },
+        { "re": "\\bNexus ?\\d{4}", "weight": 3 }
+      ],
+      "prompts": [
+        { "mode": "boot", "re": "^loader>\\s*$" },
+        { "mode": "config", "re": "^(?P<host>[\\w.\\-]+)\\((?P<sub>config[^)]*)\\)#\\s*$" },
+        { "mode": "privileged", "re": "^(?P<host>[\\w.\\-]+)#\\s*$" },
+        { "mode": "user", "re": "^(?P<host>[\\w.\\-]+)>\\s*$" }
+      ],
+      "paging": { "more": "--More--", "disable": "terminal length 0" }
+    },
+    {
+      "id": "ruijie-rgos",
+      "label": "Ruijie RGOS",
+      "family": "ruijie",
+      "identify": [
+        { "re": "\\bRGOS\\b", "weight": 5 },
+        { "re": "Ruijie Networks", "weight": 4 },
+        { "re": "\\bRuijie\\b", "weight": 3 },
+        { "re": "Red-Giant", "weight": 4 },
+        { "re": "System description\\s*:", "weight": 1 }
+      ],
+      "prompts": [
+        { "mode": "boot", "re": "^(?:BootLoader|Ctrl|bootloader)[>#]\\s*$" },
+        { "mode": "config", "re": "^(?P<host>[\\w.\\-]+)\\((?P<sub>config[^)]*)\\)#\\s*$" },
+        { "mode": "privileged", "re": "^(?P<host>[\\w.\\-]+)#\\s*$" },
+        { "mode": "user", "re": "^(?P<host>[\\w.\\-]+)>\\s*$" }
+      ],
+      "paging": { "more": "--More--", "disable": "terminal length 0" }
+    },
+    {
+      "id": "ruijie-reyee",
+      "label": "Ruijie Reyee",
+      "family": "ruijie",
+      "identify": [
+        { "re": "\\bReyee\\b", "weight": 6 },
+        { "re": "\\bReyeeOS\\b", "weight": 6 },
+        { "re": "\\bRG-(?:ES|NBS|EG|EAP|RAP)\\w*", "weight": 4 },
+        { "re": "\\bRuijie\\b", "weight": 2 }
+      ],
+      "prompts": [
+        { "mode": "config", "re": "^(?P<host>[\\w.\\-]+)\\((?P<sub>config[^)]*)\\)#\\s*$" },
+        { "mode": "privileged", "re": "^(?P<host>[\\w.\\-]+)#\\s*$" },
+        { "mode": "user", "re": "^(?P<host>[\\w.\\-]+)>\\s*$" }
+      ],
+      "paging": { "more": "--More--", "disable": "terminal length 0" }
+    }
+  ]
+}
