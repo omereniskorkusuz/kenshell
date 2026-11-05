@@ -586,5 +586,28 @@
     "deleted": "Not silindi.",
     "export": "Tüm notları Markdown olarak dışa aktar",
     "exported": "Notlar kaydedildi: {{path}}"
+  },
+  "snippets": {
+    "search": "Snippet ara",
+    "vendor": "Üretici",
+    "allVendors": "Tüm üreticiler",
+    "anyVendor": "Her cihaz",
+    "new": "Yeni snippet",
+    "edit": "Düzenle",
+    "save": "Kaydet",
+    "copy": "kopya",
+    "copyToMine": "Snippet'lerime kopyala",
+    "delete": "{{name}} sil",
+    "deleted": "“{{name}}” snippet'i silindi.",
+    "send": "{{name}} aktif sekmeye gönder",
+    "needsValues": "{{variables}} içeriyor: doldurma formu sonraki adımda",
+    "connectFirst": "Snippet göndermek için bir sekmeye bağlanın.",
+    "none": "Eşleşen snippet yok.",
+    "mine": "Snippet'lerim",
+    "starter": "hazır set",
+    "name": "Ad",
+    "folder": "Klasör",
+    "body": "Komutlar (her satıra bir)",
+    "bodyHint": "configure terminal\ninterface {{interface}}\n description {{description}}\nend"
   }
 }

@@ -6,7 +6,7 @@ use crate::error::Result;
 use crate::model::{Folder, SessionInput, SessionPatch, SessionRecord};
 use crate::secrets::forget_session;
 use crate::state::AppState;
-use crate::storage::{DeviceRecord, Note, NoteHit, PinnedNote};
+use crate::storage::{DeviceRecord, Note, NoteHit, PinnedNote, Snippet, SnippetInput};
 
 #[tauri::command]
 pub fn folder_list(state: State<'_, AppState>) -> Result<Vec<Folder>> {
@@ -182,6 +182,26 @@ pub fn notes_export(state: State<'_, AppState>, path: String) -> Result<()> {
 }
 
 /// Pinned notes' first lines (subtitles in the session list, P3-T09).
+#[tauri::command]
+pub fn snippets_list(state: State<'_, AppState>) -> Result<Vec<Snippet>> {
+    state.db.list_snippets()
+}
+
+#[tauri::command]
+pub fn snippet_create(state: State<'_, AppState>, input: SnippetInput) -> Result<Snippet> {
+    state.db.create_snippet(&input)
+}
+
+#[tauri::command]
+pub fn snippet_update(state: State<'_, AppState>, id: i64, input: SnippetInput) -> Result<Snippet> {
+    state.db.update_snippet(id, &input)
+}
+
+#[tauri::command]
+pub fn snippet_delete(state: State<'_, AppState>, id: i64) -> Result<()> {
+    state.db.delete_snippet(id)
+}
+
 #[tauri::command]
 pub fn history_list(
     state: State<'_, AppState>,

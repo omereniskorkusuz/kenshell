@@ -145,6 +145,25 @@ export interface Note {
   updatedAt: number;
 }
 
+export interface Snippet {
+  id: number;
+  /** `Ports/Access` style path; empty = top level. */
+  folder: string;
+  name: string;
+  body: string;
+  /** Vendor family, or null = any device. */
+  vendor: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SnippetInput {
+  folder: string;
+  name: string;
+  body: string;
+  vendor: string | null;
+}
+
 export interface PinnedNote {
   sessionId: number | null;
   deviceId: number | null;
@@ -538,6 +557,11 @@ export const api = {
   notesSearch: (text: string) => call<NoteHit[]>('notes_search', { text }),
   notesExport: (path: string) => call<undefined>('notes_export', { path }),
   notesPinned: () => call<PinnedNote[]>('notes_pinned'),
+  snippetsList: () => call<Snippet[]>('snippets_list'),
+  snippetCreate: (input: SnippetInput) => call<Snippet>('snippet_create', { input }),
+  snippetUpdate: (id: number, input: SnippetInput) =>
+    call<Snippet>('snippet_update', { id, input }),
+  snippetDelete: (id: number) => call<undefined>('snippet_delete', { id }),
   historyList: (sessionId: number | null, deviceId: number | null) =>
     call<string[]>('history_list', { sessionId, deviceId }),
   historyAdd: (sessionId: number | null, deviceId: number | null, command: string) =>

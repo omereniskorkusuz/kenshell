@@ -18,6 +18,8 @@ import type {
   Folder,
   OpenRequest,
   Note,
+  Snippet,
+  SnippetInput,
   RuntimeId,
   SessionEvent,
   SessionInput,
@@ -31,6 +33,8 @@ import { framingLabel } from '../format';
 import { FakeCli } from './cli';
 
 const mockHistory = new Map<string, string[]>();
+let mockSnippets: Snippet[] = [];
+let nextSnippetId = 1;
 const enc = new TextEncoder();
 const now = () => Date.now();
 const HOUR = 3_600_000;
@@ -804,6 +808,32 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           .map((n) => ({ sessionId: n.sessionId, deviceId: n.deviceId }));
       }
       case 'notes_export':
+        return undefined;
+      case 'snippets_list':
+        return mockSnippets;
+      case 'snippet_create': {
+        const i = a.input as SnippetInput;
+        const s: Snippet = {
+          ...i,
+          id: nextSnippetId++,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        mockSnippets = [...mockSnippets, s];
+        return s;
+      }
+      case 'snippet_update': {
+        const i = a.input as SnippetInput;
+        const cur = need(
+          mockSnippets.find((x) => x.id === a.id),
+          'snippet',
+        );
+        const s: Snippet = { ...cur, ...i, updatedAt: Date.now() };
+        mockSnippets = mockSnippets.map((x) => (x.id === s.id ? s : x));
+        return s;
+      }
+      case 'snippet_delete':
+        mockSnippets = mockSnippets.filter((x) => x.id !== a.id);
         return undefined;
       case 'history_list':
         return mockHistory.get(`${a.sessionId ?? '-'}:${a.deviceId ?? '-'}`) ?? [];

@@ -176,6 +176,20 @@ CREATE INDEX idx_history_device ON command_history(device_id, used_at);
 CREATE INDEX idx_history_session ON command_history(session_id, used_at);
 "#,
     },
+    Migration {
+        name: "v9 snippets",
+        sql: r#"
+CREATE TABLE snippets (
+    id         INTEGER PRIMARY KEY,
+    folder     TEXT    NOT NULL DEFAULT '',
+    name       TEXT    NOT NULL,
+    body       TEXT    NOT NULL,
+    vendor     TEXT    NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+"#,
+    },
 ];
 
 /// Schema version this build expects.
@@ -271,7 +285,8 @@ mod tests {
                 "notes_fts_idx",
                 "port_memory",
                 "sessions",
-                "settings"
+                "settings",
+                "snippets"
             ]
         );
     }

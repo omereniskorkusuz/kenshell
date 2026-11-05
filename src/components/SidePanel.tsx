@@ -8,6 +8,7 @@ import { useT, type TKey } from '../i18n';
 import { LIMITS, useSettings } from '../stores/settings';
 import { useUi, type SidePanelTab } from '../stores/ui';
 import { NotesPanel } from './NotesPanel';
+import { SnippetsPanel } from './SnippetsPanel';
 import { ResizeHandle } from './ResizeHandle';
 
 export const PUSH_MIN_WIDTH = 1600;
@@ -120,6 +121,10 @@ export function SidePanel() {
       {current.id === 'notes' ? (
         <div role="tabpanel" className="flex min-h-0 flex-1 flex-col">
           <NotesPanel />
+        </div>
+      ) : current.id === 'snippets' ? (
+        <div role="tabpanel" className="flex min-h-0 flex-1 flex-col">
+          <SnippetsPanel />
         </div>
       ) : (
         <div
