@@ -3,6 +3,7 @@
  */
 import { useEffect, useId, useState, type ReactNode, type FormEvent } from 'react';
 import { Dialog } from '../components/Dialog';
+import ColorsSection from './ColorsSection';
 import KeysSection from './KeysSection';
 import { api, type ImportReport, type ImportSource, type ImportSources } from '../lib/ipc';
 import { describeError } from '../lib/errors';
@@ -193,6 +194,7 @@ function AppearanceSection() {
           />
         )}
       </Row>
+      <ColorsSection />
     </>
   );
 }

@@ -528,5 +528,20 @@
       "rtscts": "RTS/CTS",
       "xonxoff": "XON/XOFF"
     }
+  },
+  "colors": {
+    "modes": "Mode colours",
+    "modesHint": "Colour and label of each CLI mode, for every vendor. Applies to both themes.",
+    "modeColor": "{{mode}} colour",
+    "modeLabel": "{{mode}} label",
+    "reset": "Back to default",
+    "vendor": "Vendor override",
+    "vendorHint": "Different colours for one vendor; empty rows use the mode colours above.",
+    "vendorColor": "{{vendor}} {{mode}} colour",
+    "inherit": "Use the mode colour",
+    "inherited": "mode colour",
+    "env": "Environment colours",
+    "envColor": "{{env}} colour",
+    "resetAll": "Reset all colours"
   }
 }

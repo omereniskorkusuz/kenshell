@@ -78,6 +78,7 @@ export function Pane({ tab, visible, focused, rect }: Props) {
       aria-labelledby={`tab-${tab.key}`}
       hidden={!visible}
       data-mode={tab.mode}
+      data-vendor={tab.device.vendor?.family}
       data-env={envKind(tab.envTag) ?? undefined}
       data-state={tab.state}
       data-pane={tab.key}

@@ -240,6 +240,7 @@ export function TabBar() {
               aria-label={`${tab.name}, ${status.text}${inView ? `, ${t('tabs.inView')}` : ''}`}
               tabIndex={selected ? 0 : -1}
               data-mode={tab.mode}
+              data-vendor={tab.device.vendor?.family}
               data-env={env ?? undefined}
               data-state={tab.state}
               data-in-view={inView || undefined}

@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 import { api, type Settings } from '../lib/ipc';
+import { NO_COLORS, sanitizeColors, type ColorSettings } from '../lib/modeColors';
 
 export type ThemePref = 'dark' | 'light' | 'system';
 export type LanguagePref = 'system' | 'tr' | 'en';
@@ -12,6 +13,8 @@ export type StripeWidth = 4 | 8;
 export interface AppSettings {
   'appearance.theme': ThemePref;
   'appearance.modeStripeWidth': StripeWidth;
+  /** Mode / vendor / environment colours and mode labels (P3-T07); empty = design tokens. */
+  'appearance.colors': ColorSettings;
   'general.language': LanguagePref;
   'terminal.fontSize': number;
   'terminal.scrollback': number;
@@ -52,6 +55,7 @@ export type SettingKey = keyof AppSettings;
 export const DEFAULT_SETTINGS: AppSettings = {
   'appearance.theme': 'dark',
   'appearance.modeStripeWidth': 4,
+  'appearance.colors': NO_COLORS,
   'general.language': 'system',
   'terminal.fontSize': 13,
   'terminal.scrollback': 10_000,
@@ -108,6 +112,8 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
         return oneOf(value, ['dark', 'light', 'system'] as const, d[k]);
       case 'appearance.modeStripeWidth':
         return oneOf(value, [4, 8] as const, d[k]);
+      case 'appearance.colors':
+        return sanitizeColors(value);
       case 'general.language':
         return oneOf(value, ['system', 'tr', 'en'] as const, d[k]);
       case 'terminal.fontSize':

@@ -528,5 +528,20 @@
       "rtscts": "RTS/CTS",
       "xonxoff": "XON/XOFF"
     }
+  },
+  "colors": {
+    "modes": "Mod renkleri",
+    "modesHint": "Her CLI modunun rengi ve etiketi, tüm üreticiler için. İki temada da geçerli.",
+    "modeColor": "{{mode}} rengi",
+    "modeLabel": "{{mode}} etiketi",
+    "reset": "Varsayılana dön",
+    "vendor": "Üreticiye özel",
+    "vendorHint": "Tek bir üretici için farklı renkler; boş satırlar yukarıdaki mod renklerini kullanır.",
+    "vendorColor": "{{vendor}} {{mode}} rengi",
+    "inherit": "Mod rengini kullan",
+    "inherited": "mod rengi",
+    "env": "Ortam renkleri",
+    "envColor": "{{env}} rengi",
+    "resetAll": "Tüm renkleri varsayılana döndür"
   }
 }

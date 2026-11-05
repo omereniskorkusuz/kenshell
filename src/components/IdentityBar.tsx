@@ -16,6 +16,7 @@ import { isMac } from '../lib/ipc';
 import { protocolOf, serialOf, tabStatus, targetLabel, type LiveTab } from '../lib/sessionState';
 import { formatChord } from '../lib/shortcuts';
 import { envLabel } from '../lib/tree';
+import { useSettings } from '../stores/settings';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
 import { IdentityDetails } from './IdentityDetails';
@@ -37,6 +38,7 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
   const sidePanelOpen = useUi((s) => s.sidePanelOpen);
   const baudMenu = useMenu();
   const [details, setDetails] = useState(false);
+  const customLabels = useSettings((s) => s.values['appearance.colors'].labels);
   const parts = compact ? compactParts(width) : { uptime: true, chip: true, protocol: true };
   const env = envLabel(tab.envTag);
   const connected = tab.state === 'connected';
@@ -107,7 +109,7 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
       className="chip mode-chip shrink-0"
       title={tab.submode ? `${t('identity.modeHint')} · ${tab.submode}` : t('identity.modeHint')}
     >
-      {t(`mode.${tab.mode}` as TKey)}
+      {(tab.mode !== 'unknown' && customLabels[tab.mode]) || t(`mode.${tab.mode}` as TKey)}
     </span>
   );
   // What the device told us: host name from the prompt (when it differs from the tab name)

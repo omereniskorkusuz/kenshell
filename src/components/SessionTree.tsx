@@ -497,6 +497,7 @@ export function SessionTree() {
         tabIndex={focusable === sel ? 0 : -1}
         data-tree-row={sel}
         data-mode={tab ? tab.mode : undefined}
+        data-vendor={tab?.device.vendor?.family}
         data-env={kind ?? undefined}
         className="tree-row cursor-default"
         style={pad}
