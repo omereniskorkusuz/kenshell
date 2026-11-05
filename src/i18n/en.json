@@ -143,7 +143,9 @@
     "env": "Environment",
     "uptime": "Connected for",
     "break": "BREAK",
-    "breakHint": "Send a serial BREAK signal (e.g. to enter ROMMON)"
+    "breakHint": "Send a serial BREAK signal (e.g. to enter ROMMON)",
+    "device": "Device (from the prompt and version output)",
+    "reloading": "Device restarting · {{time}}"
   },
   "tabs": {
     "label": "Open sessions",

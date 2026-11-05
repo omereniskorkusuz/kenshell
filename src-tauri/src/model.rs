@@ -389,6 +389,19 @@ pub enum SessionEvent {
     },
     /// Last event before the session's output moves to another window (P2-T19).
     Parked,
+    /// CLI mode from the current prompt (P3-T03); `sub` e.g. `config-if`.
+    Mode {
+        mode: crate::device::modes::CliMode,
+        sub: Option<String>,
+    },
+    /// Host name from the prompt and/or vendor from banner / `show version` (only the
+    /// fields that are known are set).
+    Identity {
+        hostname: Option<String>,
+        vendor: Option<crate::device::observer::VendorInfo>,
+    },
+    /// Boot messages: the device restarts; the next `Mode` event means it is back.
+    Reload,
 }
 
 // ---------------------------------------------------------------- network sessions (Phase 2)

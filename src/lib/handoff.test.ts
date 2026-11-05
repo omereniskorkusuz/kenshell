@@ -29,7 +29,13 @@ const tab: LiveTab = {
   logPath: null,
   health: null,
   connectedAt: 1000,
-  mode: 'unknown',
+  mode: 'config',
+  submode: 'config-if',
+  device: {
+    hostname: 'core-sw1',
+    vendor: { id: 'cisco-ios', label: 'Cisco IOS / IOS-XE', family: 'cisco' },
+  },
+  reloadAt: null,
 };
 
 describe('tab handoff', () => {

@@ -17,6 +17,7 @@ import type {
   SerialLink,
   SerialSettings,
   SessionEvent,
+  VendorInfo,
 } from './ipc';
 import { DEFAULT_PORTS } from './ipc';
 import type { PendingPrompt } from './prompt';
@@ -46,7 +47,20 @@ export interface LiveTab {
   health: HealthKind | null;
   connectedAt: number | null;
   mode: CliMode;
+  /** Sub-mode from the prompt, e.g. `config-if-GigabitEthernet 0/24`. */
+  submode: string | null;
+  /** What the session learned about the device (kept across reconnects). */
+  device: DeviceInfo;
+  /** When boot messages were seen (device restarting), until the next prompt. */
+  reloadAt: number | null;
 }
+
+export interface DeviceInfo {
+  hostname: string | null;
+  vendor: VendorInfo | null;
+}
+
+export const NO_DEVICE: DeviceInfo = { hostname: null, vendor: null };
 
 export function applySessionEvent(tab: LiveTab, ev: SessionEvent, now: number): LiveTab {
   switch (ev.type) {
@@ -76,6 +90,9 @@ export function applySessionEvent(tab: LiveTab, ev: SessionEvent, now: number): 
         case 'disconnected':
           return {
             ...tab,
+            mode: 'unknown',
+            submode: null,
+            reloadAt: null,
             prompt: null,
             state: 'disconnected',
             error: ev.error,
@@ -109,6 +126,18 @@ export function applySessionEvent(tab: LiveTab, ev: SessionEvent, now: number): 
     case 'parked':
       // Handled by the tabs store (end marker while the tab moves to another window).
       return tab;
+    case 'mode':
+      return { ...tab, mode: ev.mode, submode: ev.sub, reloadAt: null };
+    case 'identity':
+      return {
+        ...tab,
+        device: {
+          hostname: ev.hostname ?? tab.device.hostname,
+          vendor: ev.vendor ?? tab.device.vendor,
+        },
+      };
+    case 'reload':
+      return { ...tab, mode: 'unknown', submode: null, reloadAt: tab.reloadAt ?? now };
   }
 }
 

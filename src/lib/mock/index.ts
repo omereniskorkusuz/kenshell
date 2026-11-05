@@ -226,6 +226,35 @@ function portExists(path: string): ConsolePort | undefined {
 
 // ------------------------------------------------------------------ live sessions
 
+/**
+ * Browser demo only: the backend DeviceObserver reports modes from prompts; the mock mirrors
+ * its generic Cisco-like patterns so the mode colour changes in the demo too.
+ */
+class MockModeWatch {
+  private last = '';
+  constructor(private readonly onEvent: (e: SessionEvent) => void) {}
+  see(text: string): void {
+    const line = text.split(/\r?\n|\r/).pop() ?? '';
+    const cfg = /^([\w.-]+)\((config[^)]*)\)#\s*$/.exec(line);
+    const priv = /^([\w.-]+)#\s*$/.exec(line);
+    const user = /^([\w.-]+)>\s*$/.exec(line);
+    const hit = cfg
+      ? { mode: 'config' as const, sub: cfg[2] ?? null, host: cfg[1] }
+      : priv
+        ? { mode: 'privileged' as const, sub: null, host: priv[1] }
+        : user
+          ? { mode: 'user' as const, sub: null, host: user[1] }
+          : null;
+    if (!hit) return;
+    const key = `${hit.mode}|${hit.sub}`;
+    if (key !== this.last) {
+      this.last = key;
+      this.onEvent({ type: 'mode', mode: hit.mode, sub: hit.sub });
+      this.onEvent({ type: 'identity', hostname: hit.host ?? null, vendor: null });
+    }
+  }
+}
+
 class MockLive {
   private timers: ReturnType<typeof setTimeout>[] = [];
   private cli: FakeCli;
@@ -387,8 +416,11 @@ class MockLive {
     this.onEvent({ type: 'state', state, error });
   }
 
+  private modes: MockModeWatch | null = null;
+
   private emit(text: string): void {
     this.onData(enc.encode(text));
+    (this.modes ??= new MockModeWatch(this.onEvent)).see(text);
   }
 
   private later(ms: number, fn: () => void): void {
@@ -406,6 +438,12 @@ class MockNetLive {
   private timers: ReturnType<typeof setTimeout>[] = [];
   private cli: FakeCli;
   private state: 'connecting' | 'connected' | 'disconnected' = 'connecting';
+  private modes: MockModeWatch | null = null;
+
+  private out(text: string): void {
+    this.onData(enc.encode(text));
+    (this.modes ??= new MockModeWatch(this.onEvent)).see(text);
+  }
 
   constructor(
     readonly id: RuntimeId,
@@ -475,13 +513,13 @@ class MockNetLive {
       },
     });
     this.onEvent({ type: 'state', state: 'connected', error: null });
-    this.later(100, () => this.onData(enc.encode(this.cli.banner())));
+    this.later(100, () => this.out(this.cli.banner()));
   }
 
   write(data: string): void {
     if (this.state !== 'connected') return;
     const out = this.cli.input(data);
-    if (out) this.later(8, () => this.onData(enc.encode(out)));
+    if (out) this.later(8, () => this.out(out));
   }
 
   sendBreak(): void {

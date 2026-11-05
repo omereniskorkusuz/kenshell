@@ -30,6 +30,7 @@ import {
   endpointLabel,
   portLabel,
   serialOf,
+  NO_DEVICE,
   tabStatus,
   type LiveTab,
 } from '../lib/sessionState';
@@ -405,6 +406,9 @@ export const useTabs = create<TabsState>()((set, get) => {
         health: null,
         connectedAt: null,
         mode: 'unknown',
+        submode: null,
+        device: NO_DEVICE,
+        reloadAt: null,
       };
       autoMeta.set(key, meta.autoCommands ?? []);
       set((s) => ({ tabs: [...s.tabs, fresh] }));

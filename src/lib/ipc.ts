@@ -344,7 +344,23 @@ export type SessionEvent =
   | { type: 'logging'; path: string | null; error: AppError | null }
   | { type: 'health'; kind: HealthKind }
   /** Last event before the session moves to another window (P2-T19). */
-  | { type: 'parked' };
+  | { type: 'parked' }
+  /** CLI mode from the current prompt (P3-T03). */
+  | { type: 'mode'; mode: DeviceMode; sub: string | null }
+  /** Host name (prompt) and/or vendor (banner, show version); unknown parts are null. */
+  | { type: 'identity'; hostname: string | null; vendor: VendorInfo | null }
+  /** The device is restarting; the next `mode` event means it is back. */
+  | { type: 'reload' };
+
+export type DeviceMode = 'user' | 'privileged' | 'config' | 'boot' | 'shell';
+
+export interface VendorInfo {
+  /** Profile id, e.g. `ruijie-rgos`. */
+  id: string;
+  label: string;
+  /** `cisco`, `ruijie`, `generic` … */
+  family: string;
+}
 
 // ------------------------------------------------------------------ plumbing
 

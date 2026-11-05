@@ -384,6 +384,8 @@ pub(crate) struct SessionTask {
     ctx: Ctx,
     cmds: UnboundedReceiver<Command>,
     registry: Weak<Registry>,
+    /// Mode / identity / reload from the output (keeps no output itself, P3-T03).
+    observer: crate::device::observer::Observer,
 }
 
 impl SessionTask {
@@ -414,6 +416,7 @@ impl SessionTask {
             },
             cmds,
             registry,
+            observer: crate::device::observer::Observer::new(),
         }
     }
 
@@ -551,6 +554,7 @@ impl SessionTask {
     async fn connected(&mut self, link: Link) -> Next {
         let (mut transport, mut rx) = link;
         let log = self.open_log().await;
+        self.observer.reconnected();
         let mut carry: Option<TransportEvent> = None;
         let mut detach_deadline: Option<Instant> = None;
         loop {
@@ -594,7 +598,11 @@ impl SessionTask {
                     if let Some(log) = &log {
                         log.write(&buf);
                     }
+                    let seen = self.observer.feed(&buf);
                     self.ctx.out.data(buf);
+                    for o in seen {
+                        self.ctx.out.event(observation_event(o));
+                    }
                 }
                 Ev::Transport(Some(TransportEvent::Closed(err))) => {
                     return self.link_lost(transport, err).await;
@@ -720,6 +728,15 @@ impl SessionTask {
                 ) => {}
             }
         }
+    }
+}
+
+fn observation_event(o: crate::device::observer::Observation) -> SessionEvent {
+    use crate::device::observer::Observation;
+    match o {
+        Observation::Mode { mode, sub } => SessionEvent::Mode { mode, sub },
+        Observation::Identity { hostname, vendor } => SessionEvent::Identity { hostname, vendor },
+        Observation::Reload => SessionEvent::Reload,
     }
 }
 

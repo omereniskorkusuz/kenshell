@@ -686,3 +686,77 @@ async fn net_e2e_ssh_agent_key_logs_in_and_unknown_key_falls_back_to_password() 
     m.close(id).unwrap();
     *TEST_SOCKET.lock().unwrap() = None;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs target/debug/device-simulator"]
+async fn net_e2e_modes_follow_the_prompt_and_ruijie_is_identified() {
+    use crate::device::modes::CliMode;
+    let port = free_port();
+    let _sim = sim(&["--profile", "ruijie"], port);
+    let (m, _db) = manager();
+    let out = Arc::new(Rec::default());
+    let id = m
+        .open(net(Protocol::Telnet, port, None, false), out.clone())
+        .unwrap();
+    until("connected", || connected(&out)).await;
+    let modes = |r: &Rec| -> Vec<(CliMode, Option<String>)> {
+        r.events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|e| match e {
+                SessionEvent::Mode { mode, sub } => Some((*mode, sub.clone())),
+                _ => None,
+            })
+            .collect()
+    };
+    let last_mode = |r: &Rec| modes(r).last().cloned();
+    until("username", || out.text().contains("Username:")).await;
+    for (send, want) in [("admin\r", "Password:"), ("admin\r", "access-sw-02>")] {
+        m.write(id, send.as_bytes()).unwrap();
+        until(want, || out.text().contains(want)).await;
+    }
+    until("user mode", || {
+        last_mode(&out) == Some((CliMode::User, None))
+    })
+    .await;
+    for (send, want) in [("en\r", "Password:"), ("ruijie\r", "access-sw-02#")] {
+        m.write(id, send.as_bytes()).unwrap();
+        until(want, || out.text().contains(want)).await;
+    }
+    until("privileged", || {
+        last_mode(&out) == Some((CliMode::Privileged, None))
+    })
+    .await;
+    m.write(id, b"show version\r").unwrap();
+    until("identified as Ruijie", || {
+        out.events.lock().unwrap().iter().any(
+            |e| matches!(e, SessionEvent::Identity { vendor: Some(v), .. } if v.family == "ruijie"),
+        )
+    })
+    .await;
+    m.write(id, b"conf t\r").unwrap();
+    until("config", || {
+        last_mode(&out) == Some((CliMode::Config, Some("config".into())))
+    })
+    .await;
+    m.write(id, b"int gi 0/24\r").unwrap();
+    until("interface sub-mode", || {
+        last_mode(&out)
+            == Some((
+                CliMode::Config,
+                Some("config-if-GigabitEthernet 0/24".into()),
+            ))
+    })
+    .await;
+    m.write(id, b"end\r").unwrap();
+    until("back to privileged", || {
+        last_mode(&out) == Some((CliMode::Privileged, None))
+    })
+    .await;
+    // Ruijie must never be labelled Cisco.
+    assert!(!out.events.lock().unwrap().iter().any(|e| {
+        matches!(e, SessionEvent::Identity { vendor: Some(v), .. } if v.family == "cisco")
+    }));
+    m.close(id).unwrap();
+}

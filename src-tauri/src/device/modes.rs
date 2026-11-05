@@ -59,6 +59,7 @@ struct RawProfile {
 struct RawData {
     min_score: u32,
     default_profile: String,
+    reload: Vec<String>,
     profiles: Vec<RawProfile>,
 }
 
@@ -68,8 +69,10 @@ pub struct Profile {
     pub label: String,
     /// `cisco`, `ruijie`, … (`generic` for the fallback).
     pub family: String,
-    /// Paging prompt (`--More--`) and the command that disables paging.
+    /// Paging prompt (`--More--`) and the command that disables paging (P3-T04/T14).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub more: String,
+    #[cfg_attr(not(test), allow(dead_code))]
     pub disable_paging: String,
     prompts: Vec<(CliMode, Regex)>,
     clues: Vec<(Regex, u32)>,
@@ -88,6 +91,7 @@ struct Table {
     profiles: Vec<Profile>,
     default: usize,
     min_score: u32,
+    reload: regex::RegexSet,
 }
 
 fn table() -> &'static Table {
@@ -129,6 +133,7 @@ fn table() -> &'static Table {
             profiles,
             default,
             min_score: raw.min_score,
+            reload: regex::RegexSet::new(&raw.reload).expect("reload patterns"),
         }
     })
 }
@@ -162,8 +167,15 @@ pub fn default_profile() -> &'static Profile {
     &t.profiles[t.default]
 }
 
+/// Profile by id (stored device vendors, P3-T04).
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn profile(id: &str) -> Option<&'static Profile> {
     table().profiles.iter().find(|p| p.id == id)
+}
+
+/// True when a completed output line means the device is restarting.
+pub fn is_reload_line(line: &str) -> bool {
+    table().reload.is_match(line)
 }
 
 /// The vendor profile best supported by `text` (banner, login, `show version`), or `None`
@@ -203,9 +215,16 @@ mod tests {
     }
 
     #[derive(Deserialize)]
+    struct ReloadCase {
+        line: String,
+        reload: bool,
+    }
+
+    #[derive(Deserialize)]
     struct Cases {
         prompts: Vec<PromptCase>,
         identify: Vec<IdentifyCase>,
+        reload: Vec<ReloadCase>,
     }
 
     fn cases() -> Cases {
@@ -234,6 +253,13 @@ mod tests {
                 "{:?}",
                 c.text
             );
+        }
+    }
+
+    #[test]
+    fn reload_lines() {
+        for c in cases().reload {
+            assert_eq!(is_reload_line(&c.line), c.reload, "{:?}", c.line);
         }
     }
 

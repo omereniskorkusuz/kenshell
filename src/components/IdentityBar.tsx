@@ -96,8 +96,22 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
     </span>
   );
   const modeChip = (
-    <span className="chip mode-chip shrink-0" title={t('identity.modeHint')}>
+    <span
+      className="chip mode-chip shrink-0"
+      title={tab.submode ? `${t('identity.modeHint')} · ${tab.submode}` : t('identity.modeHint')}
+    >
       {t(`mode.${tab.mode}` as TKey)}
+    </span>
+  );
+  // What the device told us: host name from the prompt (when it differs from the tab name)
+  // and the vendor once identified (Ruijie is never shown as Cisco: "Cisco-like" until sure).
+  const host = tab.device.hostname;
+  const deviceText = [host && host !== tab.name ? host : null, tab.device.vendor?.label]
+    .filter(Boolean)
+    .join(' · ');
+  const device = deviceText && (
+    <span className="min-w-0 shrink-[3] truncate text-xs text-muted" title={t('identity.device')}>
+      {deviceText}
     </span>
   );
   const envChip = env && (
@@ -107,10 +121,18 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
   );
   const statusEl = (
     <span className="flex min-w-0 items-center gap-1.5" title={status.detail ?? undefined}>
-      <span className="status-dot" data-tone={status.tone} aria-hidden />
-      <span className="tone-text truncate" data-tone={status.tone}>
-        {status.text}
-      </span>
+      <span
+        className="status-dot"
+        data-tone={tab.reloadAt !== null && connected ? 'busy' : status.tone}
+        aria-hidden
+      />
+      {tab.reloadAt !== null && connected ? (
+        <ReloadCounter since={tab.reloadAt} />
+      ) : (
+        <span className="tone-text truncate" data-tone={status.tone}>
+          {status.text}
+        </span>
+      )}
       {status.suggestion !== null && (
         <>
           <span className="text-muted" aria-hidden>
@@ -206,6 +228,7 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
               ›
             </span>
             {name}
+            {device}
           </div>
           <div className="flex min-w-0 items-center gap-2">
             {modeChip}
@@ -226,6 +249,21 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
         />
       )}
     </div>
+  );
+}
+
+/** "Device restarting · 01:42" while boot messages are seen (until the next prompt). */
+function ReloadCounter({ since }: { since: number }) {
+  const t = useT();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className="tone-text truncate" data-tone="busy" role="status">
+      {t('identity.reloading', { time: formatUptime(now - since).slice(3) })}
+    </span>
   );
 }
 

@@ -143,7 +143,9 @@
     "env": "Ortam",
     "uptime": "Bağlantı süresi",
     "break": "BREAK",
-    "breakHint": "Seri BREAK sinyali gönder (ör. ROMMON'a girmek için)"
+    "breakHint": "Seri BREAK sinyali gönder (ör. ROMMON'a girmek için)",
+    "device": "Cihaz (prompt ve sürüm çıktısından)",
+    "reloading": "Cihaz açılıyor · {{time}}"
   },
   "tabs": {
     "label": "Açık oturumlar",
