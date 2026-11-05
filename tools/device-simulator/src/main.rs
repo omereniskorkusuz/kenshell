@@ -36,6 +36,8 @@ struct Options {
     ssh: bool,
     host_key_seed: u64,
     legacy_only: bool,
+    /// OpenSSH public key lines accepted for publickey auth (repeatable).
+    authorized_keys: Vec<String>,
     port_set: bool,
     list: bool,
 }
@@ -52,6 +54,7 @@ fn parse_args() -> Result<Options, String> {
         ssh: false,
         host_key_seed: 1,
         legacy_only: false,
+        authorized_keys: Vec::new(),
         port_set: false,
         list: false,
     };
@@ -67,6 +70,7 @@ fn parse_args() -> Result<Options, String> {
             }
             "--ssh" => o.ssh = true,
             "--legacy-only" => o.legacy_only = true,
+            "--authorized-key" => o.authorized_keys.push(val()?),
             "--host-key-seed" => {
                 o.host_key_seed = val()?
                     .parse()
@@ -101,7 +105,7 @@ fn main() {
                 eprintln!("error: {e}");
             }
             eprintln!(
-                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--ssh [--host-key-seed N] [--legacy-only]] [--stdio] [--pty [--baud N]] [--list]"
+                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--ssh [--host-key-seed N] [--legacy-only] [--authorized-key 'ssh-ed25519 AAAA…']] [--stdio] [--pty [--baud N]] [--list]"
             );
             std::process::exit(2);
         }
@@ -129,6 +133,7 @@ fn main() {
                 port: if opts.port_set { opts.port } else { 2222 },
                 host_key_seed: opts.host_key_seed,
                 legacy_only: opts.legacy_only,
+                authorized_keys: opts.authorized_keys.clone(),
             },
         );
         if let Err(e) = result {

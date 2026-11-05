@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use russh::keys::ssh_key::private::Ed25519Keypair;
-use russh::keys::{HashAlg, PrivateKey};
+use russh::keys::{HashAlg, PrivateKey, PublicKey};
 use russh::server::{self, Auth, Msg, Response, Session as SshSession};
 use russh::{Channel, ChannelId, MethodKind, MethodSet, Preferred, cipher, kex, mac};
 
@@ -21,6 +21,8 @@ pub struct Options {
     pub port: u16,
     pub host_key_seed: u64,
     pub legacy_only: bool,
+    /// OpenSSH public key lines accepted for publickey auth (agent tests).
+    pub authorized_keys: Vec<String>,
 }
 
 fn host_key(seed: u64) -> PrivateKey {
@@ -52,7 +54,17 @@ async fn serve(profile: &'static Profile, opts: Options) -> std::io::Result<()> 
         preferred.cipher = Cow::Borrowed(&[cipher::AES_128_CBC]);
         preferred.mac = Cow::Borrowed(&[mac::HMAC_SHA1]);
     }
+    let authorized: Arc<Vec<PublicKey>> = Arc::new(
+        opts.authorized_keys
+            .iter()
+            .map(|line| PublicKey::from_openssh(line.trim()))
+            .collect::<Result<_, _>>()
+            .map_err(|e| std::io::Error::other(format!("--authorized-key: {e}")))?,
+    );
     let mut methods = MethodSet::empty();
+    if !authorized.is_empty() {
+        methods.push(MethodKind::PublicKey);
+    }
     methods.push(MethodKind::KeyboardInteractive);
     methods.push(MethodKind::Password);
     let config = Arc::new(server::Config {
@@ -79,12 +91,14 @@ async fn serve(profile: &'static Profile, opts: Options) -> std::io::Result<()> 
     loop {
         let (stream, peer) = listener.accept().await?;
         let config = Arc::clone(&config);
+        let authorized = Arc::clone(&authorized);
         tokio::spawn(async move {
             eprintln!("+ {peer} (ssh)");
             let handler = Handler {
                 profile,
                 engine: None,
                 shell: None,
+                authorized,
             };
             match server::run_stream(config, stream, handler).await {
                 Ok(session) => {
@@ -104,11 +118,20 @@ struct Handler {
     engine: Option<Session<'static>>,
     /// Channel running the CLI; tunnel channels (direct-tcpip) never reach the engine.
     shell: Option<ChannelId>,
+    authorized: Arc<Vec<PublicKey>>,
 }
 
 impl Handler {
     fn valid(&self, user: &str, password: &str) -> bool {
         user == self.profile.username && password == self.profile.password
+    }
+
+    fn key_ok(&self, user: &str, key: &PublicKey) -> bool {
+        user == self.profile.username
+            && self
+                .authorized
+                .iter()
+                .any(|k| k.key_data() == key.key_data())
     }
 }
 
@@ -117,6 +140,32 @@ impl server::Handler for Handler {
 
     async fn auth_password(&mut self, user: &str, password: &str) -> Result<Auth, Self::Error> {
         Ok(if self.valid(user, password) {
+            Auth::Accept
+        } else {
+            Auth::reject()
+        })
+    }
+
+    async fn auth_publickey_offered(
+        &mut self,
+        user: &str,
+        offer: server::PublicKeyOffer<'_>,
+    ) -> Result<Auth, Self::Error> {
+        Ok(if self.key_ok(user, offer.public_key) {
+            Auth::Accept
+        } else {
+            Auth::reject()
+        })
+    }
+
+    /// Called after russh verified the signature.
+    async fn auth_publickey(
+        &mut self,
+        user: &str,
+        key: server::VerifiedPublicKey<'_>,
+    ) -> Result<Auth, Self::Error> {
+        Ok(if self.key_ok(user, key.public_key) {
+            eprintln!("  publickey auth: {}", key.algorithm);
             Auth::Accept
         } else {
             Auth::reject()

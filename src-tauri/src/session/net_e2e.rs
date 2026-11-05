@@ -590,3 +590,99 @@ async fn net_e2e_ssh_jump_host_forwards_and_proxy() {
     m.close(id2).unwrap();
     m.close(id).unwrap();
 }
+
+/// A real `ssh-agent` (OpenSSH) holding a key made by our own generator.
+#[cfg(unix)]
+struct Agent {
+    child: Child,
+    dir: PathBuf,
+    sock: PathBuf,
+}
+
+#[cfg(unix)]
+impl Agent {
+    fn start(tag: u16) -> Self {
+        // Short path: unix socket paths are limited to ~104 bytes on macOS.
+        let dir = PathBuf::from(format!("/tmp/ks-agent-{}-{tag}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let sock = dir.join("s");
+        let child = Proc::new("ssh-agent")
+            .arg("-D")
+            .arg("-a")
+            .arg(&sock)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("ssh-agent (OpenSSH) must be installed");
+        let start = Instant::now();
+        while !sock.exists() {
+            assert!(start.elapsed() < Duration::from_secs(10), "agent socket");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        Self { child, dir, sock }
+    }
+
+    /// Generates an Ed25519 key, adds it to the agent and returns its public line.
+    fn add_new_key(&self, name: &str) -> String {
+        use crate::keys::{KeyFormat, KeyKind, encode, generate, public_line};
+        let key = generate(KeyKind::Ed25519, name).unwrap();
+        let path = self.dir.join(name);
+        let text = encode(&key, KeyFormat::Openssh, None).unwrap();
+        crate::platform::write_private(&path, text.as_bytes()).unwrap();
+        let ok = Proc::new("ssh-add")
+            .arg(&path)
+            .env("SSH_AUTH_SOCK", &self.sock)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .unwrap()
+            .success();
+        assert!(ok, "ssh-add");
+        public_line(&key).unwrap()
+    }
+}
+
+#[cfg(unix)]
+impl Drop for Agent {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs target/debug/device-simulator and OpenSSH ssh-agent"]
+async fn net_e2e_ssh_agent_key_logs_in_and_unknown_key_falls_back_to_password() {
+    use crate::transport::ssh::AGENT_TEST_SOCKET as TEST_SOCKET;
+    let port = free_port();
+    let agent = Agent::start(port);
+    let authorized = agent.add_new_key("device-key");
+    let _sim = sim(&["--ssh", "--authorized-key", &authorized], port);
+    *TEST_SOCKET.lock().unwrap() = Some(agent.sock.clone());
+    let (m, _db) = manager();
+
+    let mut req = net(Protocol::Ssh, port, Some("admin"), false);
+    if let OpenTarget::Network { ssh, .. } = &mut req.target {
+        ssh.use_agent = true;
+    }
+    let out = Arc::new(Rec::default());
+    let id = m.open(req.clone(), out.clone()).unwrap();
+    until("connected with the agent key", || connected(&out)).await;
+    assert!(out.prompts().is_empty(), "agent login must not ask");
+    until("prompt", || out.text().contains("core-sw-01>")).await;
+    m.close(id).unwrap();
+
+    // An agent holding only an unrelated key: tried, rejected, then the password.
+    let other = Agent::start(port.wrapping_add(1));
+    other.add_new_key("unrelated-key");
+    *TEST_SOCKET.lock().unwrap() = Some(other.sock.clone());
+    let out = Arc::new(Rec::default());
+    let id = m.open(req, out.clone()).unwrap();
+    until("asked for the password", || !out.prompts().is_empty()).await;
+    m.answer(id, vec!["admin".into()]).unwrap();
+    until("connected after password", || connected(&out)).await;
+    m.close(id).unwrap();
+    *TEST_SOCKET.lock().unwrap() = None;
+}

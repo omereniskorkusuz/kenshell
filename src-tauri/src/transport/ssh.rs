@@ -838,6 +838,10 @@ mod tests {
 
 /// SSH agent authentication (P2-T05): macOS/Linux `SSH_AUTH_SOCK`, Windows OpenSSH
 /// agent named pipe, then Pageant.
+/// Test hook: agent socket used instead of `SSH_AUTH_SOCK`.
+#[cfg(all(test, unix))]
+pub(crate) use agent::TEST_SOCKET as AGENT_TEST_SOCKET;
+
 mod agent {
     use russh::client::{AuthResult, Handle};
     use russh::keys::agent::client::AgentClient;
@@ -856,7 +860,23 @@ mod agent {
         Unavailable,
     }
 
+    /// Agent socket used instead of `SSH_AUTH_SOCK` in tests (setting environment
+    /// variables is unsafe in a multi-threaded test process).
+    #[cfg(all(test, unix))]
+    pub static TEST_SOCKET: std::sync::Mutex<Option<std::path::PathBuf>> =
+        std::sync::Mutex::new(None);
+
     pub async fn authenticate(handle: &mut Handle<Client>, user: &str) -> Outcome {
+        #[cfg(all(test, unix))]
+        {
+            let path = TEST_SOCKET.lock().ok().and_then(|g| g.clone());
+            if let Some(path) = path {
+                return match AgentClient::connect_uds(&path).await {
+                    Ok(mut a) => try_keys(handle, user, &mut a).await,
+                    Err(_) => Outcome::Unavailable,
+                };
+            }
+        }
         #[cfg(unix)]
         {
             match AgentClient::connect_env().await {
