@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  fillParts,
+  fillSnippet,
   filterSnippets,
   groupSnippets,
   snippetPayload,
@@ -49,5 +51,20 @@ describe('snippet library (P3-T15)', () => {
       'vlan_id',
     ]);
     expect(snippetPayload('conf t\r\nvlan 10\n\n')).toBe('conf t\rvlan 10\r');
+  });
+});
+
+describe('variable templates (P3-T16)', () => {
+  it('fills every use of a variable and keeps the rest', () => {
+    const body = 'interface {{interface}}\n description {{ description }}\n! {{interface}}';
+    expect(fillSnippet(body, { interface: 'Gi1/0/24', description: 'Kamera' })).toBe(
+      'interface Gi1/0/24\n description Kamera\n! Gi1/0/24',
+    );
+    expect(fillSnippet('vlan {{vlan_id}}', { vlan_id: '10\n20' })).toBe('vlan 10 20');
+    expect(fillParts('a {{x}} b', {})).toEqual([
+      { text: 'a ' },
+      { name: 'x', value: '' },
+      { text: ' b' },
+    ]);
   });
 });

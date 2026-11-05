@@ -84,6 +84,30 @@ export function snippetVariables(body: string): string[] {
   return seen;
 }
 
+/** One piece of a filled-in snippet: literal text, or a variable with its value. */
+export type FillPart = { text: string } | { name: string; value: string };
+
+/** The body split around its variables (for the preview). */
+export function fillParts(body: string, values: Readonly<Record<string, string>>): FillPart[] {
+  const parts: FillPart[] = [];
+  let at = 0;
+  for (const m of body.matchAll(VAR)) {
+    if (m.index > at) parts.push({ text: body.slice(at, m.index) });
+    const name = m[1] as string;
+    parts.push({ name, value: values[name] ?? '' });
+    at = m.index + m[0].length;
+  }
+  if (at < body.length) parts.push({ text: body.slice(at) });
+  return parts;
+}
+
+/** The body with every variable replaced (values are single-line). */
+export function fillSnippet(body: string, values: Readonly<Record<string, string>>): string {
+  return fillParts(body, values)
+    .map((p) => ('text' in p ? p.text : p.value.replace(/[\r\n]+/g, ' ')))
+    .join('');
+}
+
 /** Text to send: one command per line, CR line ends, a final Enter. */
 export function snippetPayload(body: string): string {
   const lines = body.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');

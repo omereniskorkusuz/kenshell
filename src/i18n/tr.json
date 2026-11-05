@@ -600,7 +600,6 @@
     "delete": "{{name}} sil",
     "deleted": "“{{name}}” snippet'i silindi.",
     "send": "{{name}} aktif sekmeye gönder",
-    "needsValues": "{{variables}} içeriyor: doldurma formu sonraki adımda",
     "connectFirst": "Snippet göndermek için bir sekmeye bağlanın.",
     "none": "Eşleşen snippet yok.",
     "mine": "Snippet'lerim",
@@ -608,6 +607,10 @@
     "name": "Ad",
     "folder": "Klasör",
     "body": "Komutlar (her satıra bir)",
-    "bodyHint": "configure terminal\ninterface {{interface}}\n description {{description}}\nend"
+    "bodyHint": "configure terminal\ninterface {{interface}}\n description {{description}}\nend",
+    "fillAndSend": "Değerleri doldur ve gönder",
+    "fillTitle": "{{name}} için değerler",
+    "preview": "Önizleme",
+    "sendFilled": "Gönder"
   }
 }

@@ -600,7 +600,6 @@
     "delete": "Delete {{name}}",
     "deleted": "Snippet “{{name}}” deleted.",
     "send": "Send {{name}} to the active tab",
-    "needsValues": "Has {{variables}}: the fill-in form comes next",
     "connectFirst": "Connect a tab to send snippets.",
     "none": "No snippets match.",
     "mine": "My snippets",
@@ -608,6 +607,10 @@
     "name": "Name",
     "folder": "Folder",
     "body": "Commands (one per line)",
-    "bodyHint": "configure terminal\ninterface {{interface}}\n description {{description}}\nend"
+    "bodyHint": "configure terminal\ninterface {{interface}}\n description {{description}}\nend",
+    "fillAndSend": "Fill in the values and send",
+    "fillTitle": "Values for {{name}}",
+    "preview": "Preview",
+    "sendFilled": "Send"
   }
 }

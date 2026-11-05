@@ -10,6 +10,8 @@ import { useT } from '../i18n';
 import { describeError } from '../lib/errors';
 import type { SnippetInput } from '../lib/ipc';
 import {
+  fillParts,
+  fillSnippet,
   filterSnippets,
   groupSnippets,
   snippetPayload,
@@ -36,6 +38,9 @@ const vendorLabel = (v: string | null) => VENDOR_FAMILIES.find(([id]) => id === 
 
 type Draft = SnippetInput & { id: number | null };
 
+/** Last values typed per variable name, this run only (never saved: may be secrets). */
+const lastValues: Record<string, string> = {};
+
 export function SnippetsPanel() {
   const t = useT();
   const list = useSnippets((s) => s.list);
@@ -49,6 +54,7 @@ export function SnippetsPanel() {
     vendorPick ?? (family && VENDOR_FAMILIES.some(([id]) => id === family) ? family : 'all');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [filling, setFilling] = useState<SnippetItem | null>(null);
 
   useEffect(() => {
     if (!loaded) void useSnippets.getState().load();
@@ -65,10 +71,14 @@ export function SnippetsPanel() {
     const d = describeError(e, t);
     toast({ kind: 'error', message: d.message, detail: d.detail });
   };
-  const send = (s: SnippetItem) => {
-    if (!tab || !canSend) return;
-    useTabs.getState().pasteInput(tab.key, snippetPayload(s.body));
+  const sendBody = (body: string) => {
+    if (!tab || tab.state !== 'connected') return;
+    useTabs.getState().pasteInput(tab.key, snippetPayload(body));
     useTabs.getState().activate(tab.key);
+  };
+  const send = (s: SnippetItem) => {
+    if (snippetVariables(s.body).length > 0) setFilling(s);
+    else sendBody(s.body);
   };
   const remove = async (s: SnippetItem) => {
     if (s.id === null) return;
@@ -89,6 +99,21 @@ export function SnippetsPanel() {
       fail(e);
     }
   };
+
+  if (filling) {
+    return (
+      <SnippetFill
+        item={filling}
+        hostname={tab?.device.hostname ?? null}
+        canSend={canSend}
+        onCancel={() => setFilling(null)}
+        onSend={(values) => {
+          sendBody(fillSnippet(filling.body, values));
+          setFilling(null);
+        }}
+      />
+    );
+  }
 
   if (draft) {
     return (
@@ -245,10 +270,10 @@ function SnippetRow({
         <button
           type="button"
           className="icon-btn icon-btn-sm"
-          disabled={!canSend || vars.length > 0}
+          disabled={!canSend}
           aria-label={t('snippets.send', { name: item.name })}
           title={
-            vars.length > 0 ? t('snippets.needsValues') : t('snippets.send', { name: item.name })
+            vars.length > 0 ? t('snippets.fillAndSend') : t('snippets.send', { name: item.name })
           }
           onClick={onSend}
         >
@@ -373,6 +398,93 @@ function SnippetEditor({
         </button>
         <button type="submit" className="btn btn-primary" disabled={!valid}>
           {t('snippets.save')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Fill-in form for a snippet's {{variables}} with a live preview (P3-T16). Not a warning:
+ * it only asks for the values the template needs. */
+function SnippetFill({
+  item,
+  hostname,
+  canSend,
+  onCancel,
+  onSend,
+}: {
+  item: SnippetItem;
+  hostname: string | null;
+  canSend: boolean;
+  onCancel: () => void;
+  onSend: (values: Record<string, string>) => void;
+}) {
+  const t = useT();
+  const names = snippetVariables(item.body);
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      names.map((n) => [n, lastValues[n] ?? (n === 'hostname' && hostname ? hostname : '')]),
+    ),
+  );
+  const complete = names.every((n) => (values[n] ?? '').trim() !== '');
+  const submit = () => {
+    if (!complete || !canSend) return;
+    Object.assign(lastValues, values);
+    onSend(values);
+  };
+  return (
+    <form
+      className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2"
+      aria-label={t('snippets.fillTitle', { name: item.name })}
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          onCancel();
+        }
+      }}
+    >
+      <p className="text-sm font-medium">{item.name}</p>
+      {names.map((n, i) => (
+        <label key={n} className="flex flex-col gap-1 text-xs text-secondary">
+          <span className="mono">{n}</span>
+          <input
+            className="field mono h-7 text-sm"
+            value={values[n] ?? ''}
+            spellCheck={false}
+            autoFocus={i === 0}
+            onChange={(e) => setValues((v) => ({ ...v, [n]: e.target.value }))}
+          />
+        </label>
+      ))}
+      <div className="flex flex-col gap-1 text-xs text-secondary">
+        {t('snippets.preview')}
+        <pre className="mono max-h-64 overflow-auto rounded-sm border border-subtle bg-terminal p-2 text-xs text-primary">
+          {fillParts(item.body, values).map((p, i) =>
+            'text' in p ? (
+              p.text
+            ) : p.value.trim() ? (
+              <mark key={i} className="snippet-var">
+                {p.value}
+              </mark>
+            ) : (
+              <mark key={i} className="snippet-var" data-empty>
+                {`{{${p.name}}}`}
+              </mark>
+            ),
+          )}
+        </pre>
+      </div>
+      {!canSend && <p className="text-xs text-muted">{t('snippets.connectFirst')}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>
+          {t('common.cancel')}
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={!complete || !canSend}>
+          {t('snippets.sendFilled')}
         </button>
       </div>
     </form>
