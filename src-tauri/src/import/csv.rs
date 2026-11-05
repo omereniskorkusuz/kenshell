@@ -277,6 +277,8 @@ odd,carrier-pigeon,x,,,,,,,\r\n";
             ssh: None,
             credential_profile_id: None,
             auto_commands: vec![],
+            identify: true,
+            device_id: None,
             sort_order: 0,
             created_at: 0,
             updated_at: 0,

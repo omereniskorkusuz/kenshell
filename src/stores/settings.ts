@@ -25,6 +25,8 @@ export interface AppSettings {
   'console.hotplugToast': boolean;
   'console.autoReconnect': boolean;
   'connection.autoReconnect': boolean;
+  /** Read the device identity in the background after login (P3-T04, default on). */
+  'device.identify': boolean;
   'ui.sidebarWidth': number;
   'ui.sidebarCollapsed': boolean;
   'ui.sidePanelWidth': number;
@@ -60,6 +62,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'console.hotplugToast': true,
   'console.autoReconnect': true,
   'connection.autoReconnect': false,
+  'device.identify': true,
   'ui.sidebarWidth': 220,
   'ui.sidebarCollapsed': false,
   'ui.sidePanelWidth': 320,
@@ -134,6 +137,7 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'console.hotplugToast':
       case 'console.autoReconnect':
       case 'connection.autoReconnect':
+      case 'device.identify':
       case 'ui.sidebarCollapsed':
       case 'ui.sidePanelPinned':
       case 'log.enabled':

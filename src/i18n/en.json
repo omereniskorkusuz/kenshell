@@ -145,7 +145,11 @@
     "break": "BREAK",
     "breakHint": "Send a serial BREAK signal (e.g. to enter ROMMON)",
     "device": "Device (from the prompt and version output)",
-    "reloading": "Device restarting · {{time}}"
+    "reloading": "Device restarting · {{time}}",
+    "ciscoLike": "Cisco-like CLI",
+    "osVersion": "OS version",
+    "serial": "Serial number",
+    "deviceUptime": "Device uptime"
   },
   "tabs": {
     "label": "Open sessions",
@@ -299,7 +303,9 @@
     "lineDefault": "Driver default",
     "lineOn": "On",
     "lineOff": "Off",
-    "lineHint": "Line levels after the port opens. Some console cables or devices need DTR or RTS off."
+    "lineHint": "Line levels after the port opens. Some console cables or devices need DTR or RTS off.",
+    "identify": "Read the device identity after login",
+    "identifyHint": "Runs a read-only show version once in the background; its output never appears in the terminal."
   },
   "palette": {
     "placeholder": "Search sessions, consoles and actions…",
@@ -383,7 +389,9 @@
     "cursorBar": "Bar",
     "cursorUnderline": "Underline",
     "cursorBlink": "Blinking cursor",
-    "cursorBlinkHint": "Off by default: a steady cursor lets the CPU idle."
+    "cursorBlinkHint": "Off by default: a steady cursor lets the CPU idle.",
+    "identify": "Identify devices after login",
+    "identifyHint": "Read-only show version once per connection, hidden from the terminal. Can be turned off per session."
   },
   "mode": {
     "user": "USER",

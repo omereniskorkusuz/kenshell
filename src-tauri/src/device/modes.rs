@@ -45,6 +45,12 @@ struct RawPaging {
 }
 
 #[derive(Deserialize)]
+struct RawIdentity {
+    command: String,
+    fields: std::collections::BTreeMap<String, Vec<String>>,
+}
+
+#[derive(Deserialize)]
 struct RawProfile {
     id: String,
     label: String,
@@ -52,6 +58,24 @@ struct RawProfile {
     identify: Vec<RawClue>,
     prompts: Vec<RawPrompt>,
     paging: RawPaging,
+    identity: RawIdentity,
+}
+
+/// What `show version` (or the vendor's equivalent) told about the device.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceFacts {
+    pub hostname: Option<String>,
+    pub model: Option<String>,
+    pub version: Option<String>,
+    pub serial: Option<String>,
+    pub uptime: Option<String>,
+}
+
+impl DeviceFacts {
+    pub fn is_empty(&self) -> bool {
+        self.model.is_none() && self.version.is_none() && self.serial.is_none()
+    }
 }
 
 #[derive(Deserialize)]
@@ -74,8 +98,12 @@ pub struct Profile {
     pub more: String,
     #[cfg_attr(not(test), allow(dead_code))]
     pub disable_paging: String,
+    /// Read-only command that prints the device identity.
+    pub identity_command: String,
     prompts: Vec<(CliMode, Regex)>,
     clues: Vec<(Regex, u32)>,
+    /// Field name → patterns (`v` = value, optional `h` = host name).
+    fields: Vec<(String, Vec<Regex>)>,
 }
 
 /// A recognised prompt.
@@ -118,6 +146,19 @@ fn table() -> &'static Table {
                         (re, c.weight)
                     })
                     .collect(),
+                identity_command: p.identity.command,
+                fields: p
+                    .identity
+                    .fields
+                    .into_iter()
+                    .map(|(name, pats)| {
+                        let res = pats
+                            .iter()
+                            .map(|re| Regex::new(re).expect("identity field pattern"))
+                            .collect();
+                        (name, res)
+                    })
+                    .collect(),
                 more: p.paging.more,
                 disable_paging: p.paging.disable,
                 id: p.id,
@@ -150,6 +191,31 @@ impl Profile {
                 sub: text("sub"),
             })
         })
+    }
+
+    /// Parses the identity command's output (lines matched one by one, first hit wins).
+    pub fn parse_facts(&self, text: &str) -> DeviceFacts {
+        let mut f = DeviceFacts::default();
+        for (name, res) in &self.fields {
+            let hit = text.lines().find_map(|line| {
+                let line = line.trim_end_matches('\r');
+                res.iter().find_map(|re| re.captures(line))
+            });
+            let Some(caps) = hit else { continue };
+            let v = caps.name("v").map(|m| m.as_str().trim().to_owned());
+            if let Some(h) = caps.name("h") {
+                f.hostname.get_or_insert_with(|| h.as_str().to_owned());
+            }
+            match name.as_str() {
+                "model" => f.model = v,
+                "version" => f.version = v,
+                "serial" => f.serial = v,
+                "uptime" => f.uptime = v,
+                "hostname" => f.hostname = v.or(f.hostname.take()),
+                _ => {}
+            }
+        }
+        f
     }
 
     fn score(&self, text: &str) -> u32 {
@@ -221,10 +287,18 @@ mod tests {
     }
 
     #[derive(Deserialize)]
+    struct FactsCase {
+        profile: String,
+        text: String,
+        facts: DeviceFacts,
+    }
+
+    #[derive(Deserialize)]
     struct Cases {
         prompts: Vec<PromptCase>,
         identify: Vec<IdentifyCase>,
         reload: Vec<ReloadCase>,
+        facts: Vec<FactsCase>,
     }
 
     fn cases() -> Cases {
@@ -254,6 +328,18 @@ mod tests {
                 c.text
             );
         }
+    }
+
+    #[test]
+    fn show_version_outputs_parse() {
+        for c in cases().facts {
+            let p = profile(&c.profile).unwrap();
+            assert_eq!(p.parse_facts(&c.text), c.facts, "{}", c.profile);
+        }
+        assert_eq!(
+            profile("cisco-ios").unwrap().identity_command,
+            "show version"
+        );
     }
 
     #[test]

@@ -35,19 +35,33 @@ describe('device events (P3-T03)', () => {
   it('mode follows the prompt and identity accumulates', () => {
     let t = applySessionEvent(tab, { type: 'mode', mode: 'config', sub: 'config-if' }, 5);
     expect([t.mode, t.submode]).toEqual(['config', 'config-if']);
-    t = applySessionEvent(t, { type: 'identity', hostname: 'core-sw1', vendor: null }, 6);
+    t = applySessionEvent(
+      t,
+      { type: 'identity', hostname: 'core-sw1', vendor: null, facts: null },
+      6,
+    );
     t = applySessionEvent(
       t,
       {
         type: 'identity',
         hostname: null,
         vendor: { id: 'ruijie-rgos', label: 'Ruijie RGOS', family: 'ruijie' },
+        facts: null,
       },
       7,
     );
+    const facts = {
+      hostname: 'core-sw1',
+      model: 'S5750',
+      version: '11.4',
+      serial: 'G1',
+      uptime: null,
+    };
+    t = applySessionEvent(t, { type: 'identity', hostname: null, vendor: null, facts }, 8);
     expect(t.device).toEqual({
       hostname: 'core-sw1',
       vendor: { id: 'ruijie-rgos', label: 'Ruijie RGOS', family: 'ruijie' },
+      facts,
     });
   });
 
@@ -59,7 +73,7 @@ describe('device events (P3-T03)', () => {
     expect(t.reloadAt).toBe(100);
     t = applySessionEvent(t, { type: 'mode', mode: 'user', sub: null }, 300);
     expect([t.mode, t.reloadAt]).toEqual(['user', null]);
-    t = applySessionEvent(t, { type: 'identity', hostname: 'sw', vendor: null }, 301);
+    t = applySessionEvent(t, { type: 'identity', hostname: 'sw', vendor: null, facts: null }, 301);
     t = applySessionEvent(t, { type: 'state', state: 'disconnected', error: null }, 400);
     expect([t.mode, t.device.hostname]).toEqual(['unknown', 'sw']);
   });

@@ -236,6 +236,18 @@ export function SessionEditor({ state }: { state: EditorState }) {
           )}
         </Field>
 
+        <label className="col-start-2 flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={draft.identify}
+            onChange={(e) => set('identify', e.target.checked)}
+          />
+          <span>
+            {t('editor.identify')}
+            <span className="block text-xs text-muted">{t('editor.identifyHint')}</span>
+          </span>
+        </label>
+
         <Field label={t('editor.tags')}>
           {(id) => (
             <input

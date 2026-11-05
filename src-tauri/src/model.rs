@@ -114,6 +114,14 @@ pub struct SessionRecord {
     pub created_at: i64,
     pub updated_at: i64,
     pub last_connected_at: Option<i64>,
+    /// Run the read-only identity command after login (P3-T04).
+    pub identify: bool,
+    /// Device this session last identified (`devices`).
+    pub device_id: Option<i64>,
+}
+
+fn yes() -> bool {
+    true
 }
 
 /// Fields a user can create/update.
@@ -138,6 +146,9 @@ pub struct SessionInput {
     pub credential_profile_id: Option<i64>,
     #[serde(default)]
     pub auto_commands: Vec<String>,
+    /// Run the read-only identity command after login (default on).
+    #[serde(default = "yes")]
+    pub identify: bool,
 }
 
 /// A field set to `value` (`null` clears it) — absent means "leave as is".
@@ -399,6 +410,8 @@ pub enum SessionEvent {
     Identity {
         hostname: Option<String>,
         vendor: Option<crate::device::observer::VendorInfo>,
+        /// From the identity command (model, OS version, serial, uptime).
+        facts: Option<crate::device::modes::DeviceFacts>,
     },
     /// Boot messages: the device restarts; the next `Mode` event means it is back.
     Reload,

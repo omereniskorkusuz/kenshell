@@ -21,6 +21,8 @@ use crate::transport::{HostKeyStore, Prompter, Transport, TransportSink};
 pub const AUTO_RECONNECT_SETTING: &str = "console.autoReconnect";
 /// Setting key; JSON bool, default `false`.
 pub const NET_AUTO_RECONNECT_SETTING: &str = "connection.autoReconnect";
+/// Background identity command after login (P3-T04), default on.
+pub const IDENTIFY_SETTING: &str = "device.identify";
 
 /// Synchronous by design: implementations may block briefly (DB, port enumeration);
 /// the session task calls them from `spawn_blocking`.
@@ -65,6 +67,16 @@ pub(crate) trait Backend: Send + Sync + 'static {
     /// Saved login of a saved session: its credential profile, else its own user name
     /// and keychain password. Blocking (keychain).
     fn credentials(&self, session_id: i64) -> Option<crate::secrets::Credentials>;
+    /// Run the background identity command: setting `device.identify` (default on) and,
+    /// for saved sessions, the session's own switch.
+    fn identify_enabled(&self, session_id: Option<i64>) -> bool;
+    /// Stores the device the identity command described (errors are logged only).
+    fn record_device(
+        &self,
+        session_id: Option<i64>,
+        vendor: &str,
+        facts: &crate::device::modes::DeviceFacts,
+    );
 }
 
 /// SQLite-backed SSH host key store.
@@ -281,6 +293,29 @@ impl Backend for RealBackend {
                 tracing::warn!("read {NET_AUTO_RECONNECT_SETTING}: {e}");
                 false
             }
+        }
+    }
+
+    fn identify_enabled(&self, session_id: Option<i64>) -> bool {
+        let global = match self.db.get_setting(IDENTIFY_SETTING) {
+            Ok(Some(v)) => v.as_bool().unwrap_or(true),
+            Ok(None) => true,
+            Err(e) => {
+                tracing::warn!("read {IDENTIFY_SETTING}: {e}");
+                true
+            }
+        };
+        global && session_id.is_none_or(|sid| self.db.get_session(sid).map_or(true, |s| s.identify))
+    }
+
+    fn record_device(
+        &self,
+        session_id: Option<i64>,
+        vendor: &str,
+        facts: &crate::device::modes::DeviceFacts,
+    ) {
+        if let Err(e) = self.db.record_device(session_id, vendor, facts) {
+            tracing::warn!("store device: {e}");
         }
     }
 

@@ -17,6 +17,8 @@ const s = (id: number, name: string, extra: Partial<SessionRecord> = {}): Sessio
   ssh: null,
   credentialProfileId: null,
   autoCommands: [],
+  identify: true,
+  deviceId: null,
   sortOrder: id,
   createdAt: 0,
   updatedAt: 0,

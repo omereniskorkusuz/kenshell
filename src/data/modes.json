@@ -1,16 +1,16 @@
 {
-  "_comment": "Vendor CLI profiles (P3-T02): prompt → mode patterns and identification clues. Applied by the backend DeviceObserver to the last output line (ANSI removed). Patterns are Rust `regex` syntax; prompts are tried in order (first match wins), `host`/`sub` named groups are optional. `identify`: case-insensitive patterns over banner / login / `show version` text, each with a weight; the best total ≥ `minScore` wins. Ruijie and Cisco prompts look alike: without a vendor clue a session stays `cisco-like` (spec 7.3). `reload`: lines that mean the device is restarting (the session stays up; the next prompt ends it).",
+  "_comment": "Vendor CLI profiles (P3-T02): prompt → mode patterns and identification clues. Applied by the backend DeviceObserver to the last output line (ANSI removed). Patterns are Rust `regex` syntax; prompts are tried in order (first match wins), `host`/`sub` named groups are optional. `identify`: case-insensitive patterns over banner / login / `show version` text, each with a weight; the best total ≥ `minScore` wins. Ruijie and Cisco prompts look alike: without a vendor clue a session stays `cisco-like` (spec 7.3). `reload`: lines that mean the device is restarting (the session stays up; the next prompt ends it). `identity`: read-only command run once in the background after login (output hidden) and per-field patterns (`v` group = value, `h` = host name; lines are matched one by one, first hit wins).",
   "minScore": 3,
   "defaultProfile": "cisco-like",
   "reload": [
-    "System Bootstrap, Version",
-    "Initializing Hardware",
+    "^System Bootstrap, Version",
+    "^Initializing Hardware",
     "%SYS-5-RELOAD",
     "Proceed with reload\\? \\[confirm\\]\\s*$",
-    "Restricted Rights Legend",
-    "Starting system, please wait",
-    "System is rebooting",
-    "Rebooting the system",
+    "^\\s*Restricted Rights Legend",
+    "^Starting system, please wait",
+    "^System is rebooting",
+    "^Rebooting the system",
     "^Boot ROM ",
     "^BootLoader version",
     "^U-Boot \\d"
@@ -46,6 +46,25 @@
       "paging": {
         "more": "--More--",
         "disable": "terminal length 0"
+      },
+      "identity": {
+        "command": "show version",
+        "fields": {
+          "version": [
+            "Cisco IOS[ -]XE Software,? (?:\\[[^\\]]*\\] )?Version (?P<v>[\\w.()]+)",
+            "Cisco IOS Software.*?, Version (?P<v>[\\w.()]+)",
+            "^ROM: .*Version (?P<v>[\\w.()]+)"
+          ],
+          "model": [
+            "^Model [Nn]umber\\s*:\\s*(?P<v>\\S+)",
+            "^[Cc]isco (?P<v>(?:WS-|C|ISR|ASR|N)[\\w-]+) \\(.*\\) processor"
+          ],
+          "serial": [
+            "^System [Ss]erial [Nn]umber\\s*:\\s*(?P<v>\\S+)",
+            "Processor board ID (?P<v>\\w+)"
+          ],
+          "uptime": ["^(?P<h>[\\w.-]+) uptime is (?P<v>.+)$"]
+        }
       }
     },
     {
@@ -99,6 +118,25 @@
       "paging": {
         "more": "--More--",
         "disable": "terminal length 0"
+      },
+      "identity": {
+        "command": "show version",
+        "fields": {
+          "version": [
+            "Cisco IOS[ -]XE Software,? (?:\\[[^\\]]*\\] )?Version (?P<v>[\\w.()]+)",
+            "Cisco IOS Software.*?, Version (?P<v>[\\w.()]+)",
+            "^ROM: .*Version (?P<v>[\\w.()]+)"
+          ],
+          "model": [
+            "^Model [Nn]umber\\s*:\\s*(?P<v>\\S+)",
+            "^[Cc]isco (?P<v>(?:WS-|C|ISR|ASR|N)[\\w-]+) \\(.*\\) processor"
+          ],
+          "serial": [
+            "^System [Ss]erial [Nn]umber\\s*:\\s*(?P<v>\\S+)",
+            "Processor board ID (?P<v>\\w+)"
+          ],
+          "uptime": ["^(?P<h>[\\w.-]+) uptime is (?P<v>.+)$"]
+        }
       }
     },
     {
@@ -140,6 +178,16 @@
       "paging": {
         "more": "--More--",
         "disable": "terminal length 0"
+      },
+      "identity": {
+        "command": "show version",
+        "fields": {
+          "version": ["^\\s*NXOS: version (?P<v>\\S+)", "^\\s*system:\\s+version (?P<v>\\S+)"],
+          "model": ["^\\s*cisco (?P<v>Nexus\\s?\\S+(?: \\S+)?) [Cc]hassis"],
+          "serial": ["Processor Board ID (?P<v>\\w+)"],
+          "uptime": ["^Kernel uptime is (?P<v>.+)$"],
+          "hostname": ["^\\s*Device name:\\s*(?P<v>\\S+)"]
+        }
       }
     },
     {
@@ -189,6 +237,21 @@
       "paging": {
         "more": "--More--",
         "disable": "terminal length 0"
+      },
+      "identity": {
+        "command": "show version",
+        "fields": {
+          "version": ["^System software version\\s*:\\s*(?P<v>.+?)\\s*$"],
+          "model": [
+            "^System description\\s*:.*?\\((?P<v>[\\w-]+)\\)",
+            "^\\s*Device model\\s*:\\s*(?P<v>\\S+)"
+          ],
+          "serial": [
+            "^System serial number\\s*:\\s*(?P<v>\\S+)",
+            "^\\s*Serial number\\s*:\\s*(?P<v>\\S+)"
+          ],
+          "uptime": ["^System uptime\\s*:\\s*(?P<v>.+?)\\s*$"]
+        }
       }
     },
     {
@@ -230,6 +293,15 @@
       "paging": {
         "more": "--More--",
         "disable": "terminal length 0"
+      },
+      "identity": {
+        "command": "show version",
+        "fields": {
+          "version": ["(?:Software version|ReyeeOS)\\s*:?\\s*(?P<v>[\\w.()-]+)"],
+          "model": ["(?:Device model|Product model)\\s*:\\s*(?P<v>\\S+)", "\\b(?P<v>RG-[\\w-]+)"],
+          "serial": ["(?:Serial number|SN)\\s*:\\s*(?P<v>\\S+)"],
+          "uptime": ["(?:System uptime|Uptime)\\s*:\\s*(?P<v>.+?)\\s*$"]
+        }
       }
     }
   ]

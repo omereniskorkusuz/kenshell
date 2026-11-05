@@ -66,6 +66,8 @@ export interface Draft {
   tags: string;
   /** One command per line. */
   autoCommands: string;
+  /** Background identity command after login. */
+  identify: boolean;
 }
 
 export function draftFrom(input: Partial<SessionInput> | null | undefined): Draft {
@@ -102,6 +104,7 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     credentialProfileId: input?.credentialProfileId ?? null,
     tags: (input?.tags ?? []).join(', '),
     autoCommands: (input?.autoCommands ?? []).join('\n'),
+    identify: input?.identify ?? true,
   };
 }
 
@@ -205,6 +208,7 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
       .filter(Boolean),
     favorite: base?.favorite ?? false,
     credentialProfileId: d.protocol === 'ssh' ? d.credentialProfileId : null,
+    identify: d.identify,
     autoCommands: d.autoCommands
       .split(/\r?\n/)
       .map((c) => c.trim())

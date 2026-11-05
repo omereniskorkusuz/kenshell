@@ -60,6 +60,7 @@ pub fn run() {
             commands::storage::folder_reorder,
             commands::storage::session_bulk_update,
             commands::storage::session_bulk_delete,
+            commands::storage::device_list,
             commands::storage::session_list,
             commands::storage::session_create,
             commands::storage::session_update,

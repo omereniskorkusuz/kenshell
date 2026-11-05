@@ -19,6 +19,8 @@
 //!   session DTOs and the `sessions` table against password-like fields.
 //! - Lists are ordered deterministically: `(parent/folder id, sort_order, id)`.
 
+mod devices;
+pub use devices::DeviceRecord;
 mod folders;
 mod known_hosts;
 mod migrations;
@@ -144,6 +146,7 @@ mod tests {
             ssh: None,
             credential_profile_id: None,
             auto_commands: vec![],
+            identify: true,
         }
     }
 
@@ -316,6 +319,8 @@ mod tests {
             ssh: None,
             credential_profile_id: None,
             auto_commands: vec![],
+            identify: true,
+            device_id: None,
             sort_order: 0,
             created_at: 0,
             updated_at: 0,

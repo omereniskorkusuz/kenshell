@@ -103,6 +103,7 @@ fn input_of(s: &SessionRecord) -> SessionInput {
         ssh: s.ssh.clone(),
         credential_profile_id: s.credential_profile_id,
         auto_commands: s.auto_commands.clone(),
+        identify: s.identify,
     }
 }
 

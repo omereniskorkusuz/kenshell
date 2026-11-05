@@ -386,6 +386,10 @@ pub(crate) struct SessionTask {
     registry: Weak<Registry>,
     /// Mode / identity / reload from the output (keeps no output itself, P3-T03).
     observer: crate::device::observer::Observer,
+    /// Background identity command (P3-T04).
+    prober: crate::device::probe::Prober,
+    /// User input that arrived while the identity command ran (sent afterwards).
+    held: Vec<Vec<u8>>,
 }
 
 impl SessionTask {
@@ -417,6 +421,8 @@ impl SessionTask {
             cmds,
             registry,
             observer: crate::device::observer::Observer::new(),
+            prober: crate::device::probe::Prober::new(false),
+            held: Vec::new(),
         }
     }
 
@@ -551,10 +557,69 @@ impl SessionTask {
         }
     }
 
+    /// Output for the terminal: logged, observed (mode / identity), sent to the UI.
+    fn show(&mut self, buf: Vec<u8>, log: Option<&crate::logging::SessionLog>) {
+        if let Some(log) = log {
+            log.write(&buf);
+        }
+        let seen = self.observer.feed(&buf);
+        self.ctx.out.data(buf);
+        for o in seen {
+            self.ctx.out.event(observation_event(o));
+        }
+        self.prober
+            .after_output(self.observer.at_prompt(), std::time::Instant::now());
+    }
+
+    /// Input typed while the identity command ran.
+    async fn flush_held(&mut self, transport: &mut Box<dyn crate::transport::Transport>) {
+        for data in std::mem::take(&mut self.held) {
+            if let Err(e) = transport.write(&data).await {
+                tracing::debug!(session = self.ctx.id, "held write: {e}");
+                break;
+            }
+        }
+    }
+
+    /// The identity command's output: vendor (may refine the profile), facts, stored device.
+    async fn identified(&mut self, text: String) {
+        use crate::device::observer::VendorInfo;
+        let mut seen = Vec::new();
+        if let Some(p) = crate::device::modes::identify(&text) {
+            self.observer.adopt(p, &mut seen);
+        }
+        for o in seen {
+            self.ctx.out.event(observation_event(o));
+        }
+        let profile = self.observer.profile();
+        let facts = profile.parse_facts(&text);
+        if facts.is_empty() {
+            return;
+        }
+        self.ctx.out.event(SessionEvent::Identity {
+            hostname: facts.hostname.clone(),
+            vendor: Some(VendorInfo::of(profile)),
+            facts: Some(facts.clone()),
+        });
+        let (sid, vendor) = (self.ctx.session_id, profile.id.clone());
+        let _ = self
+            .ctx
+            .call(move |b| b.record_device(sid, &vendor, &facts))
+            .await;
+    }
+
     async fn connected(&mut self, link: Link) -> Next {
         let (mut transport, mut rx) = link;
         let log = self.open_log().await;
         self.observer.reconnected();
+        let sid = self.ctx.session_id;
+        let identify = self
+            .ctx
+            .call(move |b| b.identify_enabled(sid))
+            .await
+            .unwrap_or(false);
+        self.prober = crate::device::probe::Prober::new(identify);
+        self.held.clear();
         let mut carry: Option<TransportEvent> = None;
         let mut detach_deadline: Option<Instant> = None;
         loop {
@@ -562,14 +627,22 @@ impl SessionTask {
                 Transport(Option<TransportEvent>),
                 Cmd(Option<Command>),
                 DetachTimeout,
+                Probe,
             }
             let ev = if let Some(ev) = carry.take() {
                 Ev::Transport(Some(ev))
             } else {
                 let deadline = detach_deadline;
+                let probe_at = self.prober.deadline().map(Instant::from_std);
                 tokio::select! {
                     ev = rx.recv() => Ev::Transport(ev),
                     cmd = self.cmds.recv() => Ev::Cmd(cmd),
+                    _ = async {
+                        match probe_at {
+                            Some(d) => tokio::time::sleep_until(d).await,
+                            None => std::future::pending().await,
+                        }
+                    } => Ev::Probe,
                     _ = async {
                         match deadline {
                             Some(d) => tokio::time::sleep_until(d).await,
@@ -595,14 +668,22 @@ impl SessionTask {
                             Err(_) => break,
                         }
                     }
-                    if let Some(log) = &log {
-                        log.write(&buf);
+                    if self.prober.capturing() {
+                        // The identity command's output is never shown or logged.
+                        use crate::device::probe::Step;
+                        match self.prober.capture(&buf, self.observer.profile()) {
+                            Step::Continue => {}
+                            Step::NextPage => {
+                                let _ = transport.write(b" ").await;
+                            }
+                            Step::Finished(text) => {
+                                self.identified(text).await;
+                                self.flush_held(&mut transport).await;
+                            }
+                        }
+                        continue;
                     }
-                    let seen = self.observer.feed(&buf);
-                    self.ctx.out.data(buf);
-                    for o in seen {
-                        self.ctx.out.event(observation_event(o));
-                    }
+                    self.show(buf, log.as_ref());
                 }
                 Ev::Transport(Some(TransportEvent::Closed(err))) => {
                     return self.link_lost(transport, err).await;
@@ -610,6 +691,21 @@ impl SessionTask {
                 Ev::Transport(None) => {
                     let err = AppError::with(ErrorCode::Io, "transport ended unexpectedly");
                     return self.link_lost(transport, Some(err)).await;
+                }
+                Ev::Probe => {
+                    let now = std::time::Instant::now();
+                    if let Some(raw) = self.prober.time_out(now) {
+                        // The device never returned to a prompt: show what it said.
+                        tracing::debug!(session = self.ctx.id, "identity command timed out");
+                        self.show(raw, log.as_ref());
+                        self.flush_held(&mut transport).await;
+                    } else if let Some(cmd) =
+                        self.prober
+                            .fire(self.observer.at_prompt(), self.observer.profile(), now)
+                        && let Err(e) = transport.write(&cmd).await
+                    {
+                        tracing::debug!(session = self.ctx.id, "identity command: {e}");
+                    }
                 }
                 Ev::DetachTimeout => {
                     // Hotplug saw the cable go but the reader never failed (some
@@ -625,7 +721,11 @@ impl SessionTask {
                     return Next::Exit;
                 }
                 Ev::Cmd(Some(cmd)) => match cmd {
+                    Command::Write(data) if self.prober.capturing() => {
+                        self.held.push(data);
+                    }
                     Command::Write(data) => {
+                        self.prober.user_input();
                         if let Err(e) = transport.write(&data).await {
                             if e.code == ErrorCode::DeviceGone {
                                 return self.link_lost(transport, Some(e)).await;
@@ -735,7 +835,11 @@ fn observation_event(o: crate::device::observer::Observation) -> SessionEvent {
     use crate::device::observer::Observation;
     match o {
         Observation::Mode { mode, sub } => SessionEvent::Mode { mode, sub },
-        Observation::Identity { hostname, vendor } => SessionEvent::Identity { hostname, vendor },
+        Observation::Identity { hostname, vendor } => SessionEvent::Identity {
+            hostname,
+            vendor,
+            facts: None,
+        },
         Observation::Reload => SessionEvent::Reload,
     }
 }

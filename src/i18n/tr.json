@@ -145,7 +145,11 @@
     "break": "BREAK",
     "breakHint": "Seri BREAK sinyali gönder (ör. ROMMON'a girmek için)",
     "device": "Cihaz (prompt ve sürüm çıktısından)",
-    "reloading": "Cihaz açılıyor · {{time}}"
+    "reloading": "Cihaz açılıyor · {{time}}",
+    "ciscoLike": "Cisco-benzeri CLI",
+    "osVersion": "İşletim sistemi sürümü",
+    "serial": "Seri numarası",
+    "deviceUptime": "Cihaz çalışma süresi"
   },
   "tabs": {
     "label": "Açık oturumlar",
@@ -299,7 +303,9 @@
     "lineDefault": "Sürücü varsayılanı",
     "lineOn": "Açık",
     "lineOff": "Kapalı",
-    "lineHint": "Port açıldıktan sonraki hat seviyeleri. Bazı konsol kabloları veya cihazlar DTR ya da RTS kapalı ister."
+    "lineHint": "Port açıldıktan sonraki hat seviyeleri. Bazı konsol kabloları veya cihazlar DTR ya da RTS kapalı ister.",
+    "identify": "Girişten sonra cihaz kimliğini oku",
+    "identifyHint": "Arka planda bir kez salt-okunur show version çalıştırır; çıktısı terminalde görünmez."
   },
   "palette": {
     "placeholder": "Oturum, konsol ve eylem ara…",
@@ -383,7 +389,9 @@
     "cursorBar": "Çubuk",
     "cursorUnderline": "Alt çizgi",
     "cursorBlink": "Yanıp sönen imleç",
-    "cursorBlinkHint": "Varsayılan kapalı: sabit imleç işlemcinin boşta kalmasını sağlar."
+    "cursorBlinkHint": "Varsayılan kapalı: sabit imleç işlemcinin boşta kalmasını sağlar.",
+    "identify": "Girişten sonra cihazı tanı",
+    "identifyHint": "Bağlantı başına bir kez salt-okunur show version, terminalde görünmez. Oturum bazında kapatılabilir."
   },
   "mode": {
     "user": "USER",

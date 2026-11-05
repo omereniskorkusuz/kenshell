@@ -15,7 +15,8 @@ use crate::model::{Protocol, SessionInput, SessionPatch, SessionRecord};
 
 const SELECT_SESSION: &str = "SELECT id, folder_id, name, protocol, host, port, username, \
      serial_json, env_tag, tags_json, favorite, sort_order, created_at, updated_at, \
-     last_connected_at, ssh_json, credential_profile_id, auto_commands_json FROM sessions";
+     last_connected_at, ssh_json, credential_profile_id, auto_commands_json, identify, \
+     device_id FROM sessions";
 
 /// `NULL` when there are no commands (keeps the common case compact).
 fn auto_json(cmds: &[String]) -> Result<Option<String>> {
@@ -108,6 +109,8 @@ fn row_to_session(r: &Row<'_>) -> rusqlite::Result<SessionRecord> {
         ssh: json_col(r, 15)?,
         credential_profile_id: r.get(16)?,
         auto_commands: json_col(r, 17)?.unwrap_or_default(),
+        identify: r.get(18)?,
+        device_id: r.get(19)?,
     })
 }
 
@@ -137,8 +140,8 @@ fn insert(conn: &Connection, v: &ValidSession, sort_order: i64, now: i64) -> Res
     conn.execute(
         "INSERT INTO sessions (folder_id, name, protocol, host, port, username, serial_json,
              env_tag, tags_json, favorite, sort_order, created_at, updated_at, ssh_json,
-             credential_profile_id, auto_commands_json)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?13, ?14, ?15)",
+             credential_profile_id, auto_commands_json, identify)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?13, ?14, ?15, ?16)",
         params![
             v.folder_id,
             v.name,
@@ -155,6 +158,7 @@ fn insert(conn: &Connection, v: &ValidSession, sort_order: i64, now: i64) -> Res
             ssh_json,
             v.credential_profile_id,
             auto_json(&v.auto_commands)?,
+            v.identify,
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -222,6 +226,7 @@ fn input_of(r: &SessionRecord) -> SessionInput {
         ssh: r.ssh.clone(),
         credential_profile_id: r.credential_profile_id,
         auto_commands: r.auto_commands.clone(),
+        identify: r.identify,
     }
 }
 
@@ -245,7 +250,7 @@ fn update_in(tx: &Connection, id: i64, input: &SessionInput) -> Result<SessionRe
         "UPDATE sessions SET folder_id = ?2, name = ?3, protocol = ?4, host = ?5,
                  port = ?6, username = ?7, serial_json = ?8, env_tag = ?9, tags_json = ?10,
                  favorite = ?11, sort_order = ?12, updated_at = ?13, ssh_json = ?14,
-                 credential_profile_id = ?15, auto_commands_json = ?16
+                 credential_profile_id = ?15, auto_commands_json = ?16, identify = ?17
              WHERE id = ?1",
         params![
             id,
@@ -264,6 +269,7 @@ fn update_in(tx: &Connection, id: i64, input: &SessionInput) -> Result<SessionRe
             ssh_json,
             v.credential_profile_id,
             auto_json(&v.auto_commands)?,
+            v.identify,
         ],
     )?;
     fetch(tx, id)
@@ -420,6 +426,7 @@ impl Db {
             env_tag: orig.env_tag,
             tags: orig.tags,
             favorite: orig.favorite,
+            identify: orig.identify,
         };
         let sort_order = next_session_order(&tx, copy.folder_id)?;
         let new_id = insert(&tx, &copy, sort_order, now_ms())?;
@@ -465,6 +472,7 @@ mod tests {
             ssh: None,
             credential_profile_id: None,
             auto_commands: vec![],
+            identify: true,
         }
     }
 
@@ -517,6 +525,7 @@ mod tests {
             ssh: None,
             credential_profile_id: None,
             auto_commands: vec![],
+            identify: true,
         }
     }
 

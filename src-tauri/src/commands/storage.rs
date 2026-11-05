@@ -6,6 +6,7 @@ use crate::error::Result;
 use crate::model::{Folder, SessionInput, SessionPatch, SessionRecord};
 use crate::secrets::forget_session;
 use crate::state::AppState;
+use crate::storage::DeviceRecord;
 
 #[tauri::command]
 pub fn folder_list(state: State<'_, AppState>) -> Result<Vec<Folder>> {
@@ -124,4 +125,10 @@ pub fn session_reorder(
     before_id: Option<i64>,
 ) -> Result<()> {
     state.db.reorder_session(id, folder_id, before_id)
+}
+
+/// Devices learned by the background identity command (P3-T04).
+#[tauri::command]
+pub fn device_list(state: State<'_, AppState>) -> Result<Vec<DeviceRecord>> {
+    state.db.list_devices()
 }

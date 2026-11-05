@@ -393,6 +393,7 @@ async fn net_e2e_ssh_saved_password_logs_in_without_prompt_and_wrong_one_falls_b
             ssh: None,
             credential_profile_id: None,
             auto_commands: vec![],
+            identify: true,
         })
         .unwrap();
     secrets
@@ -758,5 +759,45 @@ async fn net_e2e_modes_follow_the_prompt_and_ruijie_is_identified() {
     assert!(!out.events.lock().unwrap().iter().any(|e| {
         matches!(e, SessionEvent::Identity { vendor: Some(v), .. } if v.family == "cisco")
     }));
+    m.close(id).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs target/debug/device-simulator"]
+async fn net_e2e_background_identity_is_hidden_and_parsed() {
+    let port = free_port();
+    let _sim = sim(&["--profile", "ruijie"], port);
+    let (m, db) = manager();
+    let out = Arc::new(Rec::default());
+    let id = m
+        .open(net(Protocol::Telnet, port, None, false), out.clone())
+        .unwrap();
+    until("username", || out.text().contains("Username:")).await;
+    for (send, want) in [("admin\r", "Password:"), ("admin\r", "access-sw-02>")] {
+        m.write(id, send.as_bytes()).unwrap();
+        until(want, || out.text().contains(want)).await;
+    }
+    until("facts from the hidden show version", || {
+        out.events.lock().unwrap().iter().any(|e| {
+            matches!(e, SessionEvent::Identity { facts: Some(f), vendor: Some(v), .. }
+                if f.model.as_deref() == Some("S5750-48GT4XS-E") && v.family == "ruijie")
+        })
+    })
+    .await;
+    let text = out.text();
+    assert!(
+        !text.contains("System serial number"),
+        "hidden from the terminal"
+    );
+    assert!(!text.contains("show version"));
+    // Typing works normally afterwards.
+    m.write(id, b"en\r").unwrap();
+    until("enable asks", || {
+        out.text().contains("Password:\r\n") || out.text().matches("Password:").count() >= 2
+    })
+    .await;
+    let devices = db.list_devices().unwrap();
+    assert_eq!(devices.len(), 1);
+    assert_eq!(devices[0].serial.as_deref(), Some("G1MQ3K8000123"));
     m.close(id).unwrap();
 }

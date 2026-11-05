@@ -17,6 +17,7 @@ import type {
   SerialLink,
   SerialSettings,
   SessionEvent,
+  DeviceFacts,
   VendorInfo,
 } from './ipc';
 import { DEFAULT_PORTS } from './ipc';
@@ -58,9 +59,10 @@ export interface LiveTab {
 export interface DeviceInfo {
   hostname: string | null;
   vendor: VendorInfo | null;
+  facts: DeviceFacts | null;
 }
 
-export const NO_DEVICE: DeviceInfo = { hostname: null, vendor: null };
+export const NO_DEVICE: DeviceInfo = { hostname: null, vendor: null, facts: null };
 
 export function applySessionEvent(tab: LiveTab, ev: SessionEvent, now: number): LiveTab {
   switch (ev.type) {
@@ -134,6 +136,7 @@ export function applySessionEvent(tab: LiveTab, ev: SessionEvent, now: number): 
         device: {
           hostname: ev.hostname ?? tab.device.hostname,
           vendor: ev.vendor ?? tab.device.vendor,
+          facts: ev.facts ?? tab.device.facts,
         },
       };
     case 'reload':

@@ -107,6 +107,24 @@ ALTER TABLE sessions ADD COLUMN credential_profile_id INTEGER NULL
         name: "v5 sessions.auto_commands_json (post-connect commands)",
         sql: "ALTER TABLE sessions ADD COLUMN auto_commands_json TEXT NULL;",
     },
+    Migration {
+        name: "v6 devices (identity from show version) + sessions.device_id/identify",
+        sql: r#"
+CREATE TABLE devices (
+    id         INTEGER PRIMARY KEY,
+    vendor     TEXT    NOT NULL,
+    hostname   TEXT    NULL,
+    model      TEXT    NULL,
+    os_version TEXT    NULL,
+    serial     TEXT    NULL,
+    first_seen INTEGER NOT NULL,
+    last_seen  INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_devices_serial ON devices(serial) WHERE serial IS NOT NULL;
+ALTER TABLE sessions ADD COLUMN device_id INTEGER NULL REFERENCES devices(id) ON DELETE SET NULL;
+ALTER TABLE sessions ADD COLUMN identify INTEGER NOT NULL DEFAULT 1;
+"#,
+    },
 ];
 
 /// Schema version this build expects.
@@ -189,6 +207,7 @@ mod tests {
             tables(&conn),
             vec![
                 "credential_profiles",
+                "devices",
                 "folders",
                 "known_hosts",
                 "port_memory",

@@ -8,9 +8,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::lines::LineAssembler;
 use super::modes::{self, CliMode, Profile};
 
-const MAX_LINE: usize = 512;
 const MAX_BANNER: usize = 16 * 1024;
 
 /// What a session learned about its device.
@@ -38,7 +38,7 @@ pub struct VendorInfo {
 }
 
 impl VendorInfo {
-    fn of(p: &Profile) -> Self {
+    pub fn of(p: &Profile) -> Self {
         Self {
             id: p.id.clone(),
             label: p.label.clone(),
@@ -47,25 +47,10 @@ impl VendorInfo {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Esc {
-    None,
-    /// After ESC.
-    Start,
-    /// CSI `ESC [` … final byte.
-    Csi,
-    /// OSC `ESC ]` … BEL or ST.
-    Osc,
-    OscEnd,
-}
-
 pub struct Observer {
     profile: &'static Profile,
     identified: bool,
-    esc: Esc,
-    /// A CR was seen; a following LF ends the line, anything else overwrites it.
-    cr: bool,
-    line: String,
+    lines: LineAssembler,
     banner: String,
     mode: Option<CliMode>,
     sub: Option<String>,
@@ -84,9 +69,7 @@ impl Observer {
         Self {
             profile: modes::default_profile(),
             identified: false,
-            esc: Esc::None,
-            cr: false,
-            line: String::new(),
+            lines: LineAssembler::new(),
             banner: String::new(),
             mode: None,
             sub: None,
@@ -95,8 +78,7 @@ impl Observer {
         }
     }
 
-    /// The vendor profile in use (`cisco-like` until identified; identity command P3-T04).
-    #[cfg_attr(not(test), allow(dead_code))]
+    /// The vendor profile in use (`cisco-like` until identified).
     pub fn profile(&self) -> &'static Profile {
         self.profile
     }
@@ -104,9 +86,7 @@ impl Observer {
     /// A new connection: the mode is unknown again until the next prompt (the device
     /// and its vendor stay the same).
     pub fn reconnected(&mut self) {
-        self.esc = Esc::None;
-        self.cr = false;
-        self.line.clear();
+        self.lines.reset();
         self.mode = None;
         self.sub = None;
         self.reloading = false;
@@ -114,20 +94,15 @@ impl Observer {
 
     pub fn feed(&mut self, bytes: &[u8]) -> Vec<Observation> {
         let mut out = Vec::new();
-        let text = String::from_utf8_lossy(bytes);
         let banner_before = self.banner.len();
-        for ch in text.chars() {
-            self.feed_char(ch, &mut out);
+        let mut done = Vec::new();
+        self.lines.feed(bytes, |l| done.push(l));
+        for line in done {
+            self.end_line(line, &mut out);
         }
         if !self.identified && self.banner.len() > banner_before {
             if let Some(p) = modes::identify(&self.banner) {
-                self.profile = p;
-                self.identified = true;
-                self.banner = String::new();
-                out.push(Observation::Identity {
-                    hostname: None,
-                    vendor: Some(VendorInfo::of(p)),
-                });
+                self.adopt(p, &mut out);
             } else if self.banner.len() >= MAX_BANNER {
                 // Nothing conclusive in the first 16 KB: stop collecting (stay cisco-like).
                 self.identified = true;
@@ -138,60 +113,30 @@ impl Observer {
         out
     }
 
-    fn feed_char(&mut self, ch: char, out: &mut Vec<Observation>) {
-        match self.esc {
-            Esc::Start => {
-                self.esc = match ch {
-                    '[' => Esc::Csi,
-                    ']' => Esc::Osc,
-                    _ => Esc::None, // two-character escape
-                };
-                return;
-            }
-            Esc::Csi => {
-                if ('@'..='~').contains(&ch) {
-                    self.esc = Esc::None;
-                }
-                return;
-            }
-            Esc::Osc => {
-                match ch {
-                    '\x07' => self.esc = Esc::None,
-                    '\x1b' => self.esc = Esc::OscEnd,
-                    _ => {}
-                }
-                return;
-            }
-            Esc::OscEnd => {
-                self.esc = if ch == '\\' { Esc::None } else { Esc::Osc };
-                return;
-            }
-            Esc::None => {}
-        }
-        if self.cr {
-            self.cr = false;
-            if ch != '\n' {
-                self.line.clear(); // carriage return without line feed: overwrite
-            }
-        }
-        match ch {
-            '\x1b' => self.esc = Esc::Start,
-            '\n' => self.end_line(out),
-            '\r' => self.cr = true,
-            '\x08' => {
-                self.line.pop();
-            }
-            c if c.is_control() => {}
-            c => {
-                if self.line.len() < MAX_LINE {
-                    self.line.push(c);
-                }
-            }
+    /// Switches to vendor profile `p` (from the banner or the identity command).
+    pub fn adopt(&mut self, p: &'static Profile, out: &mut Vec<Observation>) {
+        let changed = self.profile.id != p.id;
+        self.profile = p;
+        self.identified = true;
+        self.banner = String::new();
+        if changed {
+            out.push(Observation::Identity {
+                hostname: None,
+                vendor: Some(VendorInfo::of(p)),
+            });
         }
     }
 
-    fn end_line(&mut self, out: &mut Vec<Observation>) {
-        let line = std::mem::take(&mut self.line);
+    /// The mode when the current line is a bare prompt (nothing typed after it).
+    pub fn at_prompt(&self) -> Option<CliMode> {
+        let line = self.lines.current().trim_end();
+        if line.is_empty() {
+            return None;
+        }
+        self.profile.match_prompt(line).map(|m| m.mode)
+    }
+
+    fn end_line(&mut self, line: String, out: &mut Vec<Observation>) {
         if !self.reloading && modes::is_reload_line(&line) {
             self.reloading = true;
             // The next prompt must be reported even if it shows the same mode as before.
@@ -206,7 +151,7 @@ impl Observer {
     }
 
     fn check_prompt(&mut self, out: &mut Vec<Observation>) {
-        let candidate = self.line.trim_end();
+        let candidate = self.lines.current().trim_end();
         if candidate.is_empty() {
             return;
         }
@@ -347,9 +292,9 @@ mod tests {
     fn huge_lines_and_binary_noise_stay_bounded() {
         let mut o = Observer::new();
         o.feed(&vec![b'x'; 100_000]);
-        assert!(o.line.len() <= MAX_LINE);
+        assert!(o.lines.current().len() <= 512);
         let noise: Vec<u8> = (0..=255u8).cycle().take(50_000).collect();
         o.feed(&noise);
-        assert!(o.banner.len() <= MAX_BANNER + MAX_LINE + 1);
+        assert!(o.banner.len() <= MAX_BANNER + 512 + 1);
     }
 }

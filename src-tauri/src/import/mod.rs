@@ -51,6 +51,7 @@ pub(crate) fn blank_input(name: &str, protocol: Protocol) -> SessionInput {
         ssh: None,
         credential_profile_id: None,
         auto_commands: vec![],
+        identify: true,
     }
 }
 

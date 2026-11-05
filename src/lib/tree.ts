@@ -158,6 +158,7 @@ export function toInput(s: SessionRecord): SessionInput {
     ssh: s.ssh,
     credentialProfileId: s.credentialProfileId,
     autoCommands: s.autoCommands,
+    identify: s.identify,
   };
 }
 

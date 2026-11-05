@@ -222,6 +222,71 @@
     {
       "line": "interface GigabitEthernet0/1 reload-delay 30",
       "reload": false
+    },
+    {
+      "line": "BOOTLDR: System Bootstrap, Version 17.9.1r[FC2], RELEASE SOFTWARE (P)",
+      "reload": false
+    },
+    {
+      "line": "ROM: Bootstrap program is C2960X boot loader",
+      "reload": false
+    }
+  ],
+  "facts": [
+    {
+      "profile": "cisco-ios",
+      "text": "Cisco IOS XE Software, Version 17.09.04a\nCisco IOS Software [Cupertino], Catalyst L3 Switch Software (CAT9K_IOSXE), Version 17.9.4a, RELEASE SOFTWARE (fc3)\nTechnical Support: http://www.cisco.com/techsupport\nROM: IOS-XE ROMMON\nBOOTLDR: System Bootstrap, Version 17.9.1r[FC2], RELEASE SOFTWARE (P)\n\ncore-sw-01 uptime is 12 weeks, 3 days, 4 hours, 18 minutes\nUptime for this control processor is 12 weeks, 3 days, 4 hours, 20 minutes\ncisco C9300-48P (X86) processor with 1392780K/6147K bytes of memory.\nProcessor board ID FOC2345X0YZ\nModel Number                       : C9300-48P\nSystem Serial Number               : FOC2345X0YZ\n",
+      "facts": {
+        "hostname": "core-sw-01",
+        "model": "C9300-48P",
+        "version": "17.09.04a",
+        "serial": "FOC2345X0YZ",
+        "uptime": "12 weeks, 3 days, 4 hours, 18 minutes"
+      }
+    },
+    {
+      "profile": "cisco-like",
+      "text": "Cisco IOS Software, C2960X Software (C2960X-UNIVERSALK9-M), Version 15.2(7)E8, RELEASE SOFTWARE (fc2)\nROM: Bootstrap program is C2960X boot loader\nBOOTLDR: C2960X Boot Loader (C2960X-HBOOT-M) Version 15.2(7r)E1, RELEASE SOFTWARE (fc1)\n\naccess-01 uptime is 2 years, 1 week, 3 days, 22 hours, 9 minutes\ncisco WS-C2960X-48FPD-L (APM86XXX) processor (revision D0) with 524288K bytes of memory.\nProcessor board ID FOC1928Z0AB\nModel number                    : WS-C2960X-48FPD-L\nSystem serial number            : FOC1928Z0AB\n",
+      "facts": {
+        "hostname": "access-01",
+        "model": "WS-C2960X-48FPD-L",
+        "version": "15.2(7)E8",
+        "serial": "FOC1928Z0AB",
+        "uptime": "2 years, 1 week, 3 days, 22 hours, 9 minutes"
+      }
+    },
+    {
+      "profile": "cisco-nxos",
+      "text": "Cisco Nexus Operating System (NX-OS) Software\nTAC support: http://www.cisco.com/tac\n\nSoftware\n  BIOS: version 05.47\n NXOS: version 10.3(4a)\n\nHardware\n  cisco Nexus9000 C93180YC-FX Chassis \n  Intel(R) Xeon(R) CPU  D-1528 @ 1.90GHz with 24571632 kB of memory.\n  Processor Board ID FDO23451ABC\n\n  Device name: n9k-a\n\nKernel uptime is 120 day(s), 3 hour(s), 11 minute(s), 9 second(s)\n",
+      "facts": {
+        "hostname": "n9k-a",
+        "model": "Nexus9000 C93180YC-FX",
+        "version": "10.3(4a)",
+        "serial": "FDO23451ABC",
+        "uptime": "120 day(s), 3 hour(s), 11 minute(s), 9 second(s)"
+      }
+    },
+    {
+      "profile": "ruijie-rgos",
+      "text": "System description      : Ruijie Full Gigabit Security & Intelligence Access Switch(S5750-48GT4XS-E) By Ruijie Networks\nSystem start time       : 2026-09-16 08:12:44\nSystem uptime           : 49:03:47:16\nSystem hardware version : 1.10\nSystem software version : S5750_RGOS 11.4(1)B12P10S2\nSystem patch number     : NA\nSystem serial number    : G1MQ3K8000123\nSystem boot version     : 1.3.8\n",
+      "facts": {
+        "hostname": null,
+        "model": "S5750-48GT4XS-E",
+        "version": "S5750_RGOS 11.4(1)B12P10S2",
+        "serial": "G1MQ3K8000123",
+        "uptime": "49:03:47:16"
+      }
+    },
+    {
+      "profile": "cisco-like",
+      "text": "% Invalid input detected at '^' marker.\n",
+      "facts": {
+        "hostname": null,
+        "model": null,
+        "version": null,
+        "serial": null,
+        "uptime": null
+      }
     }
   ]
 }

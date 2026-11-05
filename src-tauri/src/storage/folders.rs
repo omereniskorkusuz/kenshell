@@ -248,6 +248,7 @@ mod tests {
             ssh: None,
             credential_profile_id: None,
             auto_commands: vec![],
+            identify: true,
         })
         .unwrap()
         .id

@@ -407,10 +407,16 @@ function TerminalSection() {
 function ConnectionSection() {
   const t = useT();
   const [reconnect, setReconnect] = useSetting('connection.autoReconnect');
+  const [identify, setIdentify] = useSetting('device.identify');
   return (
-    <Row label={t('settings.netAutoReconnect')} hint={t('settings.netAutoReconnectHint')}>
-      {(id) => <Toggle id={id} checked={reconnect} onChange={setReconnect} />}
-    </Row>
+    <>
+      <Row label={t('settings.netAutoReconnect')} hint={t('settings.netAutoReconnectHint')}>
+        {(id) => <Toggle id={id} checked={reconnect} onChange={setReconnect} />}
+      </Row>
+      <Row label={t('settings.identify')} hint={t('settings.identifyHint')}>
+        {(id) => <Toggle id={id} checked={identify} onChange={setIdentify} />}
+      </Row>
+    </>
   );
 }
 

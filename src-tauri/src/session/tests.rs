@@ -81,6 +81,8 @@ struct FakeState {
     touched: Vec<i64>,
     auto_reconnect: bool,
     net_auto_reconnect: bool,
+    identify: bool,
+    devices: Vec<(String, crate::device::modes::DeviceFacts)>,
 }
 
 struct FakeBackend(Mutex<FakeState>);
@@ -100,6 +102,8 @@ impl FakeBackend {
             touched: vec![],
             auto_reconnect: true,
             net_auto_reconnect: false,
+            identify: false,
+            devices: vec![],
         })))
     }
 
@@ -221,6 +225,19 @@ impl Backend for FakeBackend {
 
     fn credentials(&self, _session_id: i64) -> Option<crate::secrets::Credentials> {
         None
+    }
+
+    fn identify_enabled(&self, _session_id: Option<i64>) -> bool {
+        self.st().identify
+    }
+
+    fn record_device(
+        &self,
+        _session_id: Option<i64>,
+        vendor: &str,
+        facts: &crate::device::modes::DeviceFacts,
+    ) {
+        self.st().devices.push((vendor.to_owned(), facts.clone()));
     }
 }
 
@@ -1129,4 +1146,77 @@ async fn parked_session_moves_to_a_new_output_without_losing_bytes() {
         mgr.attach(id, moved, "x").unwrap_err().code,
         ErrorCode::NotFound
     );
+}
+
+// ---------------------------------------------------------------- identity command (P3-T04)
+
+#[tokio::test]
+async fn identity_command_runs_hidden_at_a_quiet_prompt_and_holds_input() {
+    let (backend, mgr, out) = setup();
+    backend.st().identify = true;
+    let id = open_connected(&backend, &mgr, &out, Some(9600)).await;
+    let sink = backend.sink(0);
+    let log = backend.transport(0);
+    sink.try_send(TransportEvent::Data(b"\r\naccess-sw-02#".to_vec()))
+        .unwrap();
+    until("show version sent", || {
+        log.lock()
+            .unwrap()
+            .writes
+            .iter()
+            .any(|w| w == b"show version\r")
+    })
+    .await;
+    // Typed while the command runs: held, not interleaved.
+    mgr.write(id, b"x").unwrap();
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    assert!(!log.lock().unwrap().writes.iter().any(|w| w == b"x"));
+    sink.try_send(TransportEvent::Data(
+        b"show version\r\nSystem description      : Ruijie Switch(S5750-48GT4XS-E) By Ruijie Networks\r\n\
+          System software version : S5750_RGOS 11.4(1)B12P10S2\r\n --More-- "
+            .to_vec(),
+    ))
+    .unwrap();
+    until("next page", || {
+        log.lock().unwrap().writes.iter().any(|w| w == b" ")
+    })
+    .await;
+    sink.try_send(TransportEvent::Data(
+        b"\r          \rSystem serial number    : G1MQ3K8000123\r\naccess-sw-02#".to_vec(),
+    ))
+    .unwrap();
+    until("identity with facts", || {
+        out.events().iter().any(|e| {
+            matches!(e, SessionEvent::Identity { facts: Some(f), vendor: Some(v), .. }
+                if f.serial.as_deref() == Some("G1MQ3K8000123") && v.id == "ruijie-rgos")
+        })
+    })
+    .await;
+    until("held input sent", || {
+        log.lock().unwrap().writes.iter().any(|w| w == b"x")
+    })
+    .await;
+    let shown = String::from_utf8_lossy(&out.data().concat()).into_owned();
+    assert!(shown.contains("access-sw-02#"));
+    assert!(
+        !shown.contains("show version"),
+        "the command's output stays hidden"
+    );
+    assert!(!shown.contains("G1MQ3K8000123"));
+    let devices = backend.st().devices.clone();
+    assert_eq!(devices.len(), 1);
+    assert_eq!(devices[0].0, "ruijie-rgos");
+    assert_eq!(devices[0].1.model.as_deref(), Some("S5750-48GT4XS-E"));
+}
+
+#[tokio::test]
+async fn identity_command_is_off_when_disabled() {
+    let (backend, mgr, out) = setup();
+    let _id = open_connected(&backend, &mgr, &out, Some(9600)).await;
+    backend
+        .sink(0)
+        .try_send(TransportEvent::Data(b"\r\nsw1#".to_vec()))
+        .unwrap();
+    tokio::time::sleep(crate::device::probe::QUIET + Duration::from_millis(200)).await;
+    assert!(backend.transport(0).lock().unwrap().writes.is_empty());
 }

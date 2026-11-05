@@ -154,6 +154,7 @@ pub(super) struct ValidSession {
     pub env_tag: Option<String>,
     pub tags: Vec<String>,
     pub favorite: bool,
+    pub identify: bool,
 }
 
 const MAX_AUTO_COMMANDS: usize = 20;
@@ -264,6 +265,7 @@ pub(super) fn session(input: &SessionInput) -> Result<ValidSession> {
         env_tag: env_tag(input.env_tag.as_deref())?,
         tags: tags(&input.tags)?,
         favorite: input.favorite,
+        identify: input.identify,
     })
 }
 
@@ -293,6 +295,7 @@ mod tests {
             ssh: None,
             credential_profile_id: None,
             auto_commands: vec![],
+            identify: true,
         }
     }
 

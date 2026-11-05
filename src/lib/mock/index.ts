@@ -135,6 +135,8 @@ function record(
     ssh: null,
     credentialProfileId: null,
     autoCommands: [],
+    identify: true,
+    deviceId: null,
     sortOrder: id,
     createdAt: now() - 30 * 24 * HOUR,
     updatedAt: now() - 2 * HOUR,
@@ -247,10 +249,25 @@ class MockModeWatch {
           : null;
     if (!hit) return;
     const key = `${hit.mode}|${hit.sub}`;
+    if (this.last === '') {
+      // What the backend's hidden `show version` would report (demo values).
+      this.onEvent({
+        type: 'identity',
+        hostname: hit.host ?? null,
+        vendor: { id: 'cisco-ios', label: 'Cisco IOS / IOS-XE', family: 'cisco' },
+        facts: {
+          hostname: hit.host ?? null,
+          model: 'WS-C2960X-48FPD-L',
+          version: '15.2(7)E8',
+          serial: 'FOC1928Z0AB',
+          uptime: '2 weeks, 3 days, 4 hours',
+        },
+      });
+    }
     if (key !== this.last) {
       this.last = key;
       this.onEvent({ type: 'mode', mode: hit.mode, sub: hit.sub });
-      this.onEvent({ type: 'identity', hostname: hit.host ?? null, vendor: null });
+      this.onEvent({ type: 'identity', hostname: hit.host ?? null, vendor: null, facts: null });
     }
   }
 }
@@ -653,6 +670,8 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           ssh: input.ssh ?? null,
           credentialProfileId: input.credentialProfileId ?? null,
           autoCommands: input.autoCommands ?? [],
+          identify: input.identify ?? true,
+          deviceId: null,
           name: validName(input.name),
           id: nextId++,
           sortOrder: sessions.length,

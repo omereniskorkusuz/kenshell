@@ -106,11 +106,26 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
   // What the device told us: host name from the prompt (when it differs from the tab name)
   // and the vendor once identified (Ruijie is never shown as Cisco: "Cisco-like" until sure).
   const host = tab.device.hostname;
-  const deviceText = [host && host !== tab.name ? host : null, tab.device.vendor?.label]
+  const vendor = tab.device.vendor;
+  const facts = tab.device.facts;
+  const vendorLabel = vendor
+    ? vendor.family === 'generic'
+      ? t('identity.ciscoLike')
+      : vendor.label
+    : null;
+  const deviceText = [host && host !== tab.name ? host : null, vendorLabel, facts?.model]
     .filter(Boolean)
     .join(' · ');
+  const deviceTitle = [
+    t('identity.device'),
+    facts?.version && `${t('identity.osVersion')}: ${facts.version}`,
+    facts?.serial && `${t('identity.serial')}: ${facts.serial}`,
+    facts?.uptime && `${t('identity.deviceUptime')}: ${facts.uptime}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
   const device = deviceText && (
-    <span className="min-w-0 shrink-[3] truncate text-xs text-muted" title={t('identity.device')}>
+    <span className="min-w-0 shrink-[3] truncate text-xs text-muted" title={deviceTitle}>
       {deviceText}
     </span>
   );

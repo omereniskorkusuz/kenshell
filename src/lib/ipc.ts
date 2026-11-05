@@ -93,6 +93,10 @@ export interface SessionRecord {
   credentialProfileId: number | null;
   /** Sent once the device is idle after connecting. */
   autoCommands: string[];
+  /** Read the device identity in the background after login (`show version`, hidden). */
+  identify: boolean;
+  /** Device this session last identified. */
+  deviceId: number | null;
   sortOrder: number;
   createdAt: number;
   updatedAt: number;
@@ -114,7 +118,29 @@ export type SessionInput = Pick<
   | 'ssh'
   | 'credentialProfileId'
   | 'autoCommands'
+  | 'identify'
 >;
+
+/** What the identity command reported (P3-T04). */
+export interface DeviceFacts {
+  hostname: string | null;
+  model: string | null;
+  version: string | null;
+  serial: string | null;
+  uptime: string | null;
+}
+
+export interface DeviceRecord {
+  id: number;
+  /** Vendor profile id, e.g. `ruijie-rgos`. */
+  vendor: string;
+  hostname: string | null;
+  model: string | null;
+  osVersion: string | null;
+  serial: string | null;
+  firstSeen: number;
+  lastSeen: number;
+}
 
 export type Settings = Record<string, unknown>;
 
@@ -348,7 +374,13 @@ export type SessionEvent =
   /** CLI mode from the current prompt (P3-T03). */
   | { type: 'mode'; mode: DeviceMode; sub: string | null }
   /** Host name (prompt) and/or vendor (banner, show version); unknown parts are null. */
-  | { type: 'identity'; hostname: string | null; vendor: VendorInfo | null }
+  | {
+      type: 'identity';
+      hostname: string | null;
+      vendor: VendorInfo | null;
+      /** From the background identity command. */
+      facts: DeviceFacts | null;
+    }
   /** The device is restarting; the next `mode` event means it is back. */
   | { type: 'reload' };
 
@@ -462,6 +494,7 @@ export const api = {
     call<SessionRecord>('session_update', { id, input }),
   sessionDelete: (id: number) => call<undefined>('session_delete', { id }),
   sessionDuplicate: (id: number) => call<SessionRecord>('session_duplicate', { id }),
+  deviceList: () => call<DeviceRecord[]>('device_list'),
   sessionReorder: (id: number, folderId: number | null, beforeId: number | null) =>
     call<undefined>('session_reorder', { id, folderId, beforeId }),
   /** One change set for many sessions; all or nothing. */
