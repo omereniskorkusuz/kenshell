@@ -8,7 +8,7 @@
 #![allow(unsafe_code)]
 
 use std::net::Ipv4Addr;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// Runs a system tool and returns its stdout (no console window on Windows).
 fn run(program: &str, args: &[&str]) -> Option<String> {
@@ -215,6 +215,8 @@ pub fn reverse_dns(ip: Ipv4Addr) -> Option<String> {
 
 // ------------------------------------------------------------------------- ICMP sweep
 
+// Used by the Unix sweep; Windows has no ICMP sweep yet (tests run everywhere).
+#[cfg_attr(not(unix), allow(dead_code))]
 fn checksum(data: &[u8]) -> u16 {
     let mut sum = 0u32;
     for pair in data.chunks(2) {
@@ -228,6 +230,8 @@ fn checksum(data: &[u8]) -> u16 {
 }
 
 /// An ICMP echo request (type 8) with a checksum.
+// Used by the Unix sweep; Windows has no ICMP sweep yet (tests run everywhere).
+#[cfg_attr(not(unix), allow(dead_code))]
 pub fn echo_request(ident: u16, seq: u16) -> Vec<u8> {
     let mut p = vec![8, 0, 0, 0];
     p.extend_from_slice(&ident.to_be_bytes());
@@ -239,6 +243,8 @@ pub fn echo_request(ident: u16, seq: u16) -> Vec<u8> {
 }
 
 /// True for an echo reply; datagram ICMP sockets on macOS hand back the IP header too.
+// Used by the Unix sweep; Windows has no ICMP sweep yet (tests run everywhere).
+#[cfg_attr(not(unix), allow(dead_code))]
 pub fn is_echo_reply(packet: &[u8]) -> bool {
     let icmp = match packet.first() {
         Some(b) if b >> 4 == 4 => packet.get(usize::from(b & 0x0f) * 4..).unwrap_or(&[]),
@@ -259,6 +265,7 @@ pub fn icmp_sweep(
 ) -> Option<std::collections::HashSet<Ipv4Addr>> {
     use socket2::{Domain, Protocol, Socket, Type};
     use std::sync::atomic::Ordering;
+    use std::time::Instant;
 
     let sock = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::ICMPV4)).ok()?;
     sock.set_read_timeout(Some(Duration::from_millis(20)))
