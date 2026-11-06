@@ -7,6 +7,8 @@
 //! never panic on malformed text (P4-T05 adds fuzz tests).
 
 pub mod csv;
+#[cfg(test)]
+mod fuzz_tests;
 pub mod parsers;
 
 use serde::{Deserialize, Serialize};
