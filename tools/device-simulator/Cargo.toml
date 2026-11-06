@@ -14,6 +14,8 @@ serde = { version = "1", features = ["derive"] }
 serialport = { version = "4.10", default-features = false }
 tokio = { version = "1", features = ["rt", "net", "macros", "time", "sync"] }
 toml = { version = "1", default-features = false, features = ["parse", "serde"] }
+# In-memory SFTP server for KenShell's SFTP tests (P5-T01).
+russh-sftp = "3"
 
 [lints]
 workspace = true

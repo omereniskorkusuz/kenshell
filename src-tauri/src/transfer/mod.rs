@@ -3,3 +3,4 @@
 //! authenticated connection — no second login.
 
 pub mod scp;
+pub mod sftp;

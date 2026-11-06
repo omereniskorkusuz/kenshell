@@ -42,6 +42,8 @@ ring = "0.17"
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 # Local interfaces for the network scanner scope (ADR-017); libc / windows-sys already in the tree.
 if-addrs = "0.15"
+# SFTP client protocol over a russh channel (ADR-019).
+russh-sftp = "3"
 
 # Network scanner OS calls (ADR-018): all already in the tree.
 [target.'cfg(unix)'.dependencies]

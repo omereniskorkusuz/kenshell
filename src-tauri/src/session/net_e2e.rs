@@ -894,3 +894,66 @@ async fn net_e2e_scp_download_and_upload_over_the_session_connection() {
     assert!(connected(&out));
     m.close(id).unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs target/debug/device-simulator"]
+async fn net_e2e_sftp_browse_upload_download_rename_delete() {
+    use crate::transfer::sftp;
+    use std::sync::atomic::AtomicBool;
+    let port = free_port();
+    let _sim = sim(&["--ssh", "--host-key-seed", "10"], port);
+    let (m, _db) = manager();
+    let out = Arc::new(Rec::default());
+    let id = m
+        .open(net(Protocol::Ssh, port, Some("admin"), false), out.clone())
+        .unwrap();
+    login("ssh", &m, id, &out).await;
+
+    let (sid, home) = sftp::open(&m.ssh_handle(id).unwrap()).await.unwrap();
+    assert_eq!(home, "/");
+    let s = sftp::get(sid).unwrap();
+    let names = |l: &[sftp::Entry]| l.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+    assert!(names(&sftp::list(&s, "/").await.unwrap()).contains(&"startup-config".to_owned()));
+
+    let dir = tempfile::tempdir().unwrap();
+    let local = dir.path().join("fw.bin");
+    let payload: Vec<u8> = (0..200_000u32).map(|i| (i % 251) as u8).collect();
+    std::fs::write(&local, &payload).unwrap();
+    let mut f = tokio::fs::File::open(&local).await.unwrap();
+    let mut seen = 0;
+    sftp::upload(
+        &s,
+        &mut f,
+        payload.len() as u64,
+        "/fw.bin",
+        &AtomicBool::new(false),
+        &mut |d, _| seen = d,
+    )
+    .await
+    .unwrap();
+    assert_eq!(seen, payload.len() as u64);
+
+    let back = dir.path().join("back.bin");
+    let mut out_file = tokio::fs::File::create(&back).await.unwrap();
+    let n = sftp::download(
+        &s,
+        "/fw.bin",
+        &mut out_file,
+        &AtomicBool::new(false),
+        &mut |_, _| {},
+    )
+    .await
+    .unwrap();
+    drop(out_file);
+    assert_eq!(n, payload.len() as u64);
+    assert_eq!(std::fs::read(&back).unwrap(), payload);
+
+    s.rename("/fw.bin", "/fw-old.bin").await.unwrap();
+    assert!(names(&sftp::list(&s, "/").await.unwrap()).contains(&"fw-old.bin".to_owned()));
+    s.remove_file("/fw-old.bin").await.unwrap();
+    assert!(!names(&sftp::list(&s, "/").await.unwrap()).contains(&"fw-old.bin".to_owned()));
+    sftp::close(sid).await;
+    assert!(sftp::get(sid).is_err());
+    assert!(connected(&out), "the terminal stays connected");
+    m.close(id).unwrap();
+}

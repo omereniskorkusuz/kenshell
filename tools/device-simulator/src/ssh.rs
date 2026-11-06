@@ -134,6 +134,233 @@ struct Handler {
 
 type Files = Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<u8>>>>;
 
+/// Minimal SFTP server over the same in-memory files: `/name` is `flash:name`, one flat
+/// directory. Enough for listing, upload, download, rename and delete.
+struct SftpFs {
+    files: Files,
+    /// Open file handles: path → bytes being written (committed on close).
+    writing: std::collections::HashMap<String, Vec<u8>>,
+    listed: bool,
+}
+
+fn key_of(path: &str) -> String {
+    format!("flash:{}", path.trim_start_matches('/'))
+}
+
+fn status(id: u32, code: russh_sftp::protocol::StatusCode) -> russh_sftp::protocol::Status {
+    russh_sftp::protocol::Status {
+        id,
+        status_code: code,
+        error_message: String::new(),
+        language_tag: "en-US".into(),
+    }
+}
+
+fn attrs(size: u64, dir: bool) -> russh_sftp::protocol::FileAttributes {
+    let mut a = russh_sftp::protocol::FileAttributes::empty();
+    a.size = Some(size);
+    a.permissions = Some(if dir { 0o040_755 } else { 0o100_644 });
+    a.mtime = Some(1_762_400_000);
+    a
+}
+
+impl russh_sftp::server::Handler for SftpFs {
+    type Error = russh_sftp::protocol::StatusCode;
+
+    fn unimplemented(&self) -> Self::Error {
+        russh_sftp::protocol::StatusCode::OpUnsupported
+    }
+
+    async fn realpath(
+        &mut self,
+        id: u32,
+        _path: String,
+    ) -> Result<russh_sftp::protocol::Name, Self::Error> {
+        Ok(russh_sftp::protocol::Name {
+            id,
+            files: vec![russh_sftp::protocol::File::new("/", attrs(0, true))],
+        })
+    }
+
+    async fn opendir(
+        &mut self,
+        id: u32,
+        path: String,
+    ) -> Result<russh_sftp::protocol::Handle, Self::Error> {
+        self.listed = false;
+        Ok(russh_sftp::protocol::Handle { id, handle: path })
+    }
+
+    async fn readdir(
+        &mut self,
+        id: u32,
+        _handle: String,
+    ) -> Result<russh_sftp::protocol::Name, Self::Error> {
+        if self.listed {
+            return Err(russh_sftp::protocol::StatusCode::Eof);
+        }
+        self.listed = true;
+        let files = self
+            .files
+            .lock()
+            .map_err(|_| russh_sftp::protocol::StatusCode::Failure)?;
+        Ok(russh_sftp::protocol::Name {
+            id,
+            files: files
+                .iter()
+                .filter_map(|(k, v)| {
+                    k.strip_prefix("flash:")
+                        .map(|n| russh_sftp::protocol::File::new(n, attrs(v.len() as u64, false)))
+                })
+                .collect(),
+        })
+    }
+
+    async fn stat(
+        &mut self,
+        id: u32,
+        path: String,
+    ) -> Result<russh_sftp::protocol::Attrs, Self::Error> {
+        if path == "/" || path == "." {
+            return Ok(russh_sftp::protocol::Attrs {
+                id,
+                attrs: attrs(0, true),
+            });
+        }
+        let files = self
+            .files
+            .lock()
+            .map_err(|_| russh_sftp::protocol::StatusCode::Failure)?;
+        let f = files
+            .get(&key_of(&path))
+            .ok_or(russh_sftp::protocol::StatusCode::NoSuchFile)?;
+        Ok(russh_sftp::protocol::Attrs {
+            id,
+            attrs: attrs(f.len() as u64, false),
+        })
+    }
+
+    async fn lstat(
+        &mut self,
+        id: u32,
+        path: String,
+    ) -> Result<russh_sftp::protocol::Attrs, Self::Error> {
+        self.stat(id, path).await
+    }
+
+    async fn open(
+        &mut self,
+        id: u32,
+        filename: String,
+        pflags: russh_sftp::protocol::OpenFlags,
+        _attrs: russh_sftp::protocol::FileAttributes,
+    ) -> Result<russh_sftp::protocol::Handle, Self::Error> {
+        if pflags.contains(russh_sftp::protocol::OpenFlags::WRITE) {
+            self.writing.insert(filename.clone(), Vec::new());
+        } else if !self
+            .files
+            .lock()
+            .map_err(|_| russh_sftp::protocol::StatusCode::Failure)?
+            .contains_key(&key_of(&filename))
+        {
+            return Err(russh_sftp::protocol::StatusCode::NoSuchFile);
+        }
+        Ok(russh_sftp::protocol::Handle {
+            id,
+            handle: filename,
+        })
+    }
+
+    async fn read(
+        &mut self,
+        id: u32,
+        handle: String,
+        offset: u64,
+        len: u32,
+    ) -> Result<russh_sftp::protocol::Data, Self::Error> {
+        let files = self
+            .files
+            .lock()
+            .map_err(|_| russh_sftp::protocol::StatusCode::Failure)?;
+        let f = files
+            .get(&key_of(&handle))
+            .ok_or(russh_sftp::protocol::StatusCode::NoSuchFile)?;
+        let start = usize::try_from(offset).unwrap_or(usize::MAX);
+        if start >= f.len() {
+            return Err(russh_sftp::protocol::StatusCode::Eof);
+        }
+        let end = (start + len as usize).min(f.len());
+        Ok(russh_sftp::protocol::Data {
+            id,
+            data: f[start..end].to_vec(),
+        })
+    }
+
+    async fn write(
+        &mut self,
+        id: u32,
+        handle: String,
+        offset: u64,
+        data: Vec<u8>,
+    ) -> Result<russh_sftp::protocol::Status, Self::Error> {
+        let buf = self
+            .writing
+            .get_mut(&handle)
+            .ok_or(russh_sftp::protocol::StatusCode::Failure)?;
+        let at = usize::try_from(offset).unwrap_or(0);
+        if buf.len() < at + data.len() {
+            buf.resize(at + data.len(), 0);
+        }
+        buf[at..at + data.len()].copy_from_slice(&data);
+        Ok(status(id, russh_sftp::protocol::StatusCode::Ok))
+    }
+
+    async fn close(
+        &mut self,
+        id: u32,
+        handle: String,
+    ) -> Result<russh_sftp::protocol::Status, Self::Error> {
+        if let Some(data) = self.writing.remove(&handle)
+            && let Ok(mut f) = self.files.lock()
+        {
+            f.insert(key_of(&handle), data);
+        }
+        Ok(status(id, russh_sftp::protocol::StatusCode::Ok))
+    }
+
+    async fn remove(
+        &mut self,
+        id: u32,
+        filename: String,
+    ) -> Result<russh_sftp::protocol::Status, Self::Error> {
+        let removed = self
+            .files
+            .lock()
+            .ok()
+            .and_then(|mut f| f.remove(&key_of(&filename)));
+        removed
+            .map(|_| status(id, russh_sftp::protocol::StatusCode::Ok))
+            .ok_or(russh_sftp::protocol::StatusCode::NoSuchFile)
+    }
+
+    async fn rename(
+        &mut self,
+        id: u32,
+        oldpath: String,
+        newpath: String,
+    ) -> Result<russh_sftp::protocol::Status, Self::Error> {
+        let mut f = self
+            .files
+            .lock()
+            .map_err(|_| russh_sftp::protocol::StatusCode::Failure)?;
+        let data = f
+            .remove(&key_of(&oldpath))
+            .ok_or(russh_sftp::protocol::StatusCode::NoSuchFile)?;
+        f.insert(key_of(&newpath), data);
+        Ok(status(id, russh_sftp::protocol::StatusCode::Ok))
+    }
+}
+
 /// Minimal SCP server (`scp -f path`, `scp -t dir`) over an exec channel's stream.
 async fn scp_serve<S>(mut s: S, command: String, files: Files)
 where
@@ -283,6 +510,28 @@ impl server::Handler for Handler {
     ) -> Result<(), Self::Error> {
         self.pending.insert(channel.id(), channel);
         reply.accept().await;
+        Ok(())
+    }
+
+    /// The `sftp` subsystem (KenShell's SFTP browser, P5-T01).
+    async fn subsystem_request(
+        &mut self,
+        channel: ChannelId,
+        name: &str,
+        session: &mut SshSession,
+    ) -> Result<(), Self::Error> {
+        match self.pending.remove(&channel) {
+            Some(ch) if name == "sftp" => {
+                session.channel_success(channel)?;
+                let fs = SftpFs {
+                    files: Arc::clone(&self.files),
+                    writing: std::collections::HashMap::new(),
+                    listed: false,
+                };
+                tokio::spawn(russh_sftp::server::run(ch.into_stream(), fs));
+            }
+            _ => session.channel_failure(channel)?,
+        }
         Ok(())
     }
 
