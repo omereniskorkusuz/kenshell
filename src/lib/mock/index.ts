@@ -34,6 +34,32 @@ import { FakeCli } from './cli';
 
 const mockHistory = new Map<string, string[]>();
 let mockScanCancel = false;
+let mockSftp = [
+  {
+    name: 'bootflash',
+    path: '/bootflash',
+    isDir: true,
+    isLink: false,
+    size: 0,
+    modified: 1_762_400_000,
+  },
+  {
+    name: 'startup-config',
+    path: '/startup-config',
+    isDir: false,
+    isLink: false,
+    size: 4821,
+    modified: 1_762_400_000,
+  },
+  {
+    name: 'cat9k_iosxe.17.09.04a.SPA.bin',
+    path: '/cat9k_iosxe.17.09.04a.SPA.bin',
+    isDir: false,
+    isLink: false,
+    size: 1_234_567_890,
+    modified: 1_762_300_000,
+  },
+];
 let mockSnippets: Snippet[] = [];
 let mockBackups: { id: number; text: string; [k: string]: unknown }[] = [];
 let nextSnippetId = 1;
@@ -856,6 +882,41 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           'hostname core-sw1\nntp server 10.0.0.1\nend',
           'hostname core-sw1\nntp server 10.0.0.2\nlogging host 10.0.0.5\nend',
         );
+      case 'sftp_open':
+        return { sftp: 1, home: '/' };
+      case 'sftp_list':
+        return mockSftp
+          .filter(
+            (e) =>
+              e.path.startsWith(String(a.path) === '/' ? '/' : `${String(a.path)}/`) &&
+              e.path.split('/').length ===
+                (String(a.path) === '/' ? 2 : String(a.path).split('/').length + 1),
+          )
+          .sort((x, y) => Number(y.isDir) - Number(x.isDir) || x.name.localeCompare(y.name));
+      case 'sftp_mkdir':
+        mockSftp.push({
+          name: String(a.path).split('/').pop() ?? '',
+          path: String(a.path),
+          isDir: true,
+          isLink: false,
+          size: 0,
+          modified: 1_762_400_000,
+        });
+        return undefined;
+      case 'sftp_remove':
+        mockSftp = mockSftp.filter((e) => e.path !== a.path);
+        return undefined;
+      case 'sftp_rename': {
+        const e = mockSftp.find((x) => x.path === a.from);
+        if (e) {
+          e.path = String(a.to);
+          e.name = e.path.split('/').pop() ?? e.name;
+        }
+        return undefined;
+      }
+      case 'sftp_close':
+      case 'transfer_cancel':
+        return undefined;
       case 'netscan_cancel':
         mockScanCancel = true;
         return undefined;
@@ -1450,4 +1511,14 @@ export async function netscanRun(
     icmpAvailable: true,
     cancelled: mockScanCancel,
   };
+}
+
+/** Browser demo transfer: 1 MB over ~1.2 s. */
+export async function mockTransfer(onProgress: (p: { done: number; total: number }) => void) {
+  const total = 1_048_576;
+  for (let done = 0; done <= total; done += 131_072) {
+    onProgress({ done, total });
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  return total;
 }

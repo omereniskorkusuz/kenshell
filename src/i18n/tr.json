@@ -898,5 +898,32 @@
       "vendor": "Üretici",
       "ports": "Açık portlar"
     }
+  },
+  "transfer": {
+    "title": "Dosya transferi",
+    "sameConnection": "Bu sekmenin SSH bağlantısı üzerinden",
+    "needsSsh": "Dosya transferi SSH sekmesinde çalışır.",
+    "connectFirst": "Önce SSH sekmesine bağlanın.",
+    "scpHint": "SCP: switch ve router'ların çoğunun sunduğu yöntem (Cisco, Ruijie). Cihazdaki yolu yazın.",
+    "remoteFile": "Cihazdaki dosya",
+    "remoteDir": "Yükleneceği yer (cihaz klasörü)",
+    "download": "İndir",
+    "uploadFile": "Dosya yükle",
+    "opening": "SFTP açılıyor…",
+    "up": "Üst klasör",
+    "refresh": "Yenile",
+    "newFolder": "Yeni klasör",
+    "newFolderName": "yeni-klasor",
+    "rename": "Yeniden adlandır",
+    "delete": "Sil",
+    "empty": "Klasör boş.",
+    "cancel": "İptal",
+    "done": "{{name}} aktarıldı",
+    "state": {
+      "done": "tamam",
+      "failed": "başarısız",
+      "cancelled": "iptal edildi",
+      "running": "sürüyor"
+    }
   }
 }

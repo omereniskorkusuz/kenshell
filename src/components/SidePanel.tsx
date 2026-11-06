@@ -8,6 +8,7 @@ import { useT, type TKey } from '../i18n';
 import { LIMITS, useSettings } from '../stores/settings';
 import { useUi, type SidePanelTab } from '../stores/ui';
 import { NotesPanel } from './NotesPanel';
+import { FileTransfer } from './FileTransfer';
 import { SnippetsPanel } from './SnippetsPanel';
 
 const AnalyzerPanel = lazy(() => import('./AnalyzerPanel'));
@@ -129,6 +130,10 @@ export function SidePanel() {
           <Suspense fallback={null}>
             <AnalyzerPanel />
           </Suspense>
+        </div>
+      ) : current.id === 'tools' ? (
+        <div role="tabpanel" className="flex min-h-0 flex-1 flex-col">
+          <FileTransfer />
         </div>
       ) : current.id === 'snippets' ? (
         <div role="tabpanel" className="flex min-h-0 flex-1 flex-col">

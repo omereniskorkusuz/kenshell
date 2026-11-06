@@ -898,5 +898,32 @@
       "vendor": "Vendor",
       "ports": "Open ports"
     }
+  },
+  "transfer": {
+    "title": "File transfer",
+    "sameConnection": "Over this tab's SSH connection",
+    "needsSsh": "File transfer works on an SSH tab.",
+    "connectFirst": "Connect the SSH tab first.",
+    "scpHint": "SCP: what most switches and routers offer (Cisco, Ruijie). Enter the device path.",
+    "remoteFile": "File on the device",
+    "remoteDir": "Upload to (device folder)",
+    "download": "Download",
+    "uploadFile": "Upload a file",
+    "opening": "Opening SFTP…",
+    "up": "Up one folder",
+    "refresh": "Refresh",
+    "newFolder": "New folder",
+    "newFolderName": "new-folder",
+    "rename": "Rename",
+    "delete": "Delete",
+    "empty": "Empty folder.",
+    "cancel": "Cancel",
+    "done": "{{name}} transferred",
+    "state": {
+      "done": "done",
+      "failed": "failed",
+      "cancelled": "cancelled",
+      "running": "running"
+    }
   }
 }

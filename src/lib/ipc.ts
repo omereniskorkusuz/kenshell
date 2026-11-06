@@ -902,3 +902,103 @@ export async function netscanRun(
   ch.onmessage = onProgress;
   return invoke<ScanResult>('netscan_run', { target, onProgress: ch });
 }
+
+// ------------------------------------------------------------------ file transfer (P5-T01)
+
+export interface TransferProgress {
+  done: number;
+  total: number;
+}
+
+export interface SftpEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  isLink: boolean;
+  size: number;
+  /** Seconds since 1970 (0 = unknown). */
+  modified: number;
+}
+
+function progressChannel(onProgress: (p: TransferProgress) => void) {
+  const ch = new Channel<TransferProgress>();
+  ch.onmessage = onProgress;
+  return ch;
+}
+
+/** File transfer over a connected SSH tab (SCP, SFTP). `transfer` = a UI id for cancel. */
+export const transfer = {
+  async scpDownload(
+    id: number,
+    transfer: number,
+    remote: string,
+    local: string,
+    onProgress: (p: TransferProgress) => void,
+  ) {
+    if (!inTauri()) return (await loadMock()).mockTransfer(onProgress);
+    return invoke<number>('scp_download', {
+      id,
+      transfer,
+      remote,
+      local,
+      onProgress: progressChannel(onProgress),
+    });
+  },
+  async scpUpload(
+    id: number,
+    transfer: number,
+    local: string,
+    remote: string,
+    onProgress: (p: TransferProgress) => void,
+  ) {
+    if (!inTauri()) return (await loadMock()).mockTransfer(onProgress);
+    return invoke<undefined>('scp_upload', {
+      id,
+      transfer,
+      local,
+      remote,
+      onProgress: progressChannel(onProgress),
+    });
+  },
+  async sftpDownload(
+    sftp: number,
+    transfer: number,
+    remote: string,
+    local: string,
+    onProgress: (p: TransferProgress) => void,
+  ) {
+    if (!inTauri()) return (await loadMock()).mockTransfer(onProgress);
+    return invoke<number>('sftp_download', {
+      sftp,
+      transfer,
+      remote,
+      local,
+      onProgress: progressChannel(onProgress),
+    });
+  },
+  async sftpUpload(
+    sftp: number,
+    transfer: number,
+    local: string,
+    remoteDir: string,
+    onProgress: (p: TransferProgress) => void,
+  ) {
+    if (!inTauri()) return (await loadMock()).mockTransfer(onProgress);
+    return invoke<undefined>('sftp_upload', {
+      sftp,
+      transfer,
+      local,
+      remoteDir,
+      onProgress: progressChannel(onProgress),
+    });
+  },
+  cancel: (transfer: number) => call<undefined>('transfer_cancel', { transfer }),
+  sftpOpen: (id: number) => call<{ sftp: number; home: string }>('sftp_open', { id }),
+  sftpList: (sftp: number, path: string) => call<SftpEntry[]>('sftp_list', { sftp, path }),
+  sftpMkdir: (sftp: number, path: string) => call<undefined>('sftp_mkdir', { sftp, path }),
+  sftpRemove: (sftp: number, path: string, isDir: boolean) =>
+    call<undefined>('sftp_remove', { sftp, path, isDir }),
+  sftpRename: (sftp: number, from: string, to: string) =>
+    call<undefined>('sftp_rename', { sftp, from, to }),
+  sftpClose: (sftp: number) => call<undefined>('sftp_close', { sftp }),
+};
