@@ -8,6 +8,7 @@ pub mod clipboard;
 pub mod console;
 pub mod import;
 pub mod keys;
+pub mod netscan;
 pub mod secrets;
 pub mod session;
 pub mod storage;

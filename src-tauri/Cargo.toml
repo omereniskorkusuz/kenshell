@@ -40,6 +40,8 @@ argon2 = { version = "0.6", default-features = false, features = ["alloc", "zero
 ring = "0.17"
 # Config backups (ADR-016): already in the tree through russh; pure-Rust backend.
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# Local interfaces for the network scanner scope (ADR-017); libc / windows-sys already in the tree.
+if-addrs = "0.15"
 
 [lints]
 workspace = true

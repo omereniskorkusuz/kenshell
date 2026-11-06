@@ -11,6 +11,7 @@ mod import;
 mod keys;
 mod logging;
 mod model;
+mod netscan;
 mod platform;
 mod secrets;
 mod session;
@@ -88,6 +89,8 @@ pub fn run() {
             commands::backups::backup_export,
             commands::backups::config_diff,
             commands::backups::config_file_read,
+            commands::netscan::netscan_networks,
+            commands::netscan::netscan_check,
             commands::backups::config_live_diff,
             commands::backups::backup_diff_live,
             commands::storage::snippets_list,

@@ -855,6 +855,55 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           'hostname core-sw1\nntp server 10.0.0.1\nend',
           'hostname core-sw1\nntp server 10.0.0.2\nlogging host 10.0.0.5\nend',
         );
+      case 'netscan_networks':
+        return {
+          networks: [
+            {
+              iface: 'Wi-Fi',
+              ip: '192.168.1.34',
+              prefix: 24,
+              network: '192.168.1.0',
+              cidr: '192.168.1.0/24',
+              defaultTarget: '192.168.1.0/24',
+            },
+            {
+              iface: 'Ethernet',
+              ip: '10.20.0.5',
+              prefix: 16,
+              network: '10.20.0.0',
+              cidr: '10.20.0.0/16',
+              defaultTarget: '10.20.0.0/24',
+            },
+          ],
+          defaultTarget: '192.168.1.0/24',
+          maxAddresses: 1024,
+          concurrency: 64,
+          ports: [22, 23, 80, 443, 3389],
+        };
+      case 'netscan_check': {
+        const target = String(a.target).trim();
+        if (/^192\.168\.1\.(0\/24|\d+(-\d+)?)$/.test(target))
+          return {
+            range: { first: '192.168.1.1', last: '192.168.1.254' },
+            count: 254,
+            iface: 'Wi-Fi',
+          };
+        if (/^10\.20\.\d+\.0\/2[2-4]$/.test(target))
+          return {
+            range: { first: '10.20.0.1', last: '10.20.0.254' },
+            count: 254,
+            iface: 'Ethernet',
+          };
+        throw {
+          reason: /^(10|172|192\.168|169\.254)\./.test(target)
+            ? /\/(1\d|2[01])$/.test(target)
+              ? 'tooLarge'
+              : 'notConnected'
+            : /^\d/.test(target)
+              ? 'notPrivate'
+              : 'invalid',
+        };
+      }
       case 'neighbors_discover':
         return [
           {

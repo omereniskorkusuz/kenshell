@@ -195,6 +195,32 @@ export interface ConfigDiff {
   coarse: boolean;
 }
 
+export interface ScanNetwork {
+  iface: string;
+  ip: string;
+  prefix: number;
+  network: string;
+  cidr: string;
+  defaultTarget: string;
+}
+
+export interface ScanNetworks {
+  networks: ScanNetwork[];
+  defaultTarget: string | null;
+  maxAddresses: number;
+  concurrency: number;
+  ports: number[];
+}
+
+/** Why a target may not be scanned (P4-T12 scope rules). */
+export type ScopeReason = 'invalid' | 'notPrivate' | 'notConnected' | 'tooLarge';
+
+export interface ScanCheck {
+  range: { first: string; last: string };
+  count: number;
+  iface: string;
+}
+
 export interface Neighbor {
   name: string;
   ip: string | null;
@@ -686,6 +712,9 @@ export const api = {
   configLiveDiff: (id: number) => call<ConfigDiff>('config_live_diff', { id }),
   backupDiffLive: (backupId: number, id: number) =>
     call<ConfigDiff>('backup_diff_live', { backupId, id }),
+  netscanNetworks: () => call<ScanNetworks>('netscan_networks'),
+  /** Rejects with `{ reason: ScopeReason }` when the target is out of scope. */
+  netscanCheck: (target: string) => call<ScanCheck>('netscan_check', { target }),
   neighborsDiscover: (id: number, family: string | null) =>
     call<Neighbor[]>('neighbors_discover', { id, family }),
   logfileAnalyze: (path: string) => call<FileSummary>('logfile_analyze', { path }),
