@@ -1309,6 +1309,8 @@ async function mockCapture(command: string): Promise<string> {
     return `${command}\nPort      Name               Status       Reason\nGi1/0/3   Printer            err-disabled bpduguard\n`;
   if (command === 'show interfaces')
     return `${command}\nGigabitEthernet1/0/5 is up, line protocol is up\n     12403 input errors, 12403 CRC, 0 frame\n`;
+  if (/^sh\S* ip int\S* br/i.test(command))
+    return `${command}\nInterface              IP-Address      OK? Method Status                Protocol\nVlan1                  unassigned      YES NVRAM  administratively down down\nVlan10                 10.0.10.${Math.floor(Math.random() * 200) + 2}       YES NVRAM  up                    up\nGigabitEthernet1/0/1   unassigned      YES unset  up                    up\n`;
   if (command === 'show environment all')
     return `${command}\n% Invalid input detected at '^' marker.\n`;
   return `${command}\n(demo output)\n`;

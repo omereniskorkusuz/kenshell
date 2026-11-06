@@ -831,6 +831,17 @@
     "graph_one": "Bu cihazın etrafında {{count}} komşu",
     "graph_other": "Bu cihazın etrafında {{count}} komşu",
     "ssh": "Bağlan (SSH)",
-    "noIp": "Yönetim adresi bildirilmemiş"
+    "noIp": "Yönetim adresi bildirilmemiş",
+    "device": "Cihaz"
+  },
+  "multi": {
+    "title": "Birden çok cihazda komut",
+    "noTabs": "Önce cihazlara bağlanın: bağlı her sekme seçilebilir.",
+    "devices": "Cihazlar",
+    "command": "Yalnız okuma komutu",
+    "run_one": "{{count}} cihazda çalıştır",
+    "run_other": "{{count}} cihazda çalıştır",
+    "running": "Çalışıyor…",
+    "readOnlyOnly": "Yalnız okuma amaçlı show / display komutları (isteğe bağlı | include …)."
   }
 }

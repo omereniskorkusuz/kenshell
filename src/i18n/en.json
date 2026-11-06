@@ -831,6 +831,17 @@
     "graph_one": "{{count}} neighbour around this device",
     "graph_other": "{{count}} neighbours around this device",
     "ssh": "Connect (SSH)",
-    "noIp": "No management address advertised"
+    "noIp": "No management address advertised",
+    "device": "Device"
+  },
+  "multi": {
+    "title": "Command on several devices",
+    "noTabs": "Connect to the devices first: every connected tab can be picked.",
+    "devices": "Devices",
+    "command": "Read-only command",
+    "run_one": "Run on {{count}}",
+    "run_other": "Run on {{count}}",
+    "running": "Running…",
+    "readOnlyOnly": "Only read-only show / display commands (optionally | include …)."
   }
 }

@@ -7,6 +7,7 @@ import {
   Archive,
   Download,
   FileCheck2,
+  Layers,
   FileSearch,
   Network,
   ScanSearch,
@@ -26,6 +27,7 @@ import { useUi } from '../stores/ui';
 import { Backups } from './Backups';
 import { ConfigAudit } from './ConfigAudit';
 import { FileAnalysis } from './FileAnalysis';
+import { MultiRun } from './MultiRun';
 import { Topology } from './Topology';
 import { Diagnostics } from './Diagnostics';
 import { VirtualTable } from './VirtualTable';
@@ -41,9 +43,9 @@ export default function AnalyzerPanel() {
   const [miss, setMiss] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortState | null>(null);
-  const [view, setView] = useState<'table' | 'diag' | 'config' | 'backups' | 'file' | 'topology'>(
-    'table',
-  );
+  const [view, setView] = useState<
+    'table' | 'diag' | 'config' | 'backups' | 'file' | 'topology' | 'multi'
+  >('table');
 
   useEffect(() => {
     void useAnalyzer.getState().loadParsers();
@@ -119,6 +121,9 @@ export default function AnalyzerPanel() {
 
   if (view === 'diag' && tab) {
     return <Diagnostics key={tab.key} tab={tab} onClose={() => setView('table')} />;
+  }
+  if (view === 'multi') {
+    return <MultiRun onClose={() => setView('table')} />;
   }
   if (view === 'topology' && tab) {
     return <Topology key={tab.key} tab={tab} onClose={() => setView('table')} />;
@@ -202,6 +207,15 @@ export default function AnalyzerPanel() {
           onClick={() => setView('topology')}
         >
           <Network size={13} />
+        </button>
+        <button
+          type="button"
+          className="icon-btn icon-btn-sm"
+          aria-label={t('multi.title')}
+          title={t('multi.title')}
+          onClick={() => setView('multi')}
+        >
+          <Layers size={13} />
         </button>
         <span className="flex-1" />
         <button
