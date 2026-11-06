@@ -809,6 +809,47 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
       }
       case 'notes_export':
         return undefined;
+      case 'live_capture':
+        return mockCapture(String(a.command));
+      case 'diagnostics_commands':
+        return [
+          'show version',
+          'show environment all',
+          'show processes cpu sorted',
+          'show interfaces',
+          'show interfaces status err-disabled',
+          'show logging',
+        ];
+      case 'diagnostics_evaluate':
+        return [
+          {
+            severity: 'critical',
+            code: 'crcErrors',
+            params: { iface: 'GigabitEthernet1/0/5', count: '12403' },
+            command: 'show interfaces',
+          },
+          {
+            severity: 'critical',
+            code: 'errDisabled',
+            params: { iface: 'Gi1/0/3', reason: 'bpduguard' },
+            command: 'show interfaces status err-disabled',
+          },
+          {
+            severity: 'warning',
+            code: 'logErrors',
+            params: {
+              count: '3',
+              sample: '%LINK-3-UPDOWN: Interface Gi1/0/2, changed state to down',
+            },
+            command: 'show logging',
+          },
+          {
+            severity: 'info',
+            code: 'commandUnsupported',
+            params: { command: 'show environment all' },
+            command: 'show environment all',
+          },
+        ];
       case 'analyzer_parsers':
         return [
           {
@@ -1120,4 +1161,16 @@ function mockAnalyze(text: string, command: string | null) {
     rows,
     truncated: false,
   };
+}
+
+/** Browser demo output for hidden captures (diagnostics). */
+async function mockCapture(command: string): Promise<string> {
+  await new Promise((r) => setTimeout(r, 250));
+  if (command.startsWith('show interfaces status'))
+    return `${command}\nPort      Name               Status       Reason\nGi1/0/3   Printer            err-disabled bpduguard\n`;
+  if (command === 'show interfaces')
+    return `${command}\nGigabitEthernet1/0/5 is up, line protocol is up\n     12403 input errors, 12403 CRC, 0 frame\n`;
+  if (command === 'show environment all')
+    return `${command}\n% Invalid input detected at '^' marker.\n`;
+  return `${command}\n(demo output)\n`;
 }

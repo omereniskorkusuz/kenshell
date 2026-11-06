@@ -449,3 +449,17 @@
 .vtable-row:hover {
   background: var(--bg-hover);
 }
+
+/* Text tones used by the analyzer tables and diagnostics (P4-T01/T06). */
+.tone-text[data-tone='success'] {
+  color: var(--success);
+}
+.tone-text[data-tone='danger'] {
+  color: var(--danger);
+}
+.tone-text[data-tone='warning'] {
+  color: var(--warning);
+}
+.tone-text[data-tone='muted'] {
+  color: var(--text-muted);
+}

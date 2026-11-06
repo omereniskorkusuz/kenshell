@@ -3,7 +3,7 @@
  * active tab as a sortable, filterable table, exported as CSV. When a command the analyzer
  * knows finishes in the active tab, its table appears automatically.
  */
-import { Download, ScanSearch, TextSelect } from 'lucide-react';
+import { Download, ScanSearch, Stethoscope, TextSelect } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useT, type TKey } from '../i18n';
 import { filterRows, shownColumns, sortRows, statusTone, type SortState } from '../lib/analyzer';
@@ -14,6 +14,7 @@ import { useAnalyzer } from '../stores/analyzer';
 import { useActiveTab } from '../stores/tabs';
 import { toast } from '../stores/toasts';
 import { useUi } from '../stores/ui';
+import { Diagnostics } from './Diagnostics';
 import { VirtualTable } from './VirtualTable';
 
 const WIDTH: Record<string, number> = { iface: 150, ip: 120, status: 90, number: 70, text: 80 };
@@ -27,6 +28,7 @@ export default function AnalyzerPanel() {
   const [miss, setMiss] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortState | null>(null);
+  const [diag, setDiag] = useState(false);
 
   useEffect(() => {
     void useAnalyzer.getState().loadParsers();
@@ -100,6 +102,10 @@ export default function AnalyzerPanel() {
     }
   };
 
+  if (diag && tab) {
+    return <Diagnostics key={tab.key} tab={tab} onClose={() => setDiag(false)} />;
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-1 border-b border-subtle p-2">
@@ -120,6 +126,16 @@ export default function AnalyzerPanel() {
           onClick={() => void run('selection')}
         >
           <TextSelect size={13} />
+        </button>
+        <button
+          type="button"
+          className="icon-btn icon-btn-sm"
+          disabled={tab?.state !== 'connected'}
+          aria-label={t('diag.run')}
+          title={t('diag.run')}
+          onClick={() => setDiag(true)}
+        >
+          <Stethoscope size={13} />
         </button>
         <span className="flex-1" />
         <button

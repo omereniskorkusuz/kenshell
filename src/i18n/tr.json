@@ -715,5 +715,33 @@
       "memory": "Bellek",
       "mac": "Temel MAC adresi"
     }
+  },
+  "diag": {
+    "title": "Sistem tanılama",
+    "run": "Sistem tanılamayı çalıştır",
+    "rerun": "Yeniden çalıştır",
+    "copy": "Raporu kopyala",
+    "copied": "Tanılama raporu kopyalandı",
+    "readOnly": "Yalnız okuma amaçlı show komutları, terminalde görünmeden çalışır; cihazda hiçbir şey değiştirilmez.",
+    "outputs": "Komut çıktıları",
+    "noOutput": "(çıktı yok: zaman aşımı ya da cihaz meşguldü)",
+    "sev": {
+      "critical": "Kritik",
+      "warning": "Uyarı",
+      "info": "Bilgi",
+      "ok": "Tamam"
+    },
+    "allGood": "Sorun bulunamadı.",
+    "commandFailed": "“{{command}}” çalıştırılamadı (zaman aşımı ya da meşgul).",
+    "commandUnsupported": "“{{command}}” bu cihazda desteklenmiyor.",
+    "recentReload": "Yakın zamanda yeniden başladı: çalışma süresi {{uptime}} (neden: {{reason}}).",
+    "envFault": "Donanım alarmı: {{line}}",
+    "highCpu": "CPU yüksek: %{{percent}} (5 dk ortalama).",
+    "highMemory": "Bellek kullanımı yüksek: %{{percent}}.",
+    "crcErrors": "{{iface}}: {{count}} CRC hatası.",
+    "inputErrors": "{{iface}}: {{count}} giriş hatası.",
+    "outputErrors": "{{iface}}: {{count}} çıkış hatası.",
+    "errDisabled": "{{iface}} err-disabled durumda ({{reason}}).",
+    "logErrors": "Log'da {{count}} hata mesajı (önem 0–3), ör. {{sample}}"
   }
 }

@@ -7,7 +7,6 @@
 
 use std::time::{Duration, Instant};
 
-use super::lines::LineAssembler;
 use super::modes::{CliMode, Profile};
 
 /// The prompt must be quiet this long before the command is sent.
@@ -29,26 +28,8 @@ enum State {
     Done,
 }
 
-#[derive(Debug)]
-struct Capture {
-    started: Instant,
-    raw: Vec<u8>,
-    lines: LineAssembler,
-    text: String,
-    completed: usize,
-    pages: u32,
-}
-
-/// What the session does with output that arrived during a capture.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Step {
-    /// Keep capturing (nothing to send).
-    Continue,
-    /// A `--More--` page: send a space.
-    NextPage,
-    /// The prompt is back: here is the plain-text output (prompt line excluded).
-    Finished(String),
-}
+use super::capture::Capture;
+pub use super::capture::Step;
 
 #[derive(Debug)]
 pub struct Prober {
@@ -66,7 +47,7 @@ impl Prober {
     pub fn deadline(&self) -> Option<Instant> {
         match &self.state {
             State::Scheduled(at) => Some(*at),
-            State::Capturing(c) => Some(c.started + TIMEOUT),
+            State::Capturing(c) => Some(c.started() + TIMEOUT),
             _ => None,
         }
     }
@@ -110,14 +91,7 @@ impl Prober {
             self.state = State::Pending;
             return None;
         }
-        self.state = State::Capturing(Box::new(Capture {
-            started: now,
-            raw: Vec::new(),
-            lines: LineAssembler::new(),
-            text: String::new(),
-            completed: 0,
-            pages: 0,
-        }));
+        self.state = State::Capturing(Box::new(Capture::new(now, MAX_CAPTURE, MAX_PAGES)));
         Some(format!("{}\r", profile.identity_command).into_bytes())
     }
 
@@ -126,39 +100,21 @@ impl Prober {
         let State::Capturing(c) = &mut self.state else {
             return Step::Continue;
         };
-        if c.raw.len() + bytes.len() <= MAX_CAPTURE {
-            c.raw.extend_from_slice(bytes);
-        }
-        let (text, completed) = (&mut c.text, &mut c.completed);
-        c.lines.feed(bytes, |line| {
-            *completed += 1;
-            if text.len() < MAX_CAPTURE {
-                text.push_str(&line);
-                text.push('\n');
-            }
-        });
-        let current = c.lines.current().trim_end();
-        // The first completed line is the echo of the command; the prompt after the output
-        // ends the capture.
-        if c.completed >= 1 && profile.match_prompt(current).is_some() {
-            let text = std::mem::take(&mut c.text);
+        let step = c.feed(bytes, profile);
+        if matches!(step, Step::Finished(_)) {
             self.state = State::Done;
-            return Step::Finished(text);
         }
-        if current.contains(profile.more.as_str()) && c.pages < MAX_PAGES {
-            c.pages += 1;
-            return Step::NextPage;
-        }
-        Step::Continue
+        step
     }
 
     /// The capture took too long: give back what arrived so the terminal can show it.
     pub fn time_out(&mut self, now: Instant) -> Option<Vec<u8>> {
-        match &mut self.state {
-            State::Capturing(c) if now >= c.started + TIMEOUT => {
-                let raw = std::mem::take(&mut c.raw);
-                self.state = State::Done;
-                Some(raw)
+        match &self.state {
+            State::Capturing(c) if now >= c.started() + TIMEOUT => {
+                let State::Capturing(c) = std::mem::replace(&mut self.state, State::Done) else {
+                    return None;
+                };
+                Some(c.into_raw())
             }
             _ => None,
         }

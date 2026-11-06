@@ -1,5 +1,6 @@
 //! Analyzer commands (P4-T01): thin wrappers over `crate::analyzer`.
 
+use crate::analyzer::diagnostics::{self, CommandOutput, Finding};
 use crate::analyzer::{self, ParserInfo, Table};
 use crate::error::{AppError, Result};
 
@@ -31,4 +32,19 @@ pub fn analyzer_export_csv(
         return Err(AppError::invalid("too many rows"));
     }
     std::fs::write(&path, analyzer::csv::to_csv(&headers, &rows)).map_err(AppError::from)
+}
+
+/// The read-only command set System Diagnostics runs for a vendor family.
+#[tauri::command]
+pub fn diagnostics_commands(family: Option<String>) -> Vec<String> {
+    diagnostics::commands(family.as_deref())
+        .iter()
+        .map(|c| (*c).to_owned())
+        .collect()
+}
+
+/// Findings for the outputs of the diagnostics commands, most severe first.
+#[tauri::command]
+pub fn diagnostics_evaluate(family: Option<String>, outputs: Vec<CommandOutput>) -> Vec<Finding> {
+    diagnostics::evaluate(family.as_deref(), &outputs)
 }

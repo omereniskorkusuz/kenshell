@@ -161,6 +161,21 @@ export interface AnalyzerTable {
   truncated: boolean;
 }
 
+export type Severity = 'critical' | 'warning' | 'info' | 'ok';
+
+export interface Finding {
+  severity: Severity;
+  /** UI text: `diag.<code>` with `params`. */
+  code: string;
+  params: Record<string, string>;
+  command: string;
+}
+
+export interface CommandOutput {
+  command: string;
+  text: string | null;
+}
+
 export interface ParserInfo {
   id: string;
   command: string;
@@ -582,6 +597,13 @@ export const api = {
   notesPinned: () => call<PinnedNote[]>('notes_pinned'),
   analyzeOutput: (text: string, family: string | null, command: string | null) =>
     call<AnalyzerTable | null>('analyze_output', { text, family, command }),
+  /** Read-only `show` command run hidden from the terminal (diagnostics, backups). */
+  liveCapture: (id: number, command: string, timeoutSecs?: number) =>
+    call<string>('live_capture', { id, command, timeoutSecs: timeoutSecs ?? null }),
+  diagnosticsCommands: (family: string | null) =>
+    call<string[]>('diagnostics_commands', { family }),
+  diagnosticsEvaluate: (family: string | null, outputs: CommandOutput[]) =>
+    call<Finding[]>('diagnostics_evaluate', { family, outputs }),
   analyzerParsers: () => call<ParserInfo[]>('analyzer_parsers'),
   analyzerExportCsv: (path: string, headers: string[], rows: string[][]) =>
     call<undefined>('analyzer_export_csv', { path, headers, rows }),

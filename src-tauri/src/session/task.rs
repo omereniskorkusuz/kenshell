@@ -44,7 +44,29 @@ pub(crate) enum Command {
     PortDetached,
     /// Answers to the pending login prompt (secrets: never logged).
     Answer(Vec<String>),
+    /// Run a read-only command hidden from the terminal and the log (P4-T06).
+    Capture(CaptureRequest),
 }
+
+/// A hidden read-only command (diagnostics, config backup …), queued until the device
+/// sits at a quiet user/privileged prompt.
+pub(crate) struct CaptureRequest {
+    pub command: String,
+    pub timeout: Duration,
+    pub reply: oneshot::Sender<Result<String>>,
+}
+
+struct RunningCapture {
+    capture: crate::device::capture::Capture,
+    timeout: Duration,
+    reply: oneshot::Sender<Result<String>>,
+}
+
+/// How long a capture may wait in the queue for a prompt.
+const CAPTURE_QUEUE_WAIT: Duration = Duration::from_secs(20);
+/// Output kept per capture (a large `show running-config` fits).
+const CAPTURE_MAX_BYTES: usize = 4 * 1024 * 1024;
+const CAPTURE_MAX_PAGES: u32 = 10_000;
 
 type PromptSlot = Arc<Mutex<Option<oneshot::Sender<Vec<String>>>>>;
 
@@ -390,6 +412,9 @@ pub(crate) struct SessionTask {
     prober: crate::device::probe::Prober,
     /// User input that arrived while the identity command ran (sent afterwards).
     held: Vec<Vec<u8>>,
+    /// Hidden read-only commands waiting for a prompt, and the one running (P4-T06).
+    captures: std::collections::VecDeque<(CaptureRequest, std::time::Instant)>,
+    capture: Option<RunningCapture>,
 }
 
 impl SessionTask {
@@ -423,6 +448,8 @@ impl SessionTask {
             observer: crate::device::observer::Observer::new(),
             prober: crate::device::probe::Prober::new(false),
             held: Vec::new(),
+            captures: std::collections::VecDeque::new(),
+            capture: None,
         }
     }
 
@@ -571,6 +598,48 @@ impl SessionTask {
             .after_output(self.observer.at_prompt(), std::time::Instant::now());
     }
 
+    /// Starts the next queued capture when the device is quietly at a prompt.
+    async fn start_capture(&mut self, transport: &mut Box<dyn crate::transport::Transport>) {
+        use crate::device::modes::CliMode;
+        if self.capture.is_some()
+            || self.prober.capturing()
+            || !matches!(
+                self.observer.at_prompt(),
+                Some(CliMode::User | CliMode::Privileged)
+            )
+        {
+            return;
+        }
+        let Some((req, _)) = self.captures.pop_front() else {
+            return;
+        };
+        let line = format!("{}\r", req.command.trim());
+        if let Err(e) = transport.write(line.as_bytes()).await {
+            let _ = req.reply.send(Err(e));
+            return;
+        }
+        self.capture = Some(RunningCapture {
+            capture: crate::device::capture::Capture::new(
+                std::time::Instant::now(),
+                CAPTURE_MAX_BYTES,
+                CAPTURE_MAX_PAGES,
+            ),
+            timeout: req.timeout,
+            reply: req.reply,
+        });
+    }
+
+    /// When the capture timer must fire: the running one's time-out or the queue wait.
+    fn capture_deadline(&self) -> Option<std::time::Instant> {
+        match &self.capture {
+            Some(c) => Some(c.capture.started() + c.timeout),
+            None => self
+                .captures
+                .front()
+                .map(|(_, at)| *at + CAPTURE_QUEUE_WAIT),
+        }
+    }
+
     /// Input typed while the identity command ran.
     async fn flush_held(&mut self, transport: &mut Box<dyn crate::transport::Transport>) {
         for data in std::mem::take(&mut self.held) {
@@ -632,12 +701,14 @@ impl SessionTask {
                 Cmd(Option<Command>),
                 DetachTimeout,
                 Probe,
+                CaptureTimer,
             }
             let ev = if let Some(ev) = carry.take() {
                 Ev::Transport(Some(ev))
             } else {
                 let deadline = detach_deadline;
                 let probe_at = self.prober.deadline().map(Instant::from_std);
+                let capture_at = self.capture_deadline().map(Instant::from_std);
                 tokio::select! {
                     ev = rx.recv() => Ev::Transport(ev),
                     cmd = self.cmds.recv() => Ev::Cmd(cmd),
@@ -647,6 +718,12 @@ impl SessionTask {
                             None => std::future::pending().await,
                         }
                     } => Ev::Probe,
+                    _ = async {
+                        match capture_at {
+                            Some(d) => tokio::time::sleep_until(d).await,
+                            None => std::future::pending().await,
+                        }
+                    } => Ev::CaptureTimer,
                     _ = async {
                         match deadline {
                             Some(d) => tokio::time::sleep_until(d).await,
@@ -683,11 +760,31 @@ impl SessionTask {
                             Step::Finished(text) => {
                                 self.identified(text).await;
                                 self.flush_held(&mut transport).await;
+                                self.start_capture(&mut transport).await;
+                            }
+                        }
+                        continue;
+                    }
+                    if let Some(run) = self.capture.as_mut() {
+                        // A requested read-only command: hidden, not logged (P4-T06).
+                        use crate::device::capture::Step;
+                        match run.capture.feed(&buf, self.observer.profile()) {
+                            Step::Continue => {}
+                            Step::NextPage => {
+                                let _ = transport.write(b" ").await;
+                            }
+                            Step::Finished(text) => {
+                                if let Some(run) = self.capture.take() {
+                                    let _ = run.reply.send(Ok(text));
+                                }
+                                self.flush_held(&mut transport).await;
+                                self.start_capture(&mut transport).await;
                             }
                         }
                         continue;
                     }
                     self.show(buf, log.as_ref());
+                    self.start_capture(&mut transport).await;
                     // P3-T14: answer the pager when auto-continue is on (read live, so
                     // the setting applies at once; only when a pager prompt shows).
                     if self.observer.at_more()
@@ -707,6 +804,38 @@ impl SessionTask {
                 Ev::Transport(None) => {
                     let err = AppError::with(ErrorCode::Io, "transport ended unexpectedly");
                     return self.link_lost(transport, Some(err)).await;
+                }
+                Ev::CaptureTimer => {
+                    let now = std::time::Instant::now();
+                    let expired = self
+                        .capture
+                        .as_ref()
+                        .is_some_and(|c| now >= c.capture.started() + c.timeout);
+                    if expired && let Some(run) = self.capture.take() {
+                        let _ = run.reply.send(Err(AppError::with(
+                            ErrorCode::Timeout,
+                            "the device did not return to its prompt",
+                        )));
+                        // Show what it said after all.
+                        self.show(run.capture.into_raw(), log.as_ref());
+                        self.flush_held(&mut transport).await;
+                    } else if self.capture.is_none()
+                        && self
+                            .captures
+                            .front()
+                            .is_some_and(|(_, at)| now >= *at + CAPTURE_QUEUE_WAIT)
+                        && let Some((req, _)) = self.captures.pop_front()
+                    {
+                        let _ = req.reply.send(Err(AppError::with(
+                            ErrorCode::Timeout,
+                            "the device is not at a prompt",
+                        )));
+                    }
+                    self.start_capture(&mut transport).await;
+                }
+                Ev::Probe if self.capture.is_some() => {
+                    // Not while a requested command runs: wait for the next quiet prompt.
+                    self.prober.user_input();
                 }
                 Ev::Probe => {
                     let now = std::time::Instant::now();
@@ -737,7 +866,17 @@ impl SessionTask {
                     return Next::Exit;
                 }
                 Ev::Cmd(Some(cmd)) => match cmd {
-                    Command::Write(data) if self.prober.capturing() => {
+                    Command::Capture(req) => {
+                        if crate::device::capture::read_only(&req.command) {
+                            self.captures.push_back((req, std::time::Instant::now()));
+                            self.start_capture(&mut transport).await;
+                        } else {
+                            let _ = req.reply.send(Err(AppError::invalid(
+                                "only read-only show/display commands",
+                            )));
+                        }
+                    }
+                    Command::Write(data) if self.prober.capturing() || self.capture.is_some() => {
                         self.held.push(data);
                     }
                     Command::Write(data) => {
@@ -838,6 +977,12 @@ impl SessionTask {
                     if let Ok(mut s) = self.ctx.size.lock() {
                         *s = (cols, rows);
                     }
+                }
+                Some(Command::Capture(req)) => {
+                    let _ = req.reply.send(Err(AppError::with(
+                        ErrorCode::ConnectionClosed,
+                        "not connected",
+                    )));
                 }
                 Some(
                     Command::Write(_) | Command::Break | Command::PortDetached | Command::Answer(_),

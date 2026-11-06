@@ -235,6 +235,32 @@ impl SessionManager {
         self.send(id, Command::Write(data.to_vec()))
     }
 
+    /// Runs a read-only command hidden from the terminal and the log, at the device's next
+    /// quiet prompt, and returns its output (P4-T06).
+    pub async fn capture(
+        &self,
+        id: RuntimeId,
+        command: &str,
+        timeout: std::time::Duration,
+    ) -> Result<String> {
+        self.require_connected(id)?;
+        if !crate::device::capture::read_only(command) {
+            return Err(AppError::invalid("only read-only show/display commands"));
+        }
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.send(
+            id,
+            Command::Capture(task::CaptureRequest {
+                command: command.trim().to_owned(),
+                timeout,
+                reply: tx,
+            }),
+        )?;
+        rx.await.map_err(|_| {
+            AppError::with(crate::error::ErrorCode::ConnectionClosed, "session closed")
+        })?
+    }
+
     pub fn resize(&self, id: RuntimeId, cols: u16, rows: u16) -> Result<()> {
         self.send(id, Command::Resize(cols, rows))
     }

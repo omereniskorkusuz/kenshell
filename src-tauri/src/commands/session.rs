@@ -76,6 +76,22 @@ pub fn live_write(state: State<'_, AppState>, id: RuntimeId, data: String) -> Re
     state.sessions.write(id, data.as_bytes())
 }
 
+/// Runs a read-only `show` / `display` command hidden from the terminal and returns its
+/// output (diagnostics, config backup). `timeout_secs`: 1–300 (default 30).
+#[tauri::command]
+pub async fn live_capture(
+    state: State<'_, AppState>,
+    id: RuntimeId,
+    command: String,
+    timeout_secs: Option<u64>,
+) -> Result<String> {
+    let secs = timeout_secs.unwrap_or(30).clamp(1, 300);
+    state
+        .sessions
+        .capture(id, &command, std::time::Duration::from_secs(secs))
+        .await
+}
+
 #[tauri::command]
 pub fn live_resize(state: State<'_, AppState>, id: RuntimeId, cols: u16, rows: u16) -> Result<()> {
     state.sessions.resize(id, cols, rows)

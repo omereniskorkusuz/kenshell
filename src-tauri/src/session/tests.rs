@@ -1273,3 +1273,82 @@ async fn pager_is_answered_only_when_auto_more_is_on() {
         "nothing more once the prompt is back"
     );
 }
+
+// ---------------------------------------------------------------- hidden capture (P4-T06)
+
+#[tokio::test]
+async fn capture_runs_a_read_only_command_hidden_and_refuses_others() {
+    let (backend, mgr, out) = setup();
+    let id = open_connected(&backend, &mgr, &out, Some(9600)).await;
+    let mgr = Arc::new(mgr);
+    let sink = backend.sink(0);
+    let log = backend.transport(0);
+    sink.try_send(TransportEvent::Data(b"\r\nsw1#".to_vec()))
+        .unwrap();
+    until("prompt shown", || {
+        String::from_utf8_lossy(&out.data().concat()).ends_with("sw1#")
+    })
+    .await;
+
+    // Configuration commands are refused before anything is sent.
+    let err = mgr
+        .capture(id, "configure terminal", Duration::from_secs(5))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, ErrorCode::Invalid);
+
+    let m = Arc::clone(&mgr);
+    let job = tokio::spawn(async move { m.capture(id, "sh clock", Duration::from_secs(5)).await });
+    until("command sent", || {
+        log.lock()
+            .unwrap()
+            .writes
+            .iter()
+            .any(|w| w == b"sh clock\r")
+    })
+    .await;
+    // Typed meanwhile: held until the capture ends.
+    mgr.write(id, b"x").unwrap();
+    sink.try_send(TransportEvent::Data(
+        b"sh clock\r\n*10:00:01 UTC Thu\r\n --More-- ".to_vec(),
+    ))
+    .unwrap();
+    until("next page", || {
+        log.lock().unwrap().writes.iter().any(|w| w == b" ")
+    })
+    .await;
+    assert!(!log.lock().unwrap().writes.iter().any(|w| w == b"x"));
+    sink.try_send(TransportEvent::Data(
+        b"\r          \rNov 6 2026\r\nsw1#".to_vec(),
+    ))
+    .unwrap();
+    let text = job.await.unwrap().unwrap();
+    assert_eq!(text, "sh clock\n*10:00:01 UTC Thu\nNov 6 2026\n");
+    until("held input sent", || {
+        log.lock().unwrap().writes.iter().any(|w| w == b"x")
+    })
+    .await;
+    let shown = String::from_utf8_lossy(&out.data().concat()).into_owned();
+    assert!(!shown.contains("10:00:01"), "the output stays hidden");
+}
+
+#[tokio::test]
+async fn capture_waits_for_a_prompt_and_gives_up() {
+    let (backend, mgr, out) = setup();
+    let id = open_connected(&backend, &mgr, &out, Some(9600)).await;
+    // No prompt yet (e.g. `Password:`): the request waits in the queue.
+    backend
+        .sink(0)
+        .try_send(TransportEvent::Data(b"\r\nPassword: ".to_vec()))
+        .unwrap();
+    let mgr = Arc::new(mgr);
+    let m = Arc::clone(&mgr);
+    let job =
+        tokio::spawn(async move { m.capture(id, "show version", Duration::from_secs(5)).await });
+    tokio::time::sleep(Duration::from_millis(80)).await;
+    assert!(
+        backend.transport(0).lock().unwrap().writes.is_empty(),
+        "nothing sent at a password prompt"
+    );
+    job.abort();
+}

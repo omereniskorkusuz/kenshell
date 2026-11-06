@@ -715,5 +715,33 @@
       "memory": "Memory",
       "mac": "Base MAC address"
     }
+  },
+  "diag": {
+    "title": "System diagnostics",
+    "run": "Run system diagnostics",
+    "rerun": "Run again",
+    "copy": "Copy report",
+    "copied": "Diagnostics report copied",
+    "readOnly": "Read-only show commands, run hidden from the terminal; nothing is changed on the device.",
+    "outputs": "Command outputs",
+    "noOutput": "(no output: time-out or the device was busy)",
+    "sev": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Info",
+      "ok": "OK"
+    },
+    "allGood": "No problems found.",
+    "commandFailed": "“{{command}}” could not run (time-out or busy).",
+    "commandUnsupported": "“{{command}}” is not supported on this device.",
+    "recentReload": "Restarted recently: up {{uptime}} (reason: {{reason}}).",
+    "envFault": "Hardware alarm: {{line}}",
+    "highCpu": "CPU is high: {{percent}}% (5 min average).",
+    "highMemory": "Memory use is high: {{percent}}%.",
+    "crcErrors": "{{iface}}: {{count}} CRC errors.",
+    "inputErrors": "{{iface}}: {{count}} input errors.",
+    "outputErrors": "{{iface}}: {{count}} output errors.",
+    "errDisabled": "{{iface}} is err-disabled ({{reason}}).",
+    "logErrors": "{{count}} error messages (severity 0–3) in the log, e.g. {{sample}}"
   }
 }
