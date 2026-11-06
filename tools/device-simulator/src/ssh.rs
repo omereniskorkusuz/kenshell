@@ -88,10 +88,16 @@ async fn serve(profile: &'static Profile, opts: Options) -> std::io::Result<()> 
             ""
         },
     );
+    // In-memory device storage for SCP (`flash:` files), shared by all connections.
+    let files: Files = Arc::new(std::sync::Mutex::new(std::collections::HashMap::from([(
+        "flash:startup-config".to_owned(),
+        b"hostname sim\n!\ninterface GigabitEthernet0/1\n description uplink\n!\nend\n".to_vec(),
+    )])));
     loop {
         let (stream, peer) = listener.accept().await?;
         let config = Arc::clone(&config);
         let authorized = Arc::clone(&authorized);
+        let files = Arc::clone(&files);
         tokio::spawn(async move {
             eprintln!("+ {peer} (ssh)");
             let handler = Handler {
@@ -99,6 +105,8 @@ async fn serve(profile: &'static Profile, opts: Options) -> std::io::Result<()> 
                 engine: None,
                 shell: None,
                 authorized,
+                pending: std::collections::HashMap::new(),
+                files,
             };
             match server::run_stream(config, stream, handler).await {
                 Ok(session) => {
@@ -119,6 +127,75 @@ struct Handler {
     /// Channel running the CLI; tunnel channels (direct-tcpip) never reach the engine.
     shell: Option<ChannelId>,
     authorized: Arc<Vec<PublicKey>>,
+    /// Session channels not yet a shell or an exec.
+    pending: std::collections::HashMap<ChannelId, Channel<Msg>>,
+    files: Files,
+}
+
+type Files = Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<u8>>>>;
+
+/// Minimal SCP server (`scp -f path`, `scp -t dir`) over an exec channel's stream.
+async fn scp_serve<S>(mut s: S, command: String, files: Files)
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut parts = command.split_whitespace();
+    let _ = parts.next();
+    let mode = parts.next().unwrap_or("");
+    let path = parts
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim_matches('\'')
+        .to_owned();
+    if mode == "-f" {
+        let data = files.lock().ok().and_then(|f| f.get(&path).cloned());
+        let _ = s.read_u8().await;
+        let Some(data) = data else {
+            let _ = s
+                .write_all(format!("\x01scp: {path}: No such file or directory\n").as_bytes())
+                .await;
+            return;
+        };
+        let name = path.rsplit([':', '/']).next().unwrap_or("file");
+        let _ = s
+            .write_all(format!("C0644 {} {name}\n", data.len()).as_bytes())
+            .await;
+        let _ = s.read_u8().await;
+        let _ = s.write_all(&data).await;
+        let _ = s.write_all(&[0]).await;
+        let _ = s.read_u8().await;
+    } else if mode == "-t" {
+        let _ = s.write_all(&[0]).await;
+        let mut header = Vec::new();
+        while let Ok(c) = s.read_u8().await {
+            if c == b'\n' {
+                break;
+            }
+            header.push(c);
+        }
+        let h = String::from_utf8_lossy(&header).into_owned();
+        let mut it = h.splitn(3, ' ');
+        let _ = it.next();
+        let size: usize = it.next().and_then(|x| x.parse().ok()).unwrap_or(0);
+        let name = it.next().unwrap_or("file").to_owned();
+        let _ = s.write_all(&[0]).await;
+        let mut data = vec![0u8; size];
+        if s.read_exact(&mut data).await.is_err() {
+            return;
+        }
+        let _ = s.read_u8().await;
+        let key = if path.ends_with(':') || path.ends_with('/') {
+            format!("{path}{name}")
+        } else {
+            format!("{path}/{name}")
+        };
+        if let Ok(mut f) = files.lock() {
+            f.insert(key, data);
+        }
+        let _ = s.write_all(&[0]).await;
+    }
+    let _ = s.shutdown().await;
 }
 
 impl Handler {
@@ -200,11 +277,31 @@ impl server::Handler for Handler {
 
     async fn channel_open_session(
         &mut self,
-        _channel: Channel<Msg>,
+        channel: Channel<Msg>,
         reply: server::ChannelOpenHandle,
         _session: &mut SshSession,
     ) -> Result<(), Self::Error> {
+        self.pending.insert(channel.id(), channel);
         reply.accept().await;
+        Ok(())
+    }
+
+    /// `scp -f` / `scp -t` (KenShell's SCP transfers, P5-T01).
+    async fn exec_request(
+        &mut self,
+        channel: ChannelId,
+        data: &[u8],
+        session: &mut SshSession,
+    ) -> Result<(), Self::Error> {
+        let command = String::from_utf8_lossy(data).into_owned();
+        match self.pending.remove(&channel) {
+            Some(ch) if command.starts_with("scp ") => {
+                session.channel_success(channel)?;
+                let files = Arc::clone(&self.files);
+                tokio::spawn(scp_serve(ch.into_stream(), command, files));
+            }
+            _ => session.channel_failure(channel)?,
+        }
         Ok(())
     }
 
@@ -280,6 +377,8 @@ impl server::Handler for Handler {
         channel: ChannelId,
         session: &mut SshSession,
     ) -> Result<(), Self::Error> {
+        // A shell channel is driven through `data` below, not as a stream.
+        self.pending.remove(&channel);
         let mut engine = Session::new_authenticated(self.profile);
         let out = engine.start();
         self.engine = Some(engine);

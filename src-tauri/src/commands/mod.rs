@@ -12,4 +12,5 @@ pub mod netscan;
 pub mod secrets;
 pub mod session;
 pub mod storage;
+pub mod transfer;
 pub mod window;

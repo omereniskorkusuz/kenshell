@@ -261,6 +261,21 @@ impl SessionManager {
         })?
     }
 
+    /// The authenticated SSH connection of a connected SSH session (SFTP / SCP channels).
+    pub fn ssh_handle(
+        &self,
+        id: RuntimeId,
+    ) -> Result<Arc<russh::client::Handle<crate::transport::ssh::Client>>> {
+        let map = self.registry();
+        let h = map.get(&id).ok_or_else(|| not_found(id))?;
+        h.shared
+            .ssh
+            .lock()
+            .ok()
+            .and_then(|s| s.clone())
+            .ok_or_else(|| AppError::invalid("not a connected SSH session"))
+    }
+
     pub fn resize(&self, id: RuntimeId, cols: u16, rows: u16) -> Result<()> {
         self.send(id, Command::Resize(cols, rows))
     }

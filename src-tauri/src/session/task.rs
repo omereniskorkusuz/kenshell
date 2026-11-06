@@ -96,6 +96,8 @@ pub(crate) struct Shared {
     pub path: String,
     /// Cable identity (`Backend::port_key`), cached at open.
     pub port_key: Mutex<Option<String>>,
+    /// The live SSH connection while connected (SFTP / SCP channels, P5-T01).
+    pub ssh: Mutex<Option<Arc<russh::client::Handle<crate::transport::ssh::Client>>>>,
 }
 
 impl Shared {
@@ -104,6 +106,7 @@ impl Shared {
             state: AtomicU8::new(encode(ConnState::Connecting)),
             path,
             port_key: Mutex::new(None),
+            ssh: Mutex::new(None),
         }
     }
 
@@ -458,7 +461,16 @@ impl SessionTask {
         loop {
             next = match next {
                 Next::Reopen(why) => match self.connect(why).await {
-                    Some(Phase::Connected(link)) => self.connected(link).await,
+                    Some(Phase::Connected(link)) => {
+                        if let Ok(mut slot) = self.ctx.shared.ssh.lock() {
+                            *slot = link.0.ssh_handle();
+                        }
+                        let next = self.connected(link).await;
+                        if let Ok(mut slot) = self.ctx.shared.ssh.lock() {
+                            *slot = None;
+                        }
+                        next
+                    }
                     Some(Phase::Disconnected) => Next::Disconnected,
                     None => Next::Exit,
                 },

@@ -17,6 +17,7 @@ mod secrets;
 mod session;
 mod state;
 mod storage;
+mod transfer;
 mod transport;
 
 use std::sync::{Arc, OnceLock};
@@ -94,6 +95,9 @@ pub fn run() {
             commands::netscan::netscan_run,
             commands::netscan::netscan_cancel,
             commands::netscan::open_device_web,
+            commands::transfer::scp_download,
+            commands::transfer::scp_upload,
+            commands::transfer::transfer_cancel,
             commands::backups::config_live_diff,
             commands::backups::backup_diff_live,
             commands::storage::snippets_list,

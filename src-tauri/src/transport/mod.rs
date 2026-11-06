@@ -40,6 +40,11 @@ pub trait Transport: Send {
     fn net_link(&self) -> Option<NetLink> {
         None
     }
+
+    /// The authenticated SSH connection, for extra channels (SFTP / SCP, P5-T01).
+    fn ssh_handle(&self) -> Option<std::sync::Arc<russh::client::Handle<ssh::Client>>> {
+        None
+    }
 }
 
 /// Asks the user something during login (username, password, keyboard-interactive,

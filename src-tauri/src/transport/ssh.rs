@@ -88,7 +88,7 @@ enum KeyVerdict {
 /// Remote-forward targets by server-side port (read by the handler).
 type RemoteMap = Arc<Mutex<HashMap<u32, (String, u16)>>>;
 
-struct Client {
+pub(crate) struct Client {
     host: String,
     port: u16,
     keys: Arc<dyn HostKeyStore>,
@@ -813,6 +813,10 @@ impl Transport for SshTransport {
                 .await;
         }
         Ok(())
+    }
+
+    fn ssh_handle(&self) -> Option<Arc<Handle<Client>>> {
+        self.handle.clone()
     }
 
     fn net_link(&self) -> Option<NetLink> {

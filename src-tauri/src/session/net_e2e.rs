@@ -809,3 +809,88 @@ async fn net_e2e_background_identity_is_hidden_and_parsed() {
     assert_eq!(devices[0].serial.as_deref(), Some("G1MQ3K8000123"));
     m.close(id).unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs target/debug/device-simulator"]
+async fn net_e2e_scp_download_and_upload_over_the_session_connection() {
+    use crate::transfer::scp;
+    use std::sync::atomic::AtomicBool;
+    let port = free_port();
+    let _sim = sim(&["--ssh", "--host-key-seed", "9"], port);
+    let (m, _db) = manager();
+    let out = Arc::new(Rec::default());
+    let id = m
+        .open(net(Protocol::Ssh, port, Some("admin"), false), out.clone())
+        .unwrap();
+    login("ssh", &m, id, &out).await;
+    let handle = m.ssh_handle(id).expect("ssh handle while connected");
+
+    // Download a device file through a second channel of the same connection.
+    let ch = handle.channel_open_session().await.unwrap();
+    ch.exec(true, scp::command('f', "flash:startup-config"))
+        .await
+        .unwrap();
+    let mut stream = ch.into_stream();
+    let mut cfg = Vec::new();
+    let n = scp::download(
+        &mut stream,
+        &mut cfg,
+        &AtomicBool::new(false),
+        &mut |_, _| {},
+    )
+    .await
+    .unwrap();
+    assert_eq!(n as usize, cfg.len());
+    assert!(String::from_utf8_lossy(&cfg).contains("hostname sim"));
+
+    // Upload, then read it back.
+    let ch = handle.channel_open_session().await.unwrap();
+    ch.exec(true, scp::command('t', "flash:")).await.unwrap();
+    let mut stream = ch.into_stream();
+    let payload = vec![0x5a_u8; 100_000];
+    let mut input: &[u8] = &payload;
+    scp::upload(
+        &mut stream,
+        &mut input,
+        payload.len() as u64,
+        "image.bin",
+        &AtomicBool::new(false),
+        &mut |_, _| {},
+    )
+    .await
+    .unwrap();
+    let ch = handle.channel_open_session().await.unwrap();
+    ch.exec(true, scp::command('f', "flash:image.bin"))
+        .await
+        .unwrap();
+    let mut stream = ch.into_stream();
+    let mut back = Vec::new();
+    scp::download(
+        &mut stream,
+        &mut back,
+        &AtomicBool::new(false),
+        &mut |_, _| {},
+    )
+    .await
+    .unwrap();
+    assert_eq!(back, payload);
+
+    // A missing file: the device's message comes back.
+    let ch = handle.channel_open_session().await.unwrap();
+    ch.exec(true, scp::command('f', "flash:nope"))
+        .await
+        .unwrap();
+    let mut stream = ch.into_stream();
+    let err = scp::download(
+        &mut stream,
+        &mut Vec::new(),
+        &AtomicBool::new(false),
+        &mut |_, _| {},
+    )
+    .await
+    .unwrap_err();
+    assert!(err.to_string().contains("No such file"), "{err}");
+    // The terminal session itself is still connected.
+    assert!(connected(&out));
+    m.close(id).unwrap();
+}
