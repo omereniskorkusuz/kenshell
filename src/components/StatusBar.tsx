@@ -8,6 +8,7 @@ import { useT } from '../i18n';
 import { formatBytes } from '../lib/format';
 import { isProd } from '../lib/tree';
 import { getSink } from '../terminal/sink';
+import { useTftp } from '../stores/tftp';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
 
@@ -53,6 +54,7 @@ export function StatusBar() {
   const activeKey = useTabs((s) => s.activeKey);
   const tabs = useTabs((s) => s.tabs);
   const broadcast = useTabs((s) => s.broadcast);
+  const tftpAddr = useTftp((s) => (s.status.running ? s.status.addr : null));
   const message = useUi((s) => s.statusMessage);
   const counters = useActiveCounters(activeKey);
   const activeLog = tabs.find((x) => x.key === activeKey)?.logPath ?? null;
@@ -96,6 +98,17 @@ export function StatusBar() {
           onClick={() => useTabs.getState().stopBroadcast()}
         >
           {t('status.broadcast', { count: broadcast.length })}
+        </button>
+      )}
+      {tftpAddr && (
+        <button
+          type="button"
+          className="shrink-0 tone-text hover:underline"
+          data-tone="success"
+          title={t('tftp.title')}
+          onClick={() => useUi.getState().setSidePanelTab('tools')}
+        >
+          {t('tftp.indicator', { addr: tftpAddr })}
         </button>
       )}
       <span className="ml-auto shrink-0">

@@ -1002,3 +1002,38 @@ export const transfer = {
     call<undefined>('sftp_rename', { sftp, from, to }),
   sftpClose: (sftp: number) => call<undefined>('sftp_close', { sftp }),
 };
+
+// ------------------------------------------------------------------ TFTP server (P5-T02)
+
+export type TftpEvent =
+  | {
+      kind: 'started';
+      id: number;
+      peer: string;
+      file: string;
+      upload: boolean;
+      size: number | null;
+    }
+  | { kind: 'progress'; id: number; bytes: number }
+  | { kind: 'done'; id: number; bytes: number }
+  | { kind: 'failed'; id: number; error: string };
+
+export interface TftpStatus {
+  running: boolean;
+  addr: string | null;
+  root: string | null;
+}
+
+export const tftp = {
+  async start(
+    opts: { root: string; bindIp: string; port: number; allowUpload: boolean; overwrite: boolean },
+    onEvent: (e: TftpEvent) => void,
+  ): Promise<TftpStatus> {
+    if (!inTauri()) return (await loadMock()).mockTftpStart(opts, onEvent as (e: unknown) => void);
+    const ch = new Channel<TftpEvent>();
+    ch.onmessage = onEvent;
+    return invoke<TftpStatus>('tftp_start', { ...opts, onEvent: ch });
+  },
+  stop: () => call<TftpStatus>('tftp_stop'),
+  status: () => call<TftpStatus>('tftp_status'),
+};

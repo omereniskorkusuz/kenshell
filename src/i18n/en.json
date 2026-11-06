@@ -925,5 +925,21 @@
       "cancelled": "cancelled",
       "running": "running"
     }
+  },
+  "tftp": {
+    "title": "TFTP server",
+    "hint": "For firmware and config copies: devices fetch from or upload to this folder. Only that folder is served.",
+    "folder": "Folder",
+    "pickFolder": "Choose a folder",
+    "listen": "Listen on",
+    "allInterfaces": "All interfaces",
+    "port": "Port",
+    "allowUpload": "Allow uploads (copy … tftp:)",
+    "overwrite": "Overwrite existing files",
+    "start": "Start",
+    "stop": "Stop",
+    "running": "Running on {{addr}}",
+    "example": "On the device:",
+    "indicator": "TFTP · {{addr}}"
   }
 }

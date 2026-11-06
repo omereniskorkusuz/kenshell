@@ -241,3 +241,91 @@ pub async fn sftp_rename(sftp: u32, from: String, to: String) -> Result<()> {
 pub async fn sftp_close(sftp: u32) {
     sftp::close(sftp).await;
 }
+
+// ------------------------------------------------------------------ TFTP server (P5-T02)
+
+use crate::transfer::tftp;
+
+struct TftpRunning {
+    task: tokio::task::JoinHandle<()>,
+    addr: std::net::SocketAddr,
+    root: String,
+}
+
+static TFTP: LazyLock<Mutex<Option<TftpRunning>>> = LazyLock::new(Default::default);
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TftpStatus {
+    pub running: bool,
+    pub addr: Option<String>,
+    pub root: Option<String>,
+}
+
+fn tftp_status_now() -> TftpStatus {
+    let g = TFTP.lock().ok();
+    let r = g.as_ref().and_then(|g| g.as_ref());
+    TftpStatus {
+        running: r.is_some(),
+        addr: r.map(|r| r.addr.to_string()),
+        root: r.map(|r| r.root.clone()),
+    }
+}
+
+/// Starts the TFTP server on `bind_ip:port` serving `root` (one server at a time).
+#[tauri::command]
+pub async fn tftp_start(
+    root: String,
+    bind_ip: String,
+    port: u16,
+    allow_upload: bool,
+    overwrite: bool,
+    on_event: Channel<tftp::Event>,
+) -> Result<TftpStatus> {
+    let dir = std::path::PathBuf::from(&root);
+    if !dir.is_dir() {
+        return Err(AppError::invalid("pick an existing folder"));
+    }
+    let ip: std::net::IpAddr = bind_ip
+        .trim()
+        .parse()
+        .map_err(|_| AppError::invalid("listen address"))?;
+    let sock = tokio::net::UdpSocket::bind((ip, port)).await.map_err(|e| {
+        AppError::with(
+            ErrorCode::PortBusy,
+            format!("cannot listen on {ip}:{port}: {e}"),
+        )
+    })?;
+    let addr = sock.local_addr().map_err(AppError::from)?;
+    let cfg = Arc::new(tftp::Config {
+        root: dir,
+        allow_upload,
+        overwrite,
+    });
+    let events: Arc<dyn Fn(tftp::Event) + Send + Sync> = Arc::new(move |e| {
+        let _ = on_event.send(e);
+    });
+    let task = tokio::spawn(tftp::serve(sock, cfg, events));
+    let mut g = TFTP.lock().map_err(|_| AppError::internal("tftp state"))?;
+    if let Some(old) = g.take() {
+        old.task.abort();
+    }
+    *g = Some(TftpRunning { task, addr, root });
+    drop(g);
+    Ok(tftp_status_now())
+}
+
+#[tauri::command]
+pub fn tftp_stop() -> TftpStatus {
+    if let Ok(mut g) = TFTP.lock()
+        && let Some(r) = g.take()
+    {
+        r.task.abort();
+    }
+    tftp_status_now()
+}
+
+#[tauri::command]
+pub fn tftp_status() -> TftpStatus {
+    tftp_status_now()
+}

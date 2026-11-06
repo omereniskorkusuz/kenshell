@@ -882,6 +882,10 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           'hostname core-sw1\nntp server 10.0.0.1\nend',
           'hostname core-sw1\nntp server 10.0.0.2\nlogging host 10.0.0.5\nend',
         );
+      case 'tftp_stop':
+        return { running: false, addr: null, root: null };
+      case 'tftp_status':
+        return { running: false, addr: null, root: null };
       case 'sftp_open':
         return { sftp: 1, home: '/' };
       case 'sftp_list':
@@ -1281,6 +1285,7 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         };
       case 'pick_path':
         // Demo: the file-analysis picker (its list includes .tech) gets a sample show tech.
+        if (a.kind === 'folder') return '/demo/tftp';
         return a.kind === 'file' && (a.extensions as string[] | null)?.includes('tech')
           ? '/demo/core-sw1-show-tech.txt'
           : null;
@@ -1521,4 +1526,39 @@ export async function mockTransfer(onProgress: (p: { done: number; total: number
     await new Promise((r) => setTimeout(r, 150));
   }
   return total;
+}
+
+/** Browser demo TFTP server: one switch fetches an image, another uploads its config. */
+export async function mockTftpStart(
+  opts: { root: string; bindIp: string; port: number },
+  onEvent: (e: unknown) => void,
+) {
+  setTimeout(
+    () =>
+      onEvent({
+        kind: 'started',
+        id: 1,
+        peer: '192.168.1.2:50123',
+        file: 'cat9k_iosxe.bin',
+        upload: false,
+        size: 4_000_000,
+      }),
+    600,
+  );
+  setTimeout(() => onEvent({ kind: 'progress', id: 1, bytes: 1_800_000 }), 1200);
+  setTimeout(() => onEvent({ kind: 'done', id: 1, bytes: 4_000_000 }), 2000);
+  setTimeout(
+    () =>
+      onEvent({
+        kind: 'started',
+        id: 2,
+        peer: '192.168.1.3:61000',
+        file: 'sw2-confg',
+        upload: true,
+        size: null,
+      }),
+    1500,
+  );
+  setTimeout(() => onEvent({ kind: 'done', id: 2, bytes: 6_210 }), 1900);
+  return { running: true, addr: `${opts.bindIp}:${opts.port}`, root: opts.root };
 }

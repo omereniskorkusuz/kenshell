@@ -925,5 +925,21 @@
       "cancelled": "iptal edildi",
       "running": "sürüyor"
     }
+  },
+  "tftp": {
+    "title": "TFTP sunucusu",
+    "hint": "Firmware ve config kopyalamak için: cihazlar bu klasörden alır ya da buraya yükler. Yalnız bu klasör sunulur.",
+    "folder": "Klasör",
+    "pickFolder": "Klasör seçin",
+    "listen": "Dinlenecek adres",
+    "allInterfaces": "Tüm arayüzler",
+    "port": "Port",
+    "allowUpload": "Yüklemeye izin ver (copy … tftp:)",
+    "overwrite": "Var olan dosyaların üzerine yaz",
+    "start": "Başlat",
+    "stop": "Durdur",
+    "running": "{{addr}} üzerinde çalışıyor",
+    "example": "Cihazda:",
+    "indicator": "TFTP · {{addr}}"
   }
 }
