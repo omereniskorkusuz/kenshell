@@ -13,6 +13,7 @@ pub mod diagnostics;
 pub mod diff;
 #[cfg(test)]
 mod fuzz_tests;
+pub mod logfile;
 pub mod parsers;
 
 use serde::{Deserialize, Serialize};

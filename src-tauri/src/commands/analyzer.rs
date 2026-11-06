@@ -54,3 +54,33 @@ pub fn diagnostics_evaluate(family: Option<String>, outputs: Vec<CommandOutput>)
 pub fn config_audit(family: Option<String>, config: String) -> Vec<Finding> {
     crate::analyzer::config_rules::audit(family.as_deref(), &config)
 }
+
+/// Streams a `show tech` / crashinfo / log file and summarises it (P4-T09).
+#[tauri::command]
+pub async fn logfile_analyze(path: String) -> Result<crate::analyzer::logfile::FileSummary> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let f = std::fs::File::open(&path).map_err(AppError::from)?;
+        crate::analyzer::logfile::analyze(std::io::BufReader::with_capacity(256 * 1024, f))
+            .map_err(AppError::from)
+    })
+    .await
+    .map_err(|e| AppError::internal(e.to_string()))?
+}
+
+/// Lines `start..=end` of an analysed file (a section), capped at 20 000 lines / 4 MB.
+#[tauri::command]
+pub async fn logfile_lines(path: String, start: u64, end: u64) -> Result<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let f = std::fs::File::open(&path).map_err(AppError::from)?;
+        crate::analyzer::logfile::read_lines(
+            std::io::BufReader::new(f),
+            start,
+            end,
+            20_000,
+            4 << 20,
+        )
+        .map_err(AppError::from)
+    })
+    .await
+    .map_err(|e| AppError::internal(e.to_string()))?
+}

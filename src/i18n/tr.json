@@ -742,7 +742,15 @@
     "inputErrors": "{{iface}}: {{count}} giriş hatası.",
     "outputErrors": "{{iface}}: {{count}} çıkış hatası.",
     "errDisabled": "{{iface}} err-disabled durumda ({{reason}}).",
-    "logErrors": "Log'da {{count}} hata mesajı (önem 0–3), ör. {{sample}}"
+    "logErrors": "Log'da {{count}} hata mesajı (önem 0–3), ör. {{sample}}",
+    "fileCrash": "Çökme ya da anormal yeniden başlama (satır {{line}}): {{sample}}",
+    "fileTraceback": "{{count}} traceback (ilki satır {{line}}): {{sample}}",
+    "fileMallocFail": "{{count}} bellek ayırma hatası (MALLOCFAIL).",
+    "fileSevere": "{{count}} kritik log mesajı (önem 0–2).",
+    "fileCpuHog": "{{count}} CPU hog mesajı (CPUHOG).",
+    "fileErrDisable": "{{count}} err-disable olayı.",
+    "fileLinkFlaps": "{{count}} link up/down mesajı: bir port gidip geliyor olabilir.",
+    "fileErrors": "{{count}} hata mesajı (önem 3)."
   },
   "cfgRule": {
     "enablePasswordPlain": "“enable password” şifreyi zayıf saklar ({{line}}): “enable secret” kullanın.",
@@ -798,6 +806,22 @@
       "running": "running",
       "startup": "startup",
       "file": "dosya"
+    }
+  },
+  "fileAnalysis": {
+    "title": "Dosya analizi",
+    "pick": "Dosya aç",
+    "hint": "Bir show tech, crashinfo ya da log dosyası açın. Satır satır okunur, çok büyük dosyalar da çalışır; hiçbir şey bu bilgisayardan çıkmaz.",
+    "reading": "{{name}} okunuyor…",
+    "sections_one": "{{count}} bölüm",
+    "sections_other": "{{count}} bölüm",
+    "messages": "En sık log mesajları",
+    "firstAt": "İlk görüldüğü satır {{line}}",
+    "kind": {
+      "showTech": "show tech",
+      "crashinfo": "crashinfo",
+      "log": "log",
+      "text": "metin"
     }
   }
 }

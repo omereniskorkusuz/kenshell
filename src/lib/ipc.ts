@@ -195,6 +195,16 @@ export interface ConfigDiff {
   coarse: boolean;
 }
 
+export interface FileSummary {
+  kind: 'showTech' | 'crashinfo' | 'log' | 'text';
+  lines: number;
+  bytes: number;
+  sections: { title: string; start: number; end: number }[];
+  facts: [string, string][];
+  messages: { mnemonic: string; severity: number; count: number; firstLine: number }[];
+  findings: Finding[];
+}
+
 export type Severity = 'critical' | 'warning' | 'info' | 'ok';
 
 export interface Finding {
@@ -665,6 +675,9 @@ export const api = {
   configLiveDiff: (id: number) => call<ConfigDiff>('config_live_diff', { id }),
   backupDiffLive: (backupId: number, id: number) =>
     call<ConfigDiff>('backup_diff_live', { backupId, id }),
+  logfileAnalyze: (path: string) => call<FileSummary>('logfile_analyze', { path }),
+  logfileLines: (path: string, start: number, end: number) =>
+    call<string>('logfile_lines', { path, start, end }),
   configAudit: (family: string | null, config: string) =>
     call<Finding[]>('config_audit', { family, config }),
   diagnosticsCommands: (family: string | null) =>

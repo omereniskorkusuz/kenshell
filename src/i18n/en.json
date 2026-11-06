@@ -742,7 +742,15 @@
     "inputErrors": "{{iface}}: {{count}} input errors.",
     "outputErrors": "{{iface}}: {{count}} output errors.",
     "errDisabled": "{{iface}} is err-disabled ({{reason}}).",
-    "logErrors": "{{count}} error messages (severity 0–3) in the log, e.g. {{sample}}"
+    "logErrors": "{{count}} error messages (severity 0–3) in the log, e.g. {{sample}}",
+    "fileCrash": "Crash or abnormal reload (line {{line}}): {{sample}}",
+    "fileTraceback": "{{count}} tracebacks (first at line {{line}}): {{sample}}",
+    "fileMallocFail": "{{count}} memory allocation failures (MALLOCFAIL).",
+    "fileSevere": "{{count}} critical log messages (severity 0–2).",
+    "fileCpuHog": "{{count}} CPU hog messages (CPUHOG).",
+    "fileErrDisable": "{{count}} err-disable events.",
+    "fileLinkFlaps": "{{count}} link up/down messages: a port may be flapping.",
+    "fileErrors": "{{count}} error messages (severity 3)."
   },
   "cfgRule": {
     "enablePasswordPlain": "“enable password” stores the password weakly ({{line}}): use “enable secret”.",
@@ -798,6 +806,22 @@
       "running": "running",
       "startup": "startup",
       "file": "file"
+    }
+  },
+  "fileAnalysis": {
+    "title": "File analysis",
+    "pick": "Open file",
+    "hint": "Open a show tech, crashinfo or log file. It is read line by line, so very large files work too; nothing leaves this computer.",
+    "reading": "Reading {{name}}…",
+    "sections_one": "{{count}} section",
+    "sections_other": "{{count}} sections",
+    "messages": "Most frequent log messages",
+    "firstAt": "First at line {{line}}",
+    "kind": {
+      "showTech": "show tech",
+      "crashinfo": "crashinfo",
+      "log": "log",
+      "text": "text"
     }
   }
 }

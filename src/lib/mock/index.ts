@@ -855,6 +855,39 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           'hostname core-sw1\nntp server 10.0.0.1\nend',
           'hostname core-sw1\nntp server 10.0.0.2\nlogging host 10.0.0.5\nend',
         );
+      case 'logfile_analyze':
+        return {
+          kind: 'showTech',
+          lines: 48211,
+          bytes: 2_310_442,
+          sections: [
+            { title: 'show version', start: 1, end: 40 },
+            { title: 'show logging', start: 41, end: 920 },
+            { title: 'show interfaces', start: 921, end: 48211 },
+          ],
+          facts: [
+            ['hostname', 'core-sw1'],
+            ['model', 'C9300-48P'],
+            ['version', '17.09.04a'],
+          ],
+          messages: [
+            { mnemonic: 'SYS-2-MALLOCFAIL', severity: 2, count: 1, firstLine: 77 },
+            { mnemonic: 'LINK-3-UPDOWN', severity: 3, count: 42, firstLine: 60 },
+            { mnemonic: 'SYS-5-CONFIG_I', severity: 5, count: 9, firstLine: 44 },
+          ],
+          findings: [
+            {
+              severity: 'critical',
+              code: 'fileTraceback',
+              params: { count: '2', line: '78', sample: '-Traceback= 1A2B3C 4D5E6F' },
+              command: '',
+            },
+            { severity: 'critical', code: 'fileMallocFail', params: { count: '1' }, command: '' },
+            { severity: 'warning', code: 'fileLinkFlaps', params: { count: '42' }, command: '' },
+          ],
+        };
+      case 'logfile_lines':
+        return `------------------ show logging ------------------\n*Nov  6 10:00: %LINK-3-UPDOWN: Interface Gi1/0/2, changed state to down\n`;
       case 'config_audit':
         return [
           {
@@ -1087,7 +1120,10 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           knownHosts: 1,
         };
       case 'pick_path':
-        return null;
+        // Demo: the file-analysis picker (its list includes .tech) gets a sample show tech.
+        return a.kind === 'file' && (a.extensions as string[] | null)?.includes('tech')
+          ? '/demo/core-sw1-show-tech.txt'
+          : null;
       case 'session_reorder': {
         const id = a.id as number;
         const folderId = (a.folderId as number | null) ?? null;

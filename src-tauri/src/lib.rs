@@ -77,6 +77,8 @@ pub fn run() {
             commands::analyzer::diagnostics_commands,
             commands::analyzer::diagnostics_evaluate,
             commands::analyzer::config_audit,
+            commands::analyzer::logfile_analyze,
+            commands::analyzer::logfile_lines,
             commands::backups::backup_take,
             commands::backups::backup_import,
             commands::backups::backups_list,
