@@ -36,6 +36,9 @@ interface UiState {
   editor: EditorState | null;
   sidePanelOpen: boolean;
   sidePanelTab: SidePanelTab;
+  /** The shortcut editor is waiting for a key (global shortcuts pause). */
+  capturingShortcut: boolean;
+  setCapturingShortcut(on: boolean): void;
   /** Recording open in the replay player (P5-T06). */
   replay: string | null;
   openReplay(path: string): void;
@@ -93,6 +96,8 @@ export const useUi = create<UiState>()((set, get) => ({
   sidePanelTab: 'notes',
   tool: 'transfer',
   replay: null,
+  capturingShortcut: false,
+  setCapturingShortcut: (on) => set({ capturingShortcut: on }),
   openReplay: (path) => set({ replay: path }),
   closeReplay: () => set({ replay: null }),
   openTool: (tool) => set({ tool, sidePanelTab: 'tools', sidePanelOpen: true }),

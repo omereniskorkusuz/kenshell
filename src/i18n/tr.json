@@ -437,7 +437,30 @@
     "autocomplete": "Otomatik tamamlama",
     "autocompleteHint": "Bu cihazın komut geçmişinden (sonra yaygın komutlardan) soluk öneri; Tab ya da → kabul eder. Cihazın ekrana yazmadığı satırlar ve password/secret/key içerenler hiç kaydedilmez.",
     "autoMore": "--More-- otomatik devam",
-    "autoMoreHint": "Cihazın sayfalayıcısına (--More--, ---- More ----, ---(more)---) boşlukla cevap verir, uzun çıktı akıp gider. Varsayılan kapalı; komut paletindeki \"Sayfalamayı kapat\" bunun yerine üreticinin terminal length 0 komutunu gönderir."
+    "autoMoreHint": "Cihazın sayfalayıcısına (--More--, ---- More ----, ---(more)---) boşlukla cevap verir, uzun çıktı akıp gider. Varsayılan kapalı; komut paletindeki \"Sayfalamayı kapat\" bunun yerine üreticinin terminal length 0 komutunu gönderir.",
+    "shortcuts": "Kısayollar",
+    "sshLegacy": "Tüm cihazlara eski SSH algoritmaları",
+    "sshLegacyHint": "diffie-hellman-group1/14-sha1, ssh-rsa, CBC şifreleri ve hmac-sha1 de önerilir (eski IOS / RGOS). Modern algoritmalar yine önce gelir.",
+    "sshKeepalive": "SSH keepalive (saniye)",
+    "sshKeepaliveHint": "Kendi değeri olmayan oturumlar için; 0 = kapalı.",
+    "renderer": "Terminal çizici",
+    "rendererHint": "Otomatik, varsa GPU'yu (WebGL) kullanır. Yeni açılan sekmelerde geçerli.",
+    "rendererAuto": "Otomatik",
+    "rendererDom": "Uyumlu (DOM)"
+  },
+  "shortcuts": {
+    "filter": "Eylem ya da tuş ara",
+    "resetAll": "Tümünü sıfırla",
+    "hint": "Bir kısayola tıklayın, sonra yeni tuşlara basın (⌘/Ctrl ya da Alt ile). Esc vazgeçer.",
+    "change": "{{action}} kısayolunu değiştir",
+    "press": "Tuşlara basın…",
+    "none": "Yok",
+    "remove": "{{action}} kısayolunu kaldır",
+    "removeShort": "Kaldır",
+    "reset": "{{action}} varsayılana dönsün",
+    "resetShort": "Varsayılan",
+    "reserved": "{{keys}} kopyala, yapıştır, geri al ya da çıkış için ayrılmış.",
+    "taken": "\"{{action}}\" bunu kullanıyor. Önce onu değiştirin ya da kaldırın."
   },
   "mode": {
     "user": "USER",

@@ -5,6 +5,7 @@ import { HIGHLIGHT_CATEGORIES } from '../terminal/highlight';
 import { useEffect, useId, useState, type ReactNode, type FormEvent } from 'react';
 import { Dialog } from '../components/Dialog';
 import ColorsSection from './ColorsSection';
+import { ShortcutsSection } from './ShortcutsSection';
 import KeysSection from './KeysSection';
 import { api, type ImportReport, type ImportSource, type ImportSources } from '../lib/ipc';
 import { describeError } from '../lib/errors';
@@ -23,6 +24,7 @@ type SectionId =
   | 'keys'
   | 'logging'
   | 'console'
+  | 'shortcuts'
   | 'data';
 const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'appearance', label: 'settings.appearance' },
@@ -33,6 +35,7 @@ const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'keys', label: 'settings.keys' },
   { id: 'logging', label: 'settings.logging' },
   { id: 'console', label: 'settings.console' },
+  { id: 'shortcuts', label: 'settings.shortcuts' },
   { id: 'data', label: 'settings.data' },
 ];
 
@@ -74,6 +77,7 @@ export default function SettingsView() {
           {section === 'keys' && <KeysSection />}
           {section === 'logging' && <LoggingSection />}
           {section === 'console' && <ConsoleSection />}
+          {section === 'shortcuts' && <ShortcutsSection />}
           {section === 'data' && <DataSection />}
           <p className="mt-auto text-xs text-muted">{t('settings.instantHint')}</p>
         </div>
@@ -275,6 +279,7 @@ function TerminalSection() {
   const [backspace, setBackspace] = useSetting('terminal.backspace');
   const [charset, setCharset] = useSetting('terminal.charset');
   const [stamps, setStamps] = useSetting('terminal.timestamps');
+  const [renderer, setRenderer] = useSetting('terminal.renderer');
   const [pasteDelay, setPasteDelay] = useSetting('terminal.pasteDelayMs');
   const [font, setFont] = useSetting('terminal.fontFamily');
   const [lineHeight, setLineHeight] = useSetting('terminal.lineHeight');
@@ -444,6 +449,19 @@ function TerminalSection() {
       <Row label={t('settings.lineTimestamps')} hint={t('settings.lineTimestampsHint')}>
         {(id) => <Toggle id={id} checked={stamps} onChange={setStamps} />}
       </Row>
+      <Row label={t('settings.renderer')} hint={t('settings.rendererHint')}>
+        {() => (
+          <Segmented
+            label={t('settings.renderer')}
+            value={renderer}
+            options={[
+              { value: 'auto', label: t('settings.rendererAuto') },
+              { value: 'dom', label: t('settings.rendererDom') },
+            ]}
+            onChange={setRenderer}
+          />
+        )}
+      </Row>
     </>
   );
 }
@@ -452,10 +470,27 @@ function ConnectionSection() {
   const t = useT();
   const [reconnect, setReconnect] = useSetting('connection.autoReconnect');
   const [identify, setIdentify] = useSetting('device.identify');
+  const [legacy, setLegacy] = useSetting('connection.sshLegacy');
+  const [keepalive, setKeepalive] = useSetting('connection.sshKeepalive');
   return (
     <>
       <Row label={t('settings.netAutoReconnect')} hint={t('settings.netAutoReconnectHint')}>
         {(id) => <Toggle id={id} checked={reconnect} onChange={setReconnect} />}
+      </Row>
+      <Row label={t('settings.sshLegacy')} hint={t('settings.sshLegacyHint')}>
+        {(id) => <Toggle id={id} checked={legacy} onChange={setLegacy} />}
+      </Row>
+      <Row label={t('settings.sshKeepalive')} hint={t('settings.sshKeepaliveHint')}>
+        {(id) => (
+          <NumberField
+            id={id}
+            value={keepalive}
+            step={5}
+            min={0}
+            max={3600}
+            onCommit={setKeepalive}
+          />
+        )}
       </Row>
       <Row label={t('settings.identify')} hint={t('settings.identifyHint')}>
         {(id) => <Toggle id={id} checked={identify} onChange={setIdentify} />}

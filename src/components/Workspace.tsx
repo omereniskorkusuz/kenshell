@@ -2,7 +2,7 @@
 import { Usb } from 'lucide-react';
 import { useT } from '../i18n';
 import { isMac } from '../lib/ipc';
-import { formatChord } from '../lib/shortcuts';
+import { useShortcuts } from '../app/actions';
 import { newSerialSession } from '../app/actions';
 import { chipLabel, useConsoles } from '../stores/consoles';
 import { cellRect } from '../lib/split';
@@ -48,6 +48,7 @@ function EmptyState() {
   const t = useT();
   const ports = useConsoles((s) => s.snapshot.ports);
   const mac = isMac();
+  const sc = useShortcuts(mac);
   const first = ports[0];
 
   return (
@@ -56,7 +57,7 @@ function EmptyState() {
       <div className="m-auto flex max-w-md flex-col items-center gap-3 px-6 text-center">
         <h1 className="text-lg font-medium text-secondary">{t('shell.emptyTitle')}</h1>
         <p className="text-sm text-muted">
-          {t('shell.emptyHint', { shortcut: formatChord('mod+l', mac) })}
+          {t('shell.emptyHint', { shortcut: sc.label('quickConnect.focus') })}
         </p>
         <div className="mt-2 flex flex-wrap justify-center gap-2">
           {first && (
@@ -71,11 +72,13 @@ function EmptyState() {
           )}
           <button type="button" className="btn" onClick={newSerialSession}>
             {t('actions.newSerialSession')}
-            <span className="kbd">{formatChord('mod+n', mac)}</span>
+            {sc.label('session.newSerial') && (
+              <span className="kbd">{sc.label('session.newSerial')}</span>
+            )}
           </button>
         </div>
         <p className="mt-2 text-xs text-muted">
-          {t('shell.paletteHint', { shortcut: formatChord('mod+k', mac) })}
+          {t('shell.paletteHint', { shortcut: sc.label('palette.open') })}
         </p>
       </div>
     </div>

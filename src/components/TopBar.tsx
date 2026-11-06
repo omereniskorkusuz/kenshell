@@ -1,7 +1,7 @@
 import { PanelLeft, Radar, Settings } from 'lucide-react';
 import { useT } from '../i18n';
 import { isMac } from '../lib/ipc';
-import { formatChord } from '../lib/shortcuts';
+import { useShortcuts } from '../app/actions';
 import { useSettings } from '../stores/settings';
 import { useUi } from '../stores/ui';
 import { runAction } from '../app/actions';
@@ -10,6 +10,7 @@ import { QuickConnect } from './QuickConnect';
 export function TopBar() {
   const t = useT();
   const mac = isMac();
+  const sc = useShortcuts(mac);
   const collapsed = useSettings((s) => s.values['ui.sidebarCollapsed']);
 
   return (
@@ -22,7 +23,7 @@ export function TopBar() {
         className="icon-btn"
         aria-pressed={!collapsed}
         aria-label={t('actions.toggleSidebar')}
-        title={`${t('actions.toggleSidebar')} (${formatChord('mod+b', mac)})`}
+        title={t('actions.toggleSidebar') + sc.hint('sidebar.toggle')}
         onClick={() => runAction('sidebar.toggle')}
       >
         <PanelLeft size={16} />
@@ -46,13 +47,13 @@ export function TopBar() {
           title={t('shell.commandPalette')}
           onClick={() => useUi.getState().openPalette()}
         >
-          <span className="kbd">{formatChord('mod+k', mac)}</span>
+          {sc.label('palette.open') && <span className="kbd">{sc.label('palette.open')}</span>}
         </button>
         <button
           type="button"
           className="icon-btn"
           aria-label={t('shell.settings')}
-          title={`${t('shell.settings')} (${formatChord('mod+,', mac)})`}
+          title={t('shell.settings') + sc.hint('settings.open')}
           onClick={() => useUi.getState().setSettingsOpen(true)}
         >
           <Settings size={16} />

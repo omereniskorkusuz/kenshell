@@ -19,7 +19,7 @@ import { useT } from '../i18n';
 import { isMac } from '../lib/ipc';
 import { formatChord } from '../lib/shortcuts';
 import { envKind, envLabel, folderPath, isProd } from '../lib/tree';
-import { ACTIONS, isEnabled } from '../app/actions';
+import { ACTIONS, isEnabled, shortcutOf } from '../app/actions';
 import { chipLabel, useConsoles } from '../stores/consoles';
 import { useLibrary } from '../stores/library';
 import { useTabs } from '../stores/tabs';
@@ -229,7 +229,9 @@ export default function CommandPalette() {
                     >
                       <Zap size={14} className="shrink-0 text-muted" aria-hidden />
                       <span className="min-w-0 flex-1 truncate">{t(a.title)}</span>
-                      {a.shortcut && <span className="kbd">{formatChord(a.shortcut, mac)}</span>}
+                      {shortcutOf(a) && (
+                        <span className="kbd">{formatChord(shortcutOf(a) ?? '', mac)}</span>
+                      )}
                     </Command.Item>
                   ))}
               </Command.Group>
@@ -245,7 +247,9 @@ export default function CommandPalette() {
                     >
                       <Settings2 size={14} className="shrink-0 text-muted" aria-hidden />
                       <span className="min-w-0 flex-1 truncate">{t(a.title)}</span>
-                      {a.shortcut && <span className="kbd">{formatChord(a.shortcut, mac)}</span>}
+                      {shortcutOf(a) && (
+                        <span className="kbd">{formatChord(shortcutOf(a) ?? '', mac)}</span>
+                      )}
                     </Command.Item>
                   ))}
                 {PALETTE_TOGGLES.map(([key, title]) => {

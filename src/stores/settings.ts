@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { api, type Settings } from '../lib/ipc';
 import { NO_COLORS, sanitizeColors, type ColorSettings } from '../lib/modeColors';
+import { sanitizeOverrides } from '../lib/shortcuts';
 import { HIGHLIGHT_CATEGORIES, type HighlightCategory } from '../terminal/highlight';
 
 export type ThemePref = 'dark' | 'light' | 'system';
@@ -56,6 +57,14 @@ export interface AppSettings {
   'log.template': string;
   'log.mode': 'printable' | 'all';
   'log.timestamps': boolean;
+  /** Shortcut overrides: action id → notation, null = no shortcut (P5-T07). */
+  'shortcuts.overrides': Record<string, string | null>;
+  /** `auto` = WebGL when the GPU allows it, `dom` = always the DOM renderer. */
+  'terminal.renderer': 'auto' | 'dom';
+  /** Offer legacy SSH algorithms to every device (old IOS / RGOS). */
+  'connection.sshLegacy': boolean;
+  /** SSH keepalive seconds where the session sets none (0 = off). */
+  'connection.sshKeepalive': number;
 }
 
 export type SettingKey = keyof AppSettings;
@@ -94,6 +103,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'log.template': '{name}_{date}_{time}.log',
   'log.mode': 'printable',
   'log.timestamps': false,
+  'shortcuts.overrides': {},
+  'terminal.renderer': 'auto',
+  'connection.sshLegacy': false,
+  'connection.sshKeepalive': 30,
 };
 
 export const LIMITS = {
@@ -167,7 +180,14 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'terminal.autocomplete':
       case 'terminal.autoMore':
       case 'log.timestamps':
+      case 'connection.sshLegacy':
         return bool(value, d[k]);
+      case 'shortcuts.overrides':
+        return sanitizeOverrides(value);
+      case 'terminal.renderer':
+        return oneOf(value, ['auto', 'dom'] as const, d[k]);
+      case 'connection.sshKeepalive':
+        return clampInt(value, 0, 3600, d[k]);
       case 'terminal.highlightOff':
         return Array.isArray(value) ? HIGHLIGHT_CATEGORIES.filter((c) => value.includes(c)) : d[k];
       case 'terminal.backspace':

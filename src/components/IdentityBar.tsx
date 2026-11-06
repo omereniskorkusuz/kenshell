@@ -14,7 +14,7 @@ import { compactParts } from '../lib/compact';
 import { formatUptime, formatUptimeShort, msToNextMinute } from '../lib/format';
 import { isMac } from '../lib/ipc';
 import { protocolOf, serialOf, tabStatus, targetLabel, type LiveTab } from '../lib/sessionState';
-import { formatChord } from '../lib/shortcuts';
+import { useShortcuts } from '../app/actions';
 import { envLabel } from '../lib/tree';
 import { useSettings } from '../stores/settings';
 import { useTabs } from '../stores/tabs';
@@ -34,6 +34,7 @@ interface Props {
 export function IdentityBar({ tab, compact, width, visible }: Props) {
   const t = useT();
   const mac = isMac();
+  const sc = useShortcuts(mac);
   const status = tabStatus(tab, t);
   const sidePanelOpen = useUi((s) => s.sidePanelOpen);
   const baudMenu = useMenu();
@@ -194,7 +195,7 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
         <button
           type="button"
           className="btn btn-primary btn-sm"
-          title={`${t('actions.reconnect')} (${formatChord('mod+shift+r', mac)})`}
+          title={t('actions.reconnect') + sc.hint('session.reconnect')}
           onClick={() => useTabs.getState().reconnect(tab.key)}
         >
           <RotateCw size={12} aria-hidden />
@@ -206,7 +207,7 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
           type="button"
           className="btn btn-sm mono"
           disabled={!connected}
-          title={`${t('identity.breakHint')} (${formatChord('mod+shift+b', mac)})`}
+          title={t('identity.breakHint') + sc.hint('session.break')}
           aria-label={t('actions.sendBreak')}
           onClick={() => useTabs.getState().sendBreak(tab.key)}
         >
@@ -228,7 +229,7 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
         className="icon-btn"
         aria-pressed={sidePanelOpen}
         aria-label={t('actions.toggleSidePanel')}
-        title={`${t('actions.toggleSidePanel')} (${formatChord('mod+j', mac)})`}
+        title={t('actions.toggleSidePanel') + sc.hint('sidePanel.toggle')}
         onClick={() => useUi.getState().toggleSidePanel()}
       >
         <PanelRight size={15} />

@@ -437,7 +437,30 @@
     "autocomplete": "Autocomplete",
     "autocompleteHint": "Dim suggestion from this device's command history (then common commands); Tab or → accepts. Lines the device did not echo and lines with password/secret/key words are never saved.",
     "autoMore": "Continue --More-- automatically",
-    "autoMoreHint": "Answers the device's pager (--More--, ---- More ----, ---(more)---) with a space so long output runs through. Off by default; \"Disable paging\" in the command palette sends the vendor's terminal length 0 instead."
+    "autoMoreHint": "Answers the device's pager (--More--, ---- More ----, ---(more)---) with a space so long output runs through. Off by default; \"Disable paging\" in the command palette sends the vendor's terminal length 0 instead.",
+    "shortcuts": "Shortcuts",
+    "sshLegacy": "Legacy SSH algorithms for every device",
+    "sshLegacyHint": "Also offer diffie-hellman-group1/14-sha1, ssh-rsa, CBC ciphers and hmac-sha1 (old IOS / RGOS). Modern algorithms still come first.",
+    "sshKeepalive": "SSH keepalive (seconds)",
+    "sshKeepaliveHint": "For sessions without their own value; 0 = off.",
+    "renderer": "Terminal renderer",
+    "rendererHint": "Automatic uses the GPU (WebGL) when available. Applies to newly opened tabs.",
+    "rendererAuto": "Automatic",
+    "rendererDom": "Compatible (DOM)"
+  },
+  "shortcuts": {
+    "filter": "Filter actions or keys",
+    "resetAll": "Reset all",
+    "hint": "Click a shortcut, then press the new keys (with ⌘/Ctrl or Alt). Esc cancels.",
+    "change": "Change the shortcut of {{action}}",
+    "press": "Press keys…",
+    "none": "None",
+    "remove": "Remove the shortcut of {{action}}",
+    "removeShort": "Remove",
+    "reset": "Reset {{action}} to default",
+    "resetShort": "Default",
+    "reserved": "{{keys}} is reserved for copy, paste, undo or quit.",
+    "taken": "Already used by \"{{action}}\". Change or remove that one first."
   },
   "mode": {
     "user": "USER",

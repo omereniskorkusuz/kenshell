@@ -91,3 +91,66 @@ export function formatChord(spec: string, mac: boolean): string {
   parts.push(key);
   return parts.join('+');
 }
+
+// ------------------------------------------------------------ customization (P5-T07)
+
+const MOD_KEYS = new Set(['meta', 'control', 'shift', 'alt', 'os', 'altgraph', 'capslock']);
+
+/** Keys an app shortcut may never take: clipboard / undo / quit belong to the OS. */
+export const RESERVED = ['mod+c', 'mod+v', 'mod+x', 'mod+a', 'mod+z', 'mod+q'] as const;
+
+/** Canonical notation (modifier order mod, ctrl, alt, shift) so equal chords compare equal. */
+export function normalizeSpec(spec: string): string {
+  const c = parseChord(spec);
+  return [c.mod && 'mod', c.ctrl && 'ctrl', c.alt && 'alt', c.shift && 'shift', c.key]
+    .filter(Boolean)
+    .join('+');
+}
+
+/**
+ * The notation of a keydown being recorded as a new shortcut, or null when it cannot be
+ * one: a lone modifier, or no ⌘/Ctrl/Alt (plain keys belong to the terminal).
+ */
+export function chordFromEvent(e: KeyLike, mac: boolean): string | null {
+  const raw = e.key.toLowerCase();
+  if (MOD_KEYS.has(raw)) return null;
+  const code = e.code ?? '';
+  const key = /^Key[A-Z]$/.test(code)
+    ? code.slice(3).toLowerCase()
+    : /^Digit\d$/.test(code)
+      ? code.slice(5)
+      : raw === ' '
+        ? 'space'
+        : raw;
+  if (!key || key.includes('+')) return null;
+  const mod = mac ? e.metaKey : e.ctrlKey;
+  const ctrl = mac && e.ctrlKey;
+  if (!mod && !ctrl && !e.altKey) return null;
+  return [mod && 'mod', ctrl && 'ctrl', e.altKey && 'alt', e.shiftKey && 'shift', key]
+    .filter(Boolean)
+    .join('+');
+}
+
+const SPEC = /^((mod|ctrl|alt|shift)\+)+[^+\s]{1,12}$/;
+
+/** User overrides: action id → notation, or null for "no shortcut". Invalid entries dropped. */
+export function sanitizeOverrides(v: unknown): Record<string, string | null> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const out: Record<string, string | null> = {};
+  for (const [id, spec] of Object.entries(v as Record<string, unknown>).slice(0, 200)) {
+    if (!/^[a-zA-Z][\w.]{0,59}$/.test(id)) continue;
+    if (spec === null) out[id] = null;
+    else if (typeof spec === 'string' && SPEC.test(spec)) out[id] = normalizeSpec(spec);
+  }
+  return out;
+}
+
+/** The shortcut in effect: the override if there is one (null = none), else the default. */
+export function effective(
+  id: string,
+  fallback: string | undefined,
+  overrides: Readonly<Record<string, string | null>>,
+): string | undefined {
+  if (id in overrides) return overrides[id] ?? undefined;
+  return fallback;
+}

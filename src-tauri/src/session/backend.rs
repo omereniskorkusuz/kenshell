@@ -232,7 +232,24 @@ impl Backend for RealBackend {
         creds: Option<crate::secrets::Credentials>,
     ) -> Result<Box<dyn Transport>> {
         let keys = Arc::new(DbHostKeys(Arc::clone(&self.db)));
-        network_transport(target, size, sink, prompter, keys, creds)
+        // Global SSH defaults (Settings → Connection, P5-T07): legacy algorithms for
+        // every session, and the keepalive interval where the session sets none.
+        let mut target = target.clone();
+        if let OpenTarget::Network { ssh, .. } = &mut target {
+            let get = |k: &str| self.db.get_setting(k).ok().flatten();
+            if get("connection.sshLegacy")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
+                ssh.legacy_algorithms = true;
+            }
+            if ssh.keepalive_secs.is_none() {
+                ssh.keepalive_secs = get("connection.sshKeepalive")
+                    .and_then(|v| v.as_u64())
+                    .and_then(|n| u32::try_from(n.min(3600)).ok());
+            }
+        }
+        network_transport(&target, size, sink, prompter, keys, creds)
     }
 
     fn touch_session(&self, id: i64) -> Result<()> {

@@ -129,7 +129,7 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
       term.loadAddon(new Unicode11Addon());
       term.unicode.activeVersion = '11';
       term.open(host);
-      tryWebgl(term);
+      if (s['terminal.renderer'] !== 'dom') tryWebgl(term);
       termRef.current = term;
 
       const doFit = () => {

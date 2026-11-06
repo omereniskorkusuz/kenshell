@@ -5,7 +5,8 @@
 import { isMac } from '../lib/ipc';
 import { matchChord, parseChord, type Chord } from '../lib/shortcuts';
 import { useUi } from '../stores/ui';
-import { ACTIONS, isEnabled, type AppAction } from './actions';
+import { useSettings } from '../stores/settings';
+import { ACTIONS, isEnabled, shortcutOf, type AppAction } from './actions';
 
 const REPEATABLE = new Set(['tab.next', 'tab.prev']);
 
@@ -16,19 +17,31 @@ interface Bound {
 
 export function installShortcuts(): () => void {
   const mac = isMac();
-  const bound: Bound[] = ACTIONS.filter((a) => a.shortcut).map((action) => ({
-    chord: parseChord(action.shortcut as string),
-    action,
-  }));
+  // Rebuilt when the user changes a shortcut (P5-T07), not on every key.
+  let overrides: unknown = null;
+  let bound: Bound[] = [];
+  const current = (): Bound[] => {
+    const o = useSettings.getState().values['shortcuts.overrides'];
+    if (o !== overrides) {
+      overrides = o;
+      bound = ACTIONS.flatMap((action) => {
+        const spec = shortcutOf(action);
+        return spec ? [{ chord: parseChord(spec), action }] : [];
+      });
+    }
+    return bound;
+  };
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.isComposing) return;
     // Plain keys (no modifier) are never app shortcuts: they belong to the focused control.
     if (!e.metaKey && !e.ctrlKey && !e.altKey) return;
     const ui = useUi.getState();
+    // The shortcut editor is recording a key: nothing fires.
+    if (ui.capturingShortcut) return;
     // Forms/dialogs own the keyboard; only the palette toggle stays global.
     const modal = ui.editor !== null || ui.settingsOpen;
-    for (const { chord, action } of bound) {
+    for (const { chord, action } of current()) {
       if (!matchChord(chord, e, mac)) continue;
       if (modal && action.id !== 'palette.open') return;
       if (ui.paletteOpen && action.id !== 'palette.open') return;

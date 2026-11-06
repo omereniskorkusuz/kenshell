@@ -12,7 +12,7 @@ import {
   parseQuickConnect,
   type QuickConnect as Intent,
 } from '../lib/quickConnect';
-import { formatChord } from '../lib/shortcuts';
+import { useShortcuts } from '../app/actions';
 import { shortPortName } from '../lib/format';
 import { useLibrary } from '../stores/library';
 import { useTabs } from '../stores/tabs';
@@ -54,6 +54,7 @@ function preview(intent: Intent, t: Translate): { text: string; actionable: bool
 }
 
 export function QuickConnect() {
+  const sc = useShortcuts(isMac());
   const t = useT();
   const [value, setValue] = useState('');
   const [focused, setFocused] = useState(false);
@@ -121,7 +122,7 @@ export function QuickConnect() {
       />
       {!focused && !value && (
         <span className="kbd pointer-events-none absolute top-1/2 right-2 -translate-y-1/2">
-          {formatChord('mod+l', isMac())}
+          {sc.label('quickConnect.focus')}
         </span>
       )}
       <div

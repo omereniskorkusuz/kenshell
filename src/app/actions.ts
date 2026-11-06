@@ -5,6 +5,7 @@
 import { pagingDisableCommand } from '../lib/paging';
 import { t, type TKey } from '../i18n';
 import { api, canDetach, DEFAULT_SERIAL } from '../lib/ipc';
+import { effective, formatChord } from '../lib/shortcuts';
 import type { Arrow } from '../lib/split';
 import { useConsoles } from '../stores/consoles';
 import { useLibrary } from '../stores/library';
@@ -445,4 +446,37 @@ export const isEnabled = (a: AppAction): boolean => a.enabled?.() ?? true;
 export function runAction(id: string): void {
   const a = actionById(id);
   if (a && isEnabled(a)) a.run();
+}
+
+/** The shortcut in effect for an action: the user's override (P5-T07) or the default. */
+export function shortcutOf(a: AppAction): string | undefined {
+  return effective(a.id, a.shortcut, getSetting('shortcuts.overrides'));
+}
+
+/** Shortcut of an action by id, or undefined when it has none. */
+export function shortcutFor(id: string): string | undefined {
+  const a = ACTIONS.find((x) => x.id === id);
+  return a ? shortcutOf(a) : undefined;
+}
+
+/** " (⌘B)" for a tooltip, or "" when the action has no shortcut. */
+export function shortcutHint(id: string, mac: boolean): string {
+  const s = shortcutFor(id);
+  return s ? ` (${formatChord(s, mac)})` : '';
+}
+
+/**
+ * React: shortcut labels that re-render when the user changes a shortcut.
+ * `label(id)` → "⌘B" ('' when none), `hint(id)` → " (⌘B)" for tooltips ('' when none).
+ */
+export function useShortcuts(mac: boolean): {
+  label: (id: string) => string;
+  hint: (id: string) => string;
+} {
+  useSettings((s) => s.values['shortcuts.overrides']);
+  const label = (id: string) => {
+    const s = shortcutFor(id);
+    return s ? formatChord(s, mac) : '';
+  };
+  return { label, hint: (id) => (label(id) ? ` (${label(id)})` : '') };
 }
