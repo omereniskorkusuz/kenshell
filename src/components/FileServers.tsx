@@ -22,7 +22,7 @@ const KINDS: { kind: ServerKind; label: string; port: number }[] = [
 export const serverLabel = (k: ServerKind) => KINDS.find((x) => x.kind === k)?.label ?? k;
 
 function copyText(text: string) {
-  void navigator.clipboard?.writeText(text).catch(() => {});
+  void api.clipboardWrite(text).catch(() => {});
 }
 
 export function FileServers() {

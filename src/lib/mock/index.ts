@@ -882,6 +882,9 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           'hostname core-sw1\nntp server 10.0.0.1\nend',
           'hostname core-sw1\nntp server 10.0.0.2\nlogging host 10.0.0.5\nend',
         );
+      case 'diag_stop':
+        mockDiagStopped.add(Number(a.job));
+        return undefined;
       case 'server_stop':
         mockServers.delete(String(a.kind));
         return [...mockServers.values()];
@@ -1597,4 +1600,39 @@ export async function mockServerStart(
     (x, y) =>
       order.indexOf((x as { kind: string }).kind) - order.indexOf((y as { kind: string }).kind),
   );
+}
+
+const mockDiagStopped = new Set<number>();
+
+/** Browser demo ping / traceroute output. */
+export async function mockDiagRun(
+  job: number,
+  kind: string,
+  target: string,
+  count: number | null,
+  onLine: (line: string) => void,
+): Promise<number | null> {
+  const lines =
+    kind === 'ping'
+      ? [
+          `PING ${target} (${target}): 56 data bytes`,
+          ...Array.from(
+            { length: count ?? 20 },
+            (_, i) =>
+              `64 bytes from ${target}: icmp_seq=${i} ttl=64 time=${(1.2 + ((i * 7) % 5) * 0.31).toFixed(3)} ms`,
+          ),
+        ]
+      : [
+          `traceroute to ${target} (${target}), 30 hops max, 40 byte packets`,
+          ' 1  192.168.1.1  0.612 ms  0.455 ms  0.430 ms',
+          ' 2  * * *',
+          ' 3  100.64.0.1  8.101 ms  7.912 ms  8.004 ms',
+          ` 4  ${target}  12.700 ms  12.311 ms  12.205 ms`,
+        ];
+  for (const l of lines) {
+    if (mockDiagStopped.has(job)) return null;
+    onLine(l);
+    await new Promise((r) => setTimeout(r, kind === 'ping' ? 400 : 250));
+  }
+  return 0;
 }

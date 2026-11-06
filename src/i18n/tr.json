@@ -186,6 +186,7 @@
     "ssh": "{{text}} adresine SSH",
     "telnet": "{{text}} adresine Telnet",
     "ping": "Cihazdan ping",
+    "pingLocal": "Bu bilgisayardan ping",
     "copy": "Kopyala",
     "showIface": "Interface durumunu göster",
     "showIfaceConfig": "Interface yapılandırmasını göster",
@@ -987,6 +988,21 @@
     "group": "Grup (multicast) adresi",
     "local": "Yerel yönetilen (rastgele ya da sanal)",
     "universal": "Üretici atamalı (küresel tekil)",
-    "clickToCopy": "Kopyalamak için değere tıklayın"
+    "clickToCopy": "Kopyalamak için değere tıklayın",
+    "diag": "Ping / traceroute",
+    "ping": "Ping",
+    "trace": "Traceroute",
+    "target": "Host ya da IP",
+    "count": "Sayı",
+    "continuous": "Durdurulana kadar",
+    "resolveNames": "Adları çöz",
+    "run": "Başlat",
+    "stopRun": "Durdur",
+    "replies": "{{count}} yanıt",
+    "rtt": "min {{min}} · ort {{avg}} · max {{max}} ms",
+    "noReply": "yanıt yok",
+    "finished": "Bitti (kod {{code}})",
+    "stopped": "Durduruldu",
+    "output": "Çıktı"
   }
 }

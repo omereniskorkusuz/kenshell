@@ -4,6 +4,7 @@ mod analyzer;
 mod commands;
 mod console_detect;
 mod device;
+mod diag;
 mod error;
 mod events;
 mod handoff;
@@ -92,6 +93,8 @@ pub fn run() {
             commands::backups::config_file_read,
             commands::netscan::netscan_networks,
             commands::netscan::oui_lookup,
+            commands::diag::diag_run,
+            commands::diag::diag_stop,
             commands::netscan::netscan_check,
             commands::netscan::netscan_run,
             commands::netscan::netscan_cancel,

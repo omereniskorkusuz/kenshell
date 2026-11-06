@@ -186,6 +186,7 @@
     "ssh": "SSH to {{text}}",
     "telnet": "Telnet to {{text}}",
     "ping": "Ping from the device",
+    "pingLocal": "Ping from this computer",
     "copy": "Copy",
     "showIface": "Show interface",
     "showIfaceConfig": "Show interface config",
@@ -987,6 +988,21 @@
     "group": "Group (multicast) address",
     "local": "Locally administered (random or virtual)",
     "universal": "Vendor-assigned (globally unique)",
-    "clickToCopy": "Click a value to copy it"
+    "clickToCopy": "Click a value to copy it",
+    "diag": "Ping / traceroute",
+    "ping": "Ping",
+    "trace": "Traceroute",
+    "target": "Host or IP",
+    "count": "Count",
+    "continuous": "Until stopped",
+    "resolveNames": "Resolve names",
+    "run": "Start",
+    "stopRun": "Stop",
+    "replies": "{{count}} replies",
+    "rtt": "min {{min}} · avg {{avg}} · max {{max}} ms",
+    "noReply": "no reply",
+    "finished": "Finished (code {{code}})",
+    "stopped": "Stopped",
+    "output": "Output"
   }
 }

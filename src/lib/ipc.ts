@@ -1056,3 +1056,25 @@ export const fileServers = {
   stop: (kind: ServerKind) => call<ServerStatus[]>('server_stop', { kind }),
   status: () => call<ServerStatus[]>('server_status'),
 };
+
+// ------------------------------------------------------------- Ping / traceroute (P5-T05)
+
+export type DiagKind = 'ping' | 'trace';
+
+export const diag = {
+  /** Resolves with the tool's exit code (null when stopped). */
+  async run(
+    job: number,
+    kind: DiagKind,
+    target: string,
+    count: number | null,
+    resolve: boolean,
+    onLine: (line: string) => void,
+  ): Promise<number | null> {
+    if (!inTauri()) return (await loadMock()).mockDiagRun(job, kind, target, count, onLine);
+    const ch = new Channel<string>();
+    ch.onmessage = onLine;
+    return invoke<number | null>('diag_run', { job, kind, target, count, resolve, onLine: ch });
+  },
+  stop: (job: number) => call<undefined>('diag_stop', { job }),
+};

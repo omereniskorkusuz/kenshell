@@ -6,6 +6,7 @@ pub mod app;
 pub mod backups;
 pub mod clipboard;
 pub mod console;
+pub mod diag;
 pub mod import;
 pub mod keys;
 pub mod netscan;

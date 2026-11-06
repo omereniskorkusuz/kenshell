@@ -1,5 +1,6 @@
 //! Platform-specific helpers. Keep OS conditionals here, not in domain modules.
 
+pub mod diag;
 pub mod net;
 
 use crate::error::{AppError, ErrorCode};

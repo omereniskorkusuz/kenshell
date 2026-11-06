@@ -1,11 +1,12 @@
 /**
  * Action menu for a clicked IP / interface in terminal output (P3-T11).
- * IP: SSH, Telnet, ping from the device, copy. Interface: the vendor's show / config
+ * IP: SSH, Telnet, ping from the device or from this computer (P5-T05), copy. Interface: the vendor's show / config
  * commands (sent to the session, read-only), add a note, copy.
  */
 import { useT } from '../i18n';
 import { api, DEFAULT_PORTS, DEFAULT_SSH, type NetProtocol } from '../lib/ipc';
 import { Menu, type MenuEntry } from '../components/Menu';
+import { useDiag } from '../stores/diag';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
 import { ifaceCommands, type TermLink } from './links';
@@ -53,6 +54,13 @@ export function LinkMenu({
         hint: `ping ${link.text}`,
         disabled: !connected,
         onSelect: () => send(`ping ${link.text}`),
+      },
+      {
+        label: t('terminal.pingLocal'),
+        onSelect: () => {
+          useUi.getState().openTool('nettools');
+          void useDiag.getState().start({ kind: 'ping', target: link.text });
+        },
       },
       { kind: 'separator' },
       { label: t('terminal.copy'), onSelect: copy },
