@@ -764,5 +764,40 @@
     "run": "Running-config'i analiz et",
     "hint": "“show running-config”'i (gizli, yalnız okuma) okur ve en iyi uygulama kurallarına göre çevrimdışı denetler. Şifreler maskelenir.",
     "reading": "Running-config okunuyor…"
+  },
+  "backups": {
+    "title": "Config yedekleri",
+    "takeRunning": "Running-config yedeği al",
+    "takeStartup": "Startup-config",
+    "reading": "Okunuyor…",
+    "import": "Config dosyası içe aktar",
+    "runningVsStartup": "Running ↔ startup",
+    "selectHint": "Karşılaştırmak için iki yedek seçin, ya da şimdiki running ile karşılaştırmak için bir tane.",
+    "compare": "Karşılaştır",
+    "compareRunning": "↔ Şimdiki running",
+    "compareTitle": "Karşılaştırma",
+    "none": "Henüz yedek yok.",
+    "needsOwner": "Yedekler için kayıtlı oturum ya da tanınmış cihaz gerekir.",
+    "saved": "Yedek kaydedildi (şifreli)",
+    "unchanged": "Son yedekten beri değişiklik yok",
+    "deleted": "{{name}} yedeği silindi.",
+    "exported": "Yedek {{path}} dosyasına kaydedildi",
+    "export": "Metin olarak dışa aktar",
+    "delete": "Sil",
+    "back": "Geri",
+    "encrypted": "Yedekler sıkıştırılmış ve şifreli saklanır; anahtar sistem anahtarlığında.",
+    "runningNow": "running-config (şimdi)",
+    "identical": "Fark yok.",
+    "allLines": "Tüm satırlar",
+    "folded_one": "{{count}} değişmeyen satır",
+    "folded_other": "{{count}} değişmeyen satır",
+    "coarse": "Büyük değişiklik: değiştirilmiş olarak gösteriliyor",
+    "lines_one": "{{count}} satır",
+    "lines_other": "{{count}} satır",
+    "src": {
+      "running": "running",
+      "startup": "startup",
+      "file": "dosya"
+    }
   }
 }

@@ -34,6 +34,7 @@ import { FakeCli } from './cli';
 
 const mockHistory = new Map<string, string[]>();
 let mockSnippets: Snippet[] = [];
+let mockBackups: { id: number; text: string; [k: string]: unknown }[] = [];
 let nextSnippetId = 1;
 const enc = new TextEncoder();
 const now = () => Date.now();
@@ -811,6 +812,49 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         return undefined;
       case 'live_capture':
         return mockCapture(String(a.command));
+      case 'backup_take':
+      case 'backup_import': {
+        const text =
+          a.text !== undefined
+            ? String(a.text)
+            : `hostname core-sw1\ninterface Gi1/0/1\n description ${mockBackups.length % 2 ? 'Uplink' : 'Uplink to core'}\nntp server 10.0.0.1\nend\n`;
+        const b = {
+          id: mockBackups.length + 1,
+          sessionId: (a.sessionId as number | null) ?? null,
+          deviceId: (a.deviceId as number | null) ?? null,
+          hostname: (a.hostname as string | null) ?? null,
+          source: (a.source as string | null) ?? 'file',
+          createdAt: Date.now(),
+          size: text.length,
+          lines: text.split('\n').length - 1,
+          sha256: String(mockBackups.length),
+          text,
+        };
+        mockBackups = [b, ...mockBackups];
+        return b;
+      }
+      case 'backups_list':
+        return mockBackups;
+      case 'backup_text':
+        return need(
+          mockBackups.find((b) => b.id === a.id),
+          'backup',
+        ).text;
+      case 'backup_delete':
+        mockBackups = mockBackups.filter((b) => b.id !== a.id);
+        return undefined;
+      case 'backup_export':
+        return undefined;
+      case 'config_file_read':
+        return 'hostname from-file\nend\n';
+      case 'config_diff':
+        return mockDiff(String(a.left), String(a.right));
+      case 'config_live_diff':
+      case 'backup_diff_live':
+        return mockDiff(
+          'hostname core-sw1\nntp server 10.0.0.1\nend',
+          'hostname core-sw1\nntp server 10.0.0.2\nlogging host 10.0.0.5\nend',
+        );
       case 'config_audit':
         return [
           {
@@ -1189,4 +1233,30 @@ async function mockCapture(command: string): Promise<string> {
   if (command === 'show environment all')
     return `${command}\n% Invalid input detected at '^' marker.\n`;
   return `${command}\n(demo output)\n`;
+}
+
+/** Browser demo diff: same / changed by position (the real one is the Rust LCS diff). */
+function mockDiff(left: string, right: string) {
+  const a = left.split('\n');
+  const b = right.split('\n');
+  const rows = [];
+  let added = 0;
+  let removed = 0;
+  let changed = 0;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const l = a[i] ?? null;
+    const r = b[i] ?? null;
+    const kind = l === r ? 'same' : l === null ? 'added' : r === null ? 'removed' : 'changed';
+    if (kind === 'added') added++;
+    else if (kind === 'removed') removed++;
+    else if (kind === 'changed') changed++;
+    rows.push({
+      kind,
+      leftNo: l === null ? null : i + 1,
+      left: l,
+      rightNo: r === null ? null : i + 1,
+      right: r,
+    });
+  }
+  return { rows, added, removed, changed, coarse: false };
 }

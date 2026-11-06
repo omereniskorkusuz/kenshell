@@ -764,5 +764,40 @@
     "run": "Analyze the running-config",
     "hint": "Reads “show running-config” (hidden, read-only) and checks it offline against best-practice rules. Secrets are masked.",
     "reading": "Reading the running-config…"
+  },
+  "backups": {
+    "title": "Config backups",
+    "takeRunning": "Back up running-config",
+    "takeStartup": "Startup-config",
+    "reading": "Reading…",
+    "import": "Import a config file",
+    "runningVsStartup": "Running ↔ startup",
+    "selectHint": "Tick two backups to compare, or one to compare with the running config now.",
+    "compare": "Compare",
+    "compareRunning": "↔ Running now",
+    "compareTitle": "Comparison",
+    "none": "No backups yet.",
+    "needsOwner": "Backups need a saved session or an identified device.",
+    "saved": "Backup saved (encrypted)",
+    "unchanged": "No change since the last backup",
+    "deleted": "Backup {{name}} deleted.",
+    "exported": "Backup saved to {{path}}",
+    "export": "Export as text",
+    "delete": "Delete",
+    "back": "Back",
+    "encrypted": "Backups are stored compressed and encrypted; the key is in the system keychain.",
+    "runningNow": "running-config (now)",
+    "identical": "No differences.",
+    "allLines": "All lines",
+    "folded_one": "{{count}} unchanged line",
+    "folded_other": "{{count}} unchanged lines",
+    "coarse": "Large change: shown as replaced",
+    "lines_one": "{{count}} line",
+    "lines_other": "{{count}} lines",
+    "src": {
+      "running": "running",
+      "startup": "startup",
+      "file": "file"
+    }
   }
 }

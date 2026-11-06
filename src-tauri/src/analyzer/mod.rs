@@ -6,9 +6,11 @@
 //! `fixtures/`. Device output is untrusted: input and table sizes are capped and parsers
 //! never panic on malformed text (P4-T05 adds fuzz tests).
 
+pub mod backup;
 pub mod config_rules;
 pub mod csv;
 pub mod diagnostics;
+pub mod diff;
 #[cfg(test)]
 mod fuzz_tests;
 pub mod parsers;

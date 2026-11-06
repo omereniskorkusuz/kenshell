@@ -3,6 +3,7 @@
 
 pub mod analyzer;
 pub mod app;
+pub mod backups;
 pub mod clipboard;
 pub mod console;
 pub mod import;

@@ -161,6 +161,40 @@ export interface AnalyzerTable {
   truncated: boolean;
 }
 
+export type BackupSource = 'running' | 'startup' | 'file';
+
+export interface BackupInfo {
+  id: number;
+  sessionId: number | null;
+  deviceId: number | null;
+  hostname: string | null;
+  source: BackupSource;
+  createdAt: number;
+  size: number;
+  lines: number;
+  sha256: string;
+  /** On a save: the newest backup already had this content. */
+  unchanged?: boolean;
+}
+
+export type DiffKind = 'same' | 'changed' | 'removed' | 'added';
+
+export interface DiffRow {
+  kind: DiffKind;
+  leftNo: number | null;
+  left: string | null;
+  rightNo: number | null;
+  right: string | null;
+}
+
+export interface ConfigDiff {
+  rows: DiffRow[];
+  added: number;
+  removed: number;
+  changed: number;
+  coarse: boolean;
+}
+
 export type Severity = 'critical' | 'warning' | 'info' | 'ok';
 
 export interface Finding {
@@ -600,6 +634,37 @@ export const api = {
   /** Read-only `show` command run hidden from the terminal (diagnostics, backups). */
   liveCapture: (id: number, command: string, timeoutSecs?: number) =>
     call<string>('live_capture', { id, command, timeoutSecs: timeoutSecs ?? null }),
+  backupTake: (
+    id: number,
+    sessionId: number | null,
+    deviceId: number | null,
+    hostname: string | null,
+    source: BackupSource,
+  ) => call<BackupInfo>('backup_take', { id, sessionId, deviceId, hostname, source }),
+  backupImport: (
+    sessionId: number | null,
+    deviceId: number | null,
+    hostname: string | null,
+    text: string,
+    source?: BackupSource,
+  ) =>
+    call<BackupInfo>('backup_import', {
+      sessionId,
+      deviceId,
+      hostname,
+      text,
+      source: source ?? null,
+    }),
+  backupsList: (sessionId: number | null, deviceId: number | null) =>
+    call<BackupInfo[]>('backups_list', { sessionId, deviceId }),
+  backupText: (id: number) => call<string>('backup_text', { id }),
+  backupDelete: (id: number) => call<undefined>('backup_delete', { id }),
+  backupExport: (id: number, path: string) => call<undefined>('backup_export', { id, path }),
+  configDiff: (left: string, right: string) => call<ConfigDiff>('config_diff', { left, right }),
+  configFileRead: (path: string) => call<string>('config_file_read', { path }),
+  configLiveDiff: (id: number) => call<ConfigDiff>('config_live_diff', { id }),
+  backupDiffLive: (backupId: number, id: number) =>
+    call<ConfigDiff>('backup_diff_live', { backupId, id }),
   configAudit: (family: string | null, config: string) =>
     call<Finding[]>('config_audit', { family, config }),
   diagnosticsCommands: (family: string | null) =>

@@ -3,7 +3,7 @@
  * active tab as a sortable, filterable table, exported as CSV. When a command the analyzer
  * knows finishes in the active tab, its table appears automatically.
  */
-import { Download, FileCheck2, ScanSearch, Stethoscope, TextSelect } from 'lucide-react';
+import { Archive, Download, FileCheck2, ScanSearch, Stethoscope, TextSelect } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useT, type TKey } from '../i18n';
 import { filterRows, shownColumns, sortRows, statusTone, type SortState } from '../lib/analyzer';
@@ -14,6 +14,7 @@ import { useAnalyzer } from '../stores/analyzer';
 import { useActiveTab } from '../stores/tabs';
 import { toast } from '../stores/toasts';
 import { useUi } from '../stores/ui';
+import { Backups } from './Backups';
 import { ConfigAudit } from './ConfigAudit';
 import { Diagnostics } from './Diagnostics';
 import { VirtualTable } from './VirtualTable';
@@ -29,7 +30,7 @@ export default function AnalyzerPanel() {
   const [miss, setMiss] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortState | null>(null);
-  const [view, setView] = useState<'table' | 'diag' | 'config'>('table');
+  const [view, setView] = useState<'table' | 'diag' | 'config' | 'backups'>('table');
 
   useEffect(() => {
     void useAnalyzer.getState().loadParsers();
@@ -106,6 +107,9 @@ export default function AnalyzerPanel() {
   if (view === 'diag' && tab) {
     return <Diagnostics key={tab.key} tab={tab} onClose={() => setView('table')} />;
   }
+  if (view === 'backups' && tab) {
+    return <Backups key={tab.key} tab={tab} onClose={() => setView('table')} />;
+  }
   if (view === 'config' && tab) {
     return <ConfigAudit key={tab.key} tab={tab} onClose={() => setView('table')} />;
   }
@@ -150,6 +154,16 @@ export default function AnalyzerPanel() {
           onClick={() => setView('config')}
         >
           <FileCheck2 size={13} />
+        </button>
+        <button
+          type="button"
+          className="icon-btn icon-btn-sm"
+          disabled={!tab}
+          aria-label={t('backups.title')}
+          title={t('backups.title')}
+          onClick={() => setView('backups')}
+        >
+          <Archive size={13} />
         </button>
         <span className="flex-1" />
         <button

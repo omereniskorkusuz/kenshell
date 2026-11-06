@@ -2527,6 +2527,7 @@ dependencies = [
  "argon2",
  "async-trait",
  "chrono",
+ "flate2",
  "futures-lite",
  "keyring",
  "nusb",

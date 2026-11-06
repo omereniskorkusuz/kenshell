@@ -4,6 +4,7 @@
 //! derived from its id.
 
 pub mod backup;
+pub mod blob;
 pub mod vault;
 
 use std::fmt;

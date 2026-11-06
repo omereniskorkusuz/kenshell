@@ -38,6 +38,8 @@ tauri-plugin-dialog = "2"
 # Encrypted backup (ADR-011): both already in the tree through russh / ssh-key.
 argon2 = { version = "0.6", default-features = false, features = ["alloc", "zeroize"] }
 ring = "0.17"
+# Config backups (ADR-016): already in the tree through russh; pure-Rust backend.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 
 [lints]
 workspace = true

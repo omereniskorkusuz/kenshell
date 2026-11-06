@@ -21,10 +21,12 @@
 
 mod devices;
 pub use devices::DeviceRecord;
+mod config_backups;
 mod folders;
 mod history;
 mod notes;
 mod snippets;
+pub use config_backups::{BackupInfo, BackupSource, NewBackup};
 pub use notes::{Note, NoteHit, PinnedNote};
 pub use snippets::{Snippet, SnippetInput};
 mod known_hosts;

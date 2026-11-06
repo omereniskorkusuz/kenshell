@@ -190,6 +190,26 @@ CREATE TABLE snippets (
 );
 "#,
     },
+    Migration {
+        name: "v10 config backups",
+        sql: r#"
+CREATE TABLE config_backups (
+    id         INTEGER PRIMARY KEY,
+    session_id INTEGER NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    device_id  INTEGER NULL REFERENCES devices(id) ON DELETE CASCADE,
+    hostname   TEXT    NULL,
+    source     TEXT    NOT NULL CHECK (source IN ('running', 'startup', 'file')),
+    created_at INTEGER NOT NULL,
+    size       INTEGER NOT NULL,
+    lines      INTEGER NOT NULL,
+    sha256     TEXT    NOT NULL,
+    data       BLOB    NOT NULL,
+    CHECK (session_id IS NOT NULL OR device_id IS NOT NULL)
+);
+CREATE INDEX idx_backups_device ON config_backups(device_id, created_at);
+CREATE INDEX idx_backups_session ON config_backups(session_id, created_at);
+"#,
+    },
 ];
 
 /// Schema version this build expects.
@@ -272,6 +292,7 @@ mod tests {
             tables(&conn),
             vec![
                 "command_history",
+                "config_backups",
                 "credential_profiles",
                 "devices",
                 "folders",
