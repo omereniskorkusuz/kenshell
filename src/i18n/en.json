@@ -68,7 +68,11 @@
     "panelNotes": "Show notes",
     "panelAnalyzer": "Show analyzer",
     "panelSnippets": "Show snippets",
-    "panelTools": "Show tools"
+    "panelTools": "Show tools",
+    "toggleRecording": "Start / stop recording",
+    "exportText": "Export output as text",
+    "exportHtml": "Export output as HTML (colours)",
+    "openRecording": "Open a recording (replay)"
   },
   "quick": {
     "label": "Quick connect",
@@ -112,7 +116,11 @@
     "loggingIn": "Logging in…",
     "logOn": "Log: {{file}}",
     "broadcast_one": "Broadcast · {{count}} tab",
-    "broadcast_other": "Broadcast · {{count}} tabs"
+    "broadcast_other": "Broadcast · {{count}} tabs",
+    "recordingSaved": "Recording saved: {{path}}",
+    "exported": "Saved: {{path}}",
+    "recording": "REC",
+    "recordingTitle": "Recording to {{path}} — click to stop"
   },
   "autobaud": {
     "detecting": "Detecting speed…",
@@ -1004,5 +1012,18 @@
     "finished": "Finished (code {{code}})",
     "stopped": "Stopped",
     "output": "Output"
+  },
+  "replay": {
+    "title": "Replay",
+    "play": "Play",
+    "pause": "Pause",
+    "restart": "From the start",
+    "speed": "Speed",
+    "seek": "Position",
+    "exportText": "Save as text",
+    "exportHtml": "Save as HTML",
+    "close": "Close",
+    "invalid": "Not an asciicast v2 recording",
+    "hint": "Space: play / pause · ←/→: 5 s · Esc: close"
   }
 }

@@ -276,7 +276,47 @@ impl SessionManager {
             .ok_or_else(|| AppError::invalid("not a connected SSH session"))
     }
 
+    /// Starts recording the session's output into `dir` (P5-T06); returns the file.
+    pub fn record_start(
+        &self,
+        id: RuntimeId,
+        dir: &std::path::Path,
+        name: &str,
+        cols: u16,
+        rows: u16,
+    ) -> Result<String> {
+        let map = self.registry();
+        let h = map.get(&id).ok_or_else(|| not_found(id))?;
+        let rec = crate::logging::record::Recording::open(dir, name, cols, rows)?;
+        let path = rec.path().display().to_string();
+        let mut slot = h
+            .shared
+            .recording
+            .lock()
+            .map_err(|_| AppError::internal("recording state"))?;
+        // Replacing an older recording closes (flushes) it.
+        *slot = Some(rec);
+        Ok(path)
+    }
+
+    /// Stops recording; the file is complete when this returns.
+    pub fn record_stop(&self, id: RuntimeId) -> Result<Option<String>> {
+        // Taken out under the registry lock, dropped (flushed, thread joined) after it.
+        let rec = {
+            let map = self.registry();
+            let h = map.get(&id).ok_or_else(|| not_found(id))?;
+            h.shared.recording.lock().ok().and_then(|mut r| r.take())
+        };
+        Ok(rec.map(|r| r.path().display().to_string()))
+    }
+
     pub fn resize(&self, id: RuntimeId, cols: u16, rows: u16) -> Result<()> {
+        if let Some(h) = self.registry().get(&id)
+            && let Ok(r) = h.shared.recording.lock()
+            && let Some(r) = r.as_ref()
+        {
+            r.resize(cols, rows);
+        }
         self.send(id, Command::Resize(cols, rows))
     }
 

@@ -29,6 +29,7 @@ import { LinkMenu, type LinkMenuState } from './LinkMenu';
 import { findLinks } from './links';
 import { Highlighter, highlightColors, type HighlighterConfig } from './highlighter';
 import { readLineHeight, readMonoFont, readTerminalTheme } from './theme';
+import { bufferToHtml, bufferToText } from './exportOutput';
 import './terminal.css';
 
 /** Resolves once the embedded mono font is usable (or after a short timeout). */
@@ -485,6 +486,10 @@ export default function TerminalView({ tabKey, visible, focused }: Props) {
           }
           return null;
         },
+        size: () => ({ cols: term.cols, rows: term.rows }),
+        exportText: () => bufferToText(term.buffer.active),
+        exportHtml: (title) =>
+          bufferToHtml(term.buffer.active, readTerminalTheme(), title, readMonoFont()),
       });
 
       // Theme changes: re-read tokens whenever <html data-theme> flips.

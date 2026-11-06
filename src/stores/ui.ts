@@ -36,6 +36,10 @@ interface UiState {
   editor: EditorState | null;
   sidePanelOpen: boolean;
   sidePanelTab: SidePanelTab;
+  /** Recording open in the replay player (P5-T06). */
+  replay: string | null;
+  openReplay(path: string): void;
+  closeReplay(): void;
   /** Tool shown in the side panel's Tools tab (Phase 5). */
   tool: ToolId;
   openTool(tool: ToolId): void;
@@ -88,6 +92,9 @@ export const useUi = create<UiState>()((set, get) => ({
   sidePanelOpen: false,
   sidePanelTab: 'notes',
   tool: 'transfer',
+  replay: null,
+  openReplay: (path) => set({ replay: path }),
+  closeReplay: () => set({ replay: null }),
   openTool: (tool) => set({ tool, sidePanelTab: 'tools', sidePanelOpen: true }),
   noteDraft: null,
   snippetFill: null,

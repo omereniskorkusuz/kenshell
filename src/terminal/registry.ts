@@ -16,6 +16,11 @@ export interface TerminalHandle {
   selection(): string;
   /** Output of the last command (rows between its `prompt command` line and the prompt now). */
   lastOutput(): { command: string; text: string } | null;
+  /** Current size in cells. */
+  size(): { cols: number; rows: number };
+  /** The whole scrollback as plain text / a coloured HTML page (P5-T06). */
+  exportText(): string;
+  exportHtml(title: string): string;
 }
 
 const handles = new Map<string, TerminalHandle>();

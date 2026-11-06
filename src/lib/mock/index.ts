@@ -1221,6 +1221,14 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
       case 'live_write':
         live(a.id).write(a.data as string);
         return undefined;
+      case 'live_record_start':
+        return `/demo/logs/${String(a.name)}_2026-11-06_101500.cast`;
+      case 'live_record_stop':
+        return `/demo/logs/recording.cast`;
+      case 'recording_read':
+        return mockCast();
+      case 'text_export':
+        return undefined;
       case 'live_resize':
         live(a.id);
         return undefined;
@@ -1635,4 +1643,38 @@ export async function mockDiagRun(
     await new Promise((r) => setTimeout(r, kind === 'ping' ? 400 : 250));
   }
   return 0;
+}
+
+/** Browser demo recording (asciicast v2). */
+function mockCast(): string {
+  const ev: [number, string, string][] = [
+    [0.3, 'o', 'core-sw1#'],
+    [1.0, 'o', 'show ip interface brief\r\n'],
+    [
+      1.4,
+      'o',
+      'Interface              IP-Address      OK? Method Status                Protocol\r\n',
+    ],
+    [
+      1.5,
+      'o',
+      'Vlan1                  10.0.0.1        YES NVRAM  \u001b[32mup\u001b[0m                    up\r\n',
+    ],
+    [
+      1.6,
+      'o',
+      'GigabitEthernet1/0/1   unassigned      YES unset  \u001b[31mdown\u001b[0m                  down\r\n',
+    ],
+    [9.0, 'o', 'core-sw1#'],
+  ];
+  return [
+    JSON.stringify({
+      version: 2,
+      width: 100,
+      height: 24,
+      timestamp: 1793923200,
+      title: 'core-sw1',
+    }),
+    ...ev.map((e) => JSON.stringify(e)),
+  ].join('\n');
 }

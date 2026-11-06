@@ -97,7 +97,6 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Arc, Mutex};
 
     #[test]
     fn targets() {
@@ -126,6 +125,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn streams_lines_falls_back_and_stops() {
+        use std::sync::{Arc, Mutex};
         let lines = Arc::new(Mutex::new(Vec::new()));
         let sink = Arc::clone(&lines);
         let on_line = move |l: String| sink.lock().unwrap().push(l);

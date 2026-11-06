@@ -68,7 +68,11 @@
     "panelNotes": "Notları göster",
     "panelAnalyzer": "Analizi göster",
     "panelSnippets": "Snippet'leri göster",
-    "panelTools": "Araçları göster"
+    "panelTools": "Araçları göster",
+    "toggleRecording": "Kaydı başlat / durdur",
+    "exportText": "Çıktıyı metin olarak dışa aktar",
+    "exportHtml": "Çıktıyı HTML olarak dışa aktar (renkli)",
+    "openRecording": "Kayıt aç (tekrar oynat)"
   },
   "quick": {
     "label": "Hızlı bağlan",
@@ -112,7 +116,11 @@
     "loggingIn": "Giriş yapılıyor…",
     "logOn": "Log: {{file}}",
     "broadcast_one": "Broadcast · {{count}} sekme",
-    "broadcast_other": "Broadcast · {{count}} sekme"
+    "broadcast_other": "Broadcast · {{count}} sekme",
+    "recordingSaved": "Kayıt kaydedildi: {{path}}",
+    "exported": "Kaydedildi: {{path}}",
+    "recording": "KAYIT",
+    "recordingTitle": "{{path}} dosyasına kaydediliyor — durdurmak için tıklayın"
   },
   "autobaud": {
     "detecting": "Hız algılanıyor…",
@@ -1004,5 +1012,18 @@
     "finished": "Bitti (kod {{code}})",
     "stopped": "Durduruldu",
     "output": "Çıktı"
+  },
+  "replay": {
+    "title": "Tekrar oynat",
+    "play": "Oynat",
+    "pause": "Duraklat",
+    "restart": "Baştan",
+    "speed": "Hız",
+    "seek": "Konum",
+    "exportText": "Metin olarak kaydet",
+    "exportHtml": "HTML olarak kaydet",
+    "close": "Kapat",
+    "invalid": "asciicast v2 kaydı değil",
+    "hint": "Boşluk: oynat / duraklat · ←/→: 5 sn · Esc: kapat"
   }
 }

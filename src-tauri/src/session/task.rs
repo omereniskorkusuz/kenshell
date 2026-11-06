@@ -98,6 +98,8 @@ pub(crate) struct Shared {
     pub port_key: Mutex<Option<String>>,
     /// The live SSH connection while connected (SFTP / SCP channels, P5-T01).
     pub ssh: Mutex<Option<Arc<russh::client::Handle<crate::transport::ssh::Client>>>>,
+    /// Session recording while on (P5-T06); output is written to it as it is shown.
+    pub recording: Mutex<Option<crate::logging::record::Recording>>,
 }
 
 impl Shared {
@@ -107,6 +109,7 @@ impl Shared {
             path,
             port_key: Mutex::new(None),
             ssh: Mutex::new(None),
+            recording: Mutex::new(None),
         }
     }
 
@@ -600,6 +603,11 @@ impl SessionTask {
     fn show(&mut self, buf: Vec<u8>, log: Option<&crate::logging::SessionLog>) {
         if let Some(log) = log {
             log.write(&buf);
+        }
+        if let Ok(r) = self.ctx.shared.recording.lock()
+            && let Some(r) = r.as_ref()
+        {
+            r.output(&buf);
         }
         let seen = self.observer.feed(&buf);
         self.ctx.out.data(buf);

@@ -124,3 +124,54 @@ pub fn live_answer(state: State<'_, AppState>, id: RuntimeId, answers: Vec<Strin
 pub fn known_host_forget(state: State<'_, AppState>, host: String, port: u16) -> Result<()> {
     state.db.forget_known_host(&host, port)
 }
+
+// ------------------------------------------------------- Recording / export (P5-T06)
+
+/// Recordings go to the log folder (`log.dir`, else the default) even when logging
+/// itself is off.
+fn record_dir(state: &AppState) -> std::path::PathBuf {
+    state
+        .db
+        .get_setting("log.dir")
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .filter(|s| !s.trim().is_empty())
+        .map_or_else(crate::logging::default_dir, Into::into)
+}
+
+/// Starts recording a live session's output (asciicast v2); returns the file path.
+#[tauri::command]
+pub fn live_record_start(
+    state: State<'_, AppState>,
+    id: RuntimeId,
+    name: String,
+    cols: u16,
+    rows: u16,
+) -> Result<String> {
+    let dir = record_dir(&state);
+    state.sessions.record_start(id, &dir, &name, cols, rows)
+}
+
+#[tauri::command]
+pub fn live_record_stop(state: State<'_, AppState>, id: RuntimeId) -> Result<Option<String>> {
+    state.sessions.record_stop(id)
+}
+
+/// A recording's contents for the replay player.
+#[tauri::command]
+pub async fn recording_read(path: String) -> Result<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::logging::record::read(std::path::Path::new(&path))
+    })
+    .await
+    .map_err(|_| crate::error::AppError::internal("read task"))?
+}
+
+/// Writes exported terminal text / HTML to a path the user chose in the save dialog.
+#[tauri::command]
+pub async fn text_export(path: String, text: String) -> Result<()> {
+    tokio::fs::write(&path, text)
+        .await
+        .map_err(crate::error::AppError::from)
+}

@@ -7,6 +7,8 @@
 //!   `[YYYY-MM-DD HH:MM:SS] ` line timestamps) and `all` (raw bytes).
 //! * File name from a template: `{name}` (`{hostname}` alias), `{date}`, `{time}`.
 
+pub mod record;
+
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};

@@ -58,6 +58,7 @@ export function StatusBar() {
   const message = useUi((s) => s.statusMessage);
   const counters = useActiveCounters(activeKey);
   const activeLog = tabs.find((x) => x.key === activeKey)?.logPath ?? null;
+  const activeRec = tabs.find((x) => x.key === activeKey)?.recordPath ?? null;
   const prodCount = tabs.filter((x) => isProd(x.envTag)).length;
 
   return (
@@ -98,6 +99,17 @@ export function StatusBar() {
           onClick={() => useTabs.getState().stopBroadcast()}
         >
           {t('status.broadcast', { count: broadcast.length })}
+        </button>
+      )}
+      {activeRec && (
+        <button
+          type="button"
+          className="shrink-0 font-medium tone-text hover:underline"
+          data-tone="error"
+          title={t('status.recordingTitle', { path: activeRec })}
+          onClick={() => void useTabs.getState().toggleRecording()}
+        >
+          ● {t('status.recording')}
         </button>
       )}
       {serving && (

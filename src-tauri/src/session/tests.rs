@@ -713,6 +713,31 @@ async fn commands_reach_the_transport() {
 }
 
 #[tokio::test]
+async fn recording_keeps_output_and_resizes_but_never_input() {
+    let (backend, mgr, out) = setup();
+    let id = open_connected(&backend, &mgr, &out, Some(9600)).await;
+    let dir = tempfile::tempdir().unwrap();
+    let path = mgr
+        .record_start(id, dir.path(), "core-sw1", 80, 24)
+        .unwrap();
+    let sink = backend.sink(0);
+    sink.try_send(TransportEvent::Data(b"Password:".to_vec()))
+        .unwrap();
+    until("data", || !out.data().is_empty()).await;
+    mgr.write(id, b"s3cret\r").unwrap();
+    mgr.resize(id, 132, 50).unwrap();
+    sink.try_send(TransportEvent::Data(b"\r\ncore-sw1#".to_vec()))
+        .unwrap();
+    until("more data", || out.data().concat().ends_with(b"core-sw1#")).await;
+    assert_eq!(mgr.record_stop(id).unwrap(), Some(path.clone()));
+    assert_eq!(mgr.record_stop(id).unwrap(), None);
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(text.contains("Password:") && text.contains("core-sw1#"));
+    assert!(text.contains("\"132x50\""));
+    assert!(!text.contains("s3cret"));
+}
+
+#[tokio::test]
 async fn unknown_ids_are_not_found() {
     let (_backend, mgr, _out) = setup();
     assert_eq!(mgr.write(42, b"x").unwrap_err().code, ErrorCode::NotFound);

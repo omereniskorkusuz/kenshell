@@ -823,6 +823,12 @@ export const api = {
   liveWrite: (id: RuntimeId, data: string) => call<undefined>('live_write', { id, data }),
   liveResize: (id: RuntimeId, cols: number, rows: number) =>
     call<undefined>('live_resize', { id, cols, rows }),
+  /** Session recording (P5-T06): asciicast v2 into the log folder. */
+  liveRecordStart: (id: RuntimeId, name: string, cols: number, rows: number) =>
+    call<string>('live_record_start', { id, name, cols, rows }),
+  liveRecordStop: (id: RuntimeId) => call<string | null>('live_record_stop', { id }),
+  recordingRead: (path: string) => call<string>('recording_read', { path }),
+  textExport: (path: string, text: string) => call<undefined>('text_export', { path, text }),
   liveBreak: (id: RuntimeId) => call<undefined>('live_break', { id }),
   liveClose: (id: RuntimeId) => call<undefined>('live_close', { id }),
   liveReconnect: (id: RuntimeId) => call<undefined>('live_reconnect', { id }),

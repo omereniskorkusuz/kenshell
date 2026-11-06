@@ -45,6 +45,8 @@ export interface LiveTab {
   prompt: PendingPrompt | null;
   /** Session log file while logging (null = not logging). */
   logPath: string | null;
+  /** Recording file while recording (P5-T06; null = not recording). */
+  recordPath: string | null;
   health: HealthKind | null;
   connectedAt: number | null;
   mode: CliMode;

@@ -4,7 +4,7 @@
  */
 import { pagingDisableCommand } from '../lib/paging';
 import { t, type TKey } from '../i18n';
-import { canDetach, DEFAULT_SERIAL } from '../lib/ipc';
+import { api, canDetach, DEFAULT_SERIAL } from '../lib/ipc';
 import type { Arrow } from '../lib/split';
 import { useConsoles } from '../stores/consoles';
 import { useLibrary } from '../stores/library';
@@ -314,6 +314,42 @@ export const ACTIONS: readonly AppAction[] = [
     run: () => {
       const tab = activeTab();
       if (tab) useUi.getState().openFind(tab.key);
+    },
+  },
+  {
+    id: 'session.record',
+    title: 'actions.toggleRecording',
+    group: 'actions',
+    keywords: ['record', 'recording', 'replay', 'asciicast', 'kayıt', 'kaydet'],
+    enabled: () => activeTab()?.runtimeId != null,
+    run: () => void useTabs.getState().toggleRecording(),
+  },
+  {
+    id: 'terminal.exportText',
+    title: 'actions.exportText',
+    group: 'actions',
+    keywords: ['export', 'save', 'txt', 'text', 'dışa aktar', 'kaydet', 'metin'],
+    enabled: hasActiveTab,
+    run: () => void useTabs.getState().exportOutput('txt'),
+  },
+  {
+    id: 'terminal.exportHtml',
+    title: 'actions.exportHtml',
+    group: 'actions',
+    keywords: ['export', 'save', 'html', 'color', 'renkli', 'dışa aktar'],
+    enabled: hasActiveTab,
+    run: () => void useTabs.getState().exportOutput('html'),
+  },
+  {
+    id: 'replay.open',
+    title: 'actions.openRecording',
+    group: 'actions',
+    keywords: ['replay', 'recording', 'play', 'cast', 'oynat', 'kayıt'],
+    run: () => {
+      void api
+        .pickPath('file', ['cast'])
+        .then((path) => path && useUi.getState().openReplay(path))
+        .catch(() => {});
     },
   },
   {

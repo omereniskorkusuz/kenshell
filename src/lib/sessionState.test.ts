@@ -23,6 +23,7 @@ const tab: LiveTab = {
   netLink: null,
   prompt: null,
   logPath: null,
+  recordPath: null,
   health: null,
   connectedAt: 1,
   mode: 'unknown',

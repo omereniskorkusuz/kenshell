@@ -48,6 +48,7 @@ import {
   type SplitView,
 } from '../lib/split';
 import { normalizeEnv } from '../lib/tree';
+import { getTerminal } from '../terminal/registry';
 import { createSink, disposeSink, getSink } from '../terminal/sink';
 import { useLibrary } from './library';
 import { useSettings } from './settings';
@@ -89,6 +90,10 @@ interface TabsState {
   reopenClosed(): void;
   reconnect(key?: string | null): void;
   sendBreak(key?: string | null): void;
+  /** Starts / stops recording the tab's output (P5-T06). */
+  toggleRecording(key?: string | null): Promise<void>;
+  /** Saves the tab's scrollback as plain text or a coloured HTML page (P5-T06). */
+  exportOutput(format: 'txt' | 'html', key?: string | null): Promise<void>;
   changeBaud(key: string, baud: number | null): void;
   write(key: string, data: string): void;
   /** Keyboard input of a tab (to the whole broadcast group when the tab is in it). */
@@ -182,6 +187,7 @@ export const useTabs = create<TabsState>()((set, get) => {
       netLink: null,
       prompt: null,
       logPath: null,
+      recordPath: null,
       connectedAt: null,
       health: x.health === 'cableReturned' ? x.health : null,
     }));
@@ -453,6 +459,7 @@ export const useTabs = create<TabsState>()((set, get) => {
         netLink: null,
         prompt: null,
         logPath: null,
+        recordPath: null,
         health: null,
         connectedAt: null,
         mode: 'unknown',
@@ -573,6 +580,46 @@ export const useTabs = create<TabsState>()((set, get) => {
           const d = describeError(e, t, { port: portLabel(cur) });
           toast({ kind: 'error', message: d.message, detail: d.detail });
         });
+    },
+
+    async toggleRecording(key) {
+      const k = resolveKey(key);
+      const cur = k ? tab(k) : undefined;
+      if (!k || !cur || cur.runtimeId === null) return;
+      const id = cur.runtimeId;
+      try {
+        if (cur.recordPath) {
+          const path = await api.liveRecordStop(id);
+          update(k, (x) => ({ ...x, recordPath: null }));
+          if (path) useUi.getState().flash(t('status.recordingSaved', { path }));
+        } else {
+          const size = getTerminal(k)?.size() ?? { cols: 80, rows: 24 };
+          const path = await api.liveRecordStart(id, cur.name, size.cols, size.rows);
+          update(k, (x) => ({ ...x, recordPath: path }));
+        }
+      } catch (e) {
+        const d = describeError(e, t);
+        toast({ kind: 'error', message: d.message, detail: d.detail });
+      }
+    },
+
+    async exportOutput(format, key) {
+      const k = resolveKey(key);
+      const cur = k ? tab(k) : undefined;
+      const term = k ? getTerminal(k) : undefined;
+      if (!cur || !term) return;
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      const base = `${cur.name.replace(/[^\w.-]+/g, '_')}_${stamp}`;
+      const path = await api.pickPath('save', [format], `${base}.${format}`).catch(() => null);
+      if (!path) return;
+      const text = format === 'txt' ? term.exportText() : term.exportHtml(cur.name);
+      try {
+        await api.textExport(path, text);
+        useUi.getState().flash(t('status.exported', { path }));
+      } catch (e) {
+        const d = describeError(e, t);
+        toast({ kind: 'error', message: d.message, detail: d.detail });
+      }
     },
 
     changeBaud(key, baud) {
