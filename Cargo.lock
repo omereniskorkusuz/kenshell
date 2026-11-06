@@ -2541,6 +2541,7 @@ dependencies = [
  "futures-lite",
  "if-addrs",
  "keyring",
+ "libc",
  "nusb",
  "regex",
  "ring",
@@ -2549,6 +2550,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serialport",
+ "socket2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -2558,6 +2560,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "windows-sys 0.61.2",
  "zeroize",
 ]
 

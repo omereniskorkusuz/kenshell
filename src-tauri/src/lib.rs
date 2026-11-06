@@ -91,6 +91,8 @@ pub fn run() {
             commands::backups::config_file_read,
             commands::netscan::netscan_networks,
             commands::netscan::netscan_check,
+            commands::netscan::netscan_run,
+            commands::netscan::netscan_cancel,
             commands::backups::config_live_diff,
             commands::backups::backup_diff_live,
             commands::storage::snippets_list,

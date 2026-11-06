@@ -43,6 +43,14 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 # Local interfaces for the network scanner scope (ADR-017); libc / windows-sys already in the tree.
 if-addrs = "0.15"
 
+# Network scanner OS calls (ADR-018): all already in the tree.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+socket2 = { version = "0.6", features = ["all"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Networking_WinSock"] }
+
 [lints]
 workspace = true
 

@@ -1,5 +1,7 @@
 //! Platform-specific helpers. Keep OS conditionals here, not in domain modules.
 
+pub mod net;
+
 use crate::error::{AppError, ErrorCode};
 
 #[cfg(target_os = "macos")]

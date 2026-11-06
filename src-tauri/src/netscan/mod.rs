@@ -5,4 +5,5 @@
 //! /22 per scan, bounded concurrency, discovery only (ping, ARP table, TCP connect to a
 //! few management ports). No vulnerability scanning, brute force or exploitation — ever.
 
+pub mod probe;
 pub mod scope;

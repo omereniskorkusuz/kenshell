@@ -46,8 +46,6 @@ impl Range {
     pub fn len(&self) -> u64 {
         u64::from(u32::from(self.last)) - u64::from(u32::from(self.first)) + 1
     }
-    // The probe engine (P4-T13) walks the range with this.
-    #[allow(dead_code)]
     pub fn hosts(&self) -> impl Iterator<Item = Ipv4Addr> {
         (u32::from(self.first)..=u32::from(self.last)).map(Ipv4Addr::from)
     }

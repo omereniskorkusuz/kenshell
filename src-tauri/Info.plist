@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- macOS 15+ Local Network privacy: shown when KenShell first reaches a device on the
+       local network (SSH/Telnet to LAN devices, "Scan my network"). -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>KenShell connects to network devices on your local network (SSH, Telnet) and, when you ask, finds used and free addresses in your own subnet. / KenShell yerel ağınızdaki cihazlara bağlanır (SSH, Telnet) ve istediğinizde kendi alt ağınızdaki dolu ve boş adresleri bulur.</string>
+</dict>
+</plist>

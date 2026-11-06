@@ -1,7 +1,13 @@
 //! Network scanner commands (P4-T12…T14). The scope rules live in `netscan::scope` and are
 //! applied to every request here (the UI only mirrors them for display).
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use serde::Serialize;
+use tauri::ipc::Channel;
+
+use crate::netscan::probe::{self, NetProber, Progress, ScanResult};
 
 use crate::netscan::scope::{self, LocalNet, Range, ScopeError};
 
@@ -62,4 +68,57 @@ pub fn netscan_check(target: String) -> Result<CheckResult, ScopeError> {
         range,
         iface: net.iface,
     })
+}
+
+/// Set while a scan runs; one scan at a time.
+static RUNNING: AtomicBool = AtomicBool::new(false);
+static CANCEL: std::sync::LazyLock<Arc<AtomicBool>> =
+    std::sync::LazyLock::new(|| Arc::new(AtomicBool::new(false)));
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum ScanError {
+    /// The target is outside the scope rules.
+    Scope { reason: ScopeError },
+    /// Another scan is running.
+    Busy,
+}
+
+/// Scans `target` (checked against the scope rules here, whatever the UI did). Progress
+/// goes to `on_progress`; the result is returned at the end.
+#[tauri::command]
+pub async fn netscan_run(
+    target: String,
+    on_progress: Channel<Progress>,
+) -> Result<ScanResult, ScanError> {
+    let (range, net) = scope::check(&target, &scope::local_networks())
+        .map_err(|reason| ScanError::Scope { reason })?;
+    if RUNNING.swap(true, Ordering::SeqCst) {
+        return Err(ScanError::Busy);
+    }
+    CANCEL.store(false, Ordering::SeqCst);
+    let gateway = tauri::async_runtime::spawn_blocking(crate::platform::net::default_gateway)
+        .await
+        .ok()
+        .flatten()
+        .filter(|g| net.contains(*g));
+    let result = probe::run(
+        range,
+        net.ip,
+        gateway,
+        Arc::new(NetProber),
+        Arc::clone(&CANCEL),
+        |p| {
+            let _ = on_progress.send(p);
+        },
+    )
+    .await;
+    RUNNING.store(false, Ordering::SeqCst);
+    Ok(result)
+}
+
+/// Stops the running scan (results so far are returned).
+#[tauri::command]
+pub fn netscan_cancel() {
+    CANCEL.store(true, Ordering::SeqCst);
 }
