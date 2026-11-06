@@ -476,3 +476,37 @@
 .diff-fold {
   background: var(--bg-hover);
 }
+
+/* Neighbour topology (P4-T10). */
+.topology .topo-edge {
+  stroke: var(--border-strong);
+  stroke-width: 1.2;
+}
+.topology .topo-edge[data-on] {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.topology .topo-node {
+  fill: var(--bg-elevated);
+  stroke: var(--border-strong);
+}
+.topology .topo-self {
+  fill: color-mix(in srgb, var(--accent) 22%, var(--bg-elevated));
+  stroke: var(--accent);
+}
+.topology .topo-node[data-on] {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.topology .topo-label {
+  fill: var(--text-primary);
+  font: 10px var(--font-mono);
+  pointer-events: none;
+}
+.topology .topo-pick {
+  cursor: pointer;
+}
+.topology .topo-pick:focus-visible .topo-node {
+  stroke: var(--focus-ring);
+  stroke-width: 2;
+}

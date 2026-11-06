@@ -8,6 +8,7 @@ import {
   Download,
   FileCheck2,
   FileSearch,
+  Network,
   ScanSearch,
   Stethoscope,
   TextSelect,
@@ -25,6 +26,7 @@ import { useUi } from '../stores/ui';
 import { Backups } from './Backups';
 import { ConfigAudit } from './ConfigAudit';
 import { FileAnalysis } from './FileAnalysis';
+import { Topology } from './Topology';
 import { Diagnostics } from './Diagnostics';
 import { VirtualTable } from './VirtualTable';
 
@@ -39,7 +41,9 @@ export default function AnalyzerPanel() {
   const [miss, setMiss] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortState | null>(null);
-  const [view, setView] = useState<'table' | 'diag' | 'config' | 'backups' | 'file'>('table');
+  const [view, setView] = useState<'table' | 'diag' | 'config' | 'backups' | 'file' | 'topology'>(
+    'table',
+  );
 
   useEffect(() => {
     void useAnalyzer.getState().loadParsers();
@@ -116,6 +120,9 @@ export default function AnalyzerPanel() {
   if (view === 'diag' && tab) {
     return <Diagnostics key={tab.key} tab={tab} onClose={() => setView('table')} />;
   }
+  if (view === 'topology' && tab) {
+    return <Topology key={tab.key} tab={tab} onClose={() => setView('table')} />;
+  }
   if (view === 'file') {
     return <FileAnalysis onClose={() => setView('table')} />;
   }
@@ -185,6 +192,16 @@ export default function AnalyzerPanel() {
           onClick={() => setView('file')}
         >
           <FileSearch size={13} />
+        </button>
+        <button
+          type="button"
+          className="icon-btn icon-btn-sm"
+          disabled={tab?.state !== 'connected'}
+          aria-label={t('topology.title')}
+          title={t('topology.title')}
+          onClick={() => setView('topology')}
+        >
+          <Network size={13} />
         </button>
         <span className="flex-1" />
         <button

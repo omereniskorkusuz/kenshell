@@ -195,6 +195,17 @@ export interface ConfigDiff {
   coarse: boolean;
 }
 
+export interface Neighbor {
+  name: string;
+  ip: string | null;
+  platform: string | null;
+  capability: string | null;
+  localInterface: string;
+  remoteInterface: string | null;
+  cdp: boolean;
+  lldp: boolean;
+}
+
 export interface FileSummary {
   kind: 'showTech' | 'crashinfo' | 'log' | 'text';
   lines: number;
@@ -675,6 +686,8 @@ export const api = {
   configLiveDiff: (id: number) => call<ConfigDiff>('config_live_diff', { id }),
   backupDiffLive: (backupId: number, id: number) =>
     call<ConfigDiff>('backup_diff_live', { backupId, id }),
+  neighborsDiscover: (id: number, family: string | null) =>
+    call<Neighbor[]>('neighbors_discover', { id, family }),
   logfileAnalyze: (path: string) => call<FileSummary>('logfile_analyze', { path }),
   logfileLines: (path: string, start: number, end: number) =>
     call<string>('logfile_lines', { path, start, end }),

@@ -823,5 +823,14 @@
       "log": "log",
       "text": "metin"
     }
+  },
+  "topology": {
+    "title": "Komşular (CDP / LLDP)",
+    "reading": "CDP / LLDP komşuları okunuyor…",
+    "none": "CDP ya da LLDP komşusu yok.",
+    "graph_one": "Bu cihazın etrafında {{count}} komşu",
+    "graph_other": "Bu cihazın etrafında {{count}} komşu",
+    "ssh": "Bağlan (SSH)",
+    "noIp": "Yönetim adresi bildirilmemiş"
   }
 }

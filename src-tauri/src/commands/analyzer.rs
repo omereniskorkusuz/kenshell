@@ -84,3 +84,27 @@ pub async fn logfile_lines(path: String, start: u64, end: u64) -> Result<String>
     .await
     .map_err(|e| AppError::internal(e.to_string()))?
 }
+
+/// CDP / LLDP neighbours of a live session (read hidden), merged (P4-T10). Commands the
+/// device does not know are skipped.
+#[tauri::command]
+pub async fn neighbors_discover(
+    state: tauri::State<'_, crate::state::AppState>,
+    id: crate::model::RuntimeId,
+    family: Option<String>,
+) -> Result<Vec<crate::analyzer::neighbors::Neighbor>> {
+    use crate::analyzer::neighbors;
+    let mut outputs = Vec::new();
+    for c in neighbors::commands(family.as_deref()) {
+        match state
+            .sessions
+            .capture(id, c, std::time::Duration::from_secs(60))
+            .await
+        {
+            Ok(text) => outputs.push(((*c).to_owned(), text)),
+            Err(e) if e.code == crate::error::ErrorCode::ConnectionClosed => return Err(e),
+            Err(_) => {}
+        }
+    }
+    Ok(neighbors::neighbors(family.as_deref(), &outputs))
+}

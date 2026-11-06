@@ -823,5 +823,14 @@
       "log": "log",
       "text": "text"
     }
+  },
+  "topology": {
+    "title": "Neighbours (CDP / LLDP)",
+    "reading": "Reading CDP / LLDP neighbours…",
+    "none": "No CDP or LLDP neighbours.",
+    "graph_one": "{{count}} neighbour around this device",
+    "graph_other": "{{count}} neighbours around this device",
+    "ssh": "Connect (SSH)",
+    "noIp": "No management address advertised"
   }
 }

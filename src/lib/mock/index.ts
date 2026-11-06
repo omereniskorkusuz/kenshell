@@ -855,6 +855,49 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           'hostname core-sw1\nntp server 10.0.0.1\nend',
           'hostname core-sw1\nntp server 10.0.0.2\nlogging host 10.0.0.5\nend',
         );
+      case 'neighbors_discover':
+        return [
+          {
+            name: 'core-sw1.lab.example.com',
+            ip: '10.0.0.1',
+            platform: 'cisco WS-C3850-48P',
+            capability: 'Router Switch IGMP',
+            localInterface: 'GigabitEthernet1/0/24',
+            remoteInterface: 'GigabitEthernet1/0/1',
+            cdp: true,
+            lldp: true,
+          },
+          {
+            name: 'ap-floor2',
+            ip: '10.20.0.15',
+            platform: 'cisco AIR-AP2802I',
+            capability: 'Trans-Bridge',
+            localInterface: 'GigabitEthernet1/0/5',
+            remoteInterface: 'GigabitEthernet0',
+            cdp: true,
+            lldp: false,
+          },
+          {
+            name: 'ruijie-s5750',
+            ip: '10.0.0.20',
+            platform: 'Ruijie S5750-48GT4XS-E',
+            capability: 'Bridge',
+            localInterface: 'GigabitEthernet1/0/47',
+            remoteInterface: 'GigabitEthernet 0/49',
+            cdp: false,
+            lldp: true,
+          },
+          {
+            name: 'printer-3f',
+            ip: null,
+            platform: null,
+            capability: 'Station',
+            localInterface: 'GigabitEthernet1/0/10',
+            remoteInterface: '0011.2233.4455',
+            cdp: false,
+            lldp: true,
+          },
+        ];
       case 'logfile_analyze':
         return {
           kind: 'showTech',
