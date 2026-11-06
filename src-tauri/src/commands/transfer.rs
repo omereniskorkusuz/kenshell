@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 use tauri::ipc::Channel;
 
@@ -242,90 +242,178 @@ pub async fn sftp_close(sftp: u32) {
     sftp::close(sftp).await;
 }
 
-// ------------------------------------------------------------------ TFTP server (P5-T02)
+// ------------------------------------------------------- File servers (P5-T02, P5-T03)
 
-use crate::transfer::tftp;
+use crate::transfer::{ftp, scp_server, served, tftp};
 
-struct TftpRunning {
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum ServerKind {
+    Tftp,
+    Ftp,
+    Scp,
+}
+
+struct Running {
     task: tokio::task::JoinHandle<()>,
-    addr: std::net::SocketAddr,
-    root: String,
+    status: ServerStatus,
 }
 
-static TFTP: LazyLock<Mutex<Option<TftpRunning>>> = LazyLock::new(Default::default);
+static SERVERS: LazyLock<Mutex<HashMap<ServerKind, Running>>> = LazyLock::new(Default::default);
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct TftpStatus {
-    pub running: bool,
-    pub addr: Option<String>,
-    pub root: Option<String>,
+pub struct ServerStatus {
+    pub kind: ServerKind,
+    pub addr: String,
+    pub root: String,
+    pub allow_upload: bool,
+    /// FTP / SCP login (shown so it can be typed on the device; memory only).
+    pub user: Option<String>,
+    pub password: Option<String>,
+    /// SCP host key fingerprints (SHA-256).
+    pub fingerprints: Vec<String>,
 }
 
-fn tftp_status_now() -> TftpStatus {
-    let g = TFTP.lock().ok();
-    let r = g.as_ref().and_then(|g| g.as_ref());
-    TftpStatus {
-        running: r.is_some(),
-        addr: r.map(|r| r.addr.to_string()),
-        root: r.map(|r| r.root.clone()),
-    }
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerOptions {
+    pub kind: ServerKind,
+    pub root: String,
+    pub bind_ip: String,
+    pub port: u16,
+    pub allow_upload: bool,
+    pub overwrite: bool,
+    pub user: Option<String>,
+    pub password: Option<String>,
 }
 
-/// Starts the TFTP server on `bind_ip:port` serving `root` (one server at a time).
+fn servers_now() -> Vec<ServerStatus> {
+    let g = SERVERS.lock().ok();
+    let mut v: Vec<_> = g
+        .iter()
+        .flat_map(|g| g.values().map(|r| r.status.clone()))
+        .collect();
+    v.sort_by_key(|s| s.kind as u8);
+    v
+}
+
+/// Starts a TFTP, FTP or SCP server on `bindIp:port` serving `root` (one per kind;
+/// starting again replaces it).
 #[tauri::command]
-pub async fn tftp_start(
-    root: String,
-    bind_ip: String,
-    port: u16,
-    allow_upload: bool,
-    overwrite: bool,
-    on_event: Channel<tftp::Event>,
-) -> Result<TftpStatus> {
-    let dir = std::path::PathBuf::from(&root);
+pub async fn server_start(
+    opts: ServerOptions,
+    on_event: Channel<served::Event>,
+) -> Result<Vec<ServerStatus>> {
+    let dir = std::path::PathBuf::from(&opts.root);
     if !dir.is_dir() {
         return Err(AppError::invalid("pick an existing folder"));
     }
-    let ip: std::net::IpAddr = bind_ip
+    let ip: std::net::IpAddr = opts
+        .bind_ip
         .trim()
         .parse()
         .map_err(|_| AppError::invalid("listen address"))?;
-    let sock = tokio::net::UdpSocket::bind((ip, port)).await.map_err(|e| {
+    let busy = |e: std::io::Error| {
         AppError::with(
             ErrorCode::PortBusy,
-            format!("cannot listen on {ip}:{port}: {e}"),
+            format!("cannot listen on {ip}:{}: {e}", opts.port),
         )
-    })?;
-    let addr = sock.local_addr().map_err(AppError::from)?;
-    let cfg = Arc::new(tftp::Config {
+    };
+    let cfg = Arc::new(served::Config {
         root: dir,
-        allow_upload,
-        overwrite,
+        allow_upload: opts.allow_upload,
+        overwrite: opts.overwrite,
     });
-    let events: Arc<dyn Fn(tftp::Event) + Send + Sync> = Arc::new(move |e| {
+    let events: served::Events = Arc::new(move |e| {
         let _ = on_event.send(e);
     });
-    let task = tokio::spawn(tftp::serve(sock, cfg, events));
-    let mut g = TFTP.lock().map_err(|_| AppError::internal("tftp state"))?;
-    if let Some(old) = g.take() {
+    let creds = (opts.kind != ServerKind::Tftp).then(|| {
+        let user = opts
+            .user
+            .as_deref()
+            .map(str::trim)
+            .filter(|u| !u.is_empty())
+            .unwrap_or("kenshell")
+            .to_owned();
+        let password = opts
+            .password
+            .filter(|p| !p.is_empty())
+            .unwrap_or_else(|| served::random_password(12));
+        Arc::new(served::Credentials { user, password })
+    });
+    // Replace a running server of the same kind first, so its port is free again.
+    if let Ok(mut g) = SERVERS.lock()
+        && let Some(old) = g.remove(&opts.kind)
+    {
         old.task.abort();
     }
-    *g = Some(TftpRunning { task, addr, root });
+    let mut fingerprints = Vec::new();
+    let (task, addr) = match (opts.kind, &creds) {
+        (ServerKind::Tftp, _) => {
+            let sock = tokio::net::UdpSocket::bind((ip, opts.port))
+                .await
+                .map_err(busy)?;
+            let addr = sock.local_addr().map_err(AppError::from)?;
+            (tokio::spawn(tftp::serve(sock, cfg, events)), addr)
+        }
+        (ServerKind::Ftp, Some(c)) => {
+            let l = tokio::net::TcpListener::bind((ip, opts.port))
+                .await
+                .map_err(busy)?;
+            let addr = l.local_addr().map_err(AppError::from)?;
+            (
+                tokio::spawn(ftp::serve(l, cfg, Arc::clone(c), events)),
+                addr,
+            )
+        }
+        (ServerKind::Scp, Some(c)) => {
+            let l = tokio::net::TcpListener::bind((ip, opts.port))
+                .await
+                .map_err(busy)?;
+            let addr = l.local_addr().map_err(AppError::from)?;
+            // RSA key generation takes a moment: off the async workers.
+            let keys = tokio::task::spawn_blocking(|| scp_server::host_keys(true))
+                .await
+                .map_err(|_| AppError::internal("host key generation"))??;
+            fingerprints = scp_server::fingerprints(&keys);
+            (
+                tokio::spawn(scp_server::serve(l, keys, cfg, Arc::clone(c), events)),
+                addr,
+            )
+        }
+        _ => return Err(AppError::internal("server credentials")),
+    };
+    let status = ServerStatus {
+        kind: opts.kind,
+        addr: addr.to_string(),
+        root: opts.root,
+        allow_upload: opts.allow_upload,
+        user: creds.as_ref().map(|c| c.user.clone()),
+        password: creds.as_ref().map(|c| c.password.clone()),
+        fingerprints,
+    };
+    let mut g = SERVERS
+        .lock()
+        .map_err(|_| AppError::internal("server state"))?;
+    if let Some(old) = g.insert(opts.kind, Running { task, status }) {
+        old.task.abort();
+    }
     drop(g);
-    Ok(tftp_status_now())
+    Ok(servers_now())
 }
 
 #[tauri::command]
-pub fn tftp_stop() -> TftpStatus {
-    if let Ok(mut g) = TFTP.lock()
-        && let Some(r) = g.take()
+pub fn server_stop(kind: ServerKind) -> Vec<ServerStatus> {
+    if let Ok(mut g) = SERVERS.lock()
+        && let Some(r) = g.remove(&kind)
     {
         r.task.abort();
     }
-    tftp_status_now()
+    servers_now()
 }
 
 #[tauri::command]
-pub fn tftp_status() -> TftpStatus {
-    tftp_status_now()
+pub fn server_status() -> Vec<ServerStatus> {
+    servers_now()
 }

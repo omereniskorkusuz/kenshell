@@ -926,20 +926,27 @@
       "running": "running"
     }
   },
-  "tftp": {
-    "title": "TFTP server",
-    "hint": "For firmware and config copies: devices fetch from or upload to this folder. Only that folder is served.",
+  "servers": {
+    "title": "File servers",
+    "hint": "Devices fetch firmware from or upload configs to this folder. Only that folder is served; nothing outside it.",
     "folder": "Folder",
     "pickFolder": "Choose a folder",
     "listen": "Listen on",
     "allInterfaces": "All interfaces",
     "port": "Port",
-    "allowUpload": "Allow uploads (copy … tftp:)",
+    "user": "User",
+    "password": "Password",
+    "passwordAuto": "Generated on start",
+    "allowUpload": "Allow uploads (copy … to this server)",
     "overwrite": "Overwrite existing files",
     "start": "Start",
     "stop": "Stop",
-    "running": "Running on {{addr}}",
+    "running": "{{kind}} running on {{addr}}",
+    "login": "Login: {{user}} / {{password}}",
+    "fingerprint": "Host key",
     "example": "On the device:",
-    "indicator": "TFTP · {{addr}}"
+    "starting": "Starting…",
+    "indicator": "Servers: {{list}}",
+    "scpHint": "No shell or forwarding: this SSH server only runs scp. Host keys are new on every start."
   }
 }

@@ -882,10 +882,11 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           'hostname core-sw1\nntp server 10.0.0.1\nend',
           'hostname core-sw1\nntp server 10.0.0.2\nlogging host 10.0.0.5\nend',
         );
-      case 'tftp_stop':
-        return { running: false, addr: null, root: null };
-      case 'tftp_status':
-        return { running: false, addr: null, root: null };
+      case 'server_stop':
+        mockServers.delete(String(a.kind));
+        return [...mockServers.values()];
+      case 'server_status':
+        return [...mockServers.values()];
       case 'sftp_open':
         return { sftp: 1, home: '/' };
       case 'sftp_list':
@@ -1528,9 +1529,19 @@ export async function mockTransfer(onProgress: (p: { done: number; total: number
   return total;
 }
 
-/** Browser demo TFTP server: one switch fetches an image, another uploads its config. */
-export async function mockTftpStart(
-  opts: { root: string; bindIp: string; port: number },
+const mockServers = new Map<string, unknown>();
+
+/** Browser demo file server: one switch fetches an image, another uploads its config. */
+export async function mockServerStart(
+  opts: {
+    kind: string;
+    root: string;
+    bindIp: string;
+    port: number;
+    allowUpload: boolean;
+    user: string | null;
+    password: string | null;
+  },
   onEvent: (e: unknown) => void,
 ) {
   setTimeout(
@@ -1560,5 +1571,19 @@ export async function mockTftpStart(
     1500,
   );
   setTimeout(() => onEvent({ kind: 'done', id: 2, bytes: 6_210 }), 1900);
-  return { running: true, addr: `${opts.bindIp}:${opts.port}`, root: opts.root };
+  const login = opts.kind !== 'tftp';
+  mockServers.set(opts.kind, {
+    kind: opts.kind,
+    addr: `${opts.bindIp}:${opts.port}`,
+    root: opts.root,
+    allowUpload: opts.allowUpload,
+    user: login ? opts.user || 'kenshell' : null,
+    password: login ? opts.password || 'q7Hk2mPz9xRa' : null,
+    fingerprints: opts.kind === 'scp' ? ['SHA256:Xq4m0demoFingerprintN2b6x0p3hW1sYtE9kQ'] : [],
+  });
+  const order = ['tftp', 'ftp', 'scp'];
+  return [...mockServers.values()].sort(
+    (x, y) =>
+      order.indexOf((x as { kind: string }).kind) - order.indexOf((y as { kind: string }).kind),
+  );
 }

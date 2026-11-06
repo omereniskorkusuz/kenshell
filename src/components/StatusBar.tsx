@@ -8,7 +8,7 @@ import { useT } from '../i18n';
 import { formatBytes } from '../lib/format';
 import { isProd } from '../lib/tree';
 import { getSink } from '../terminal/sink';
-import { useTftp } from '../stores/tftp';
+import { useServers } from '../stores/servers';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
 
@@ -54,7 +54,7 @@ export function StatusBar() {
   const activeKey = useTabs((s) => s.activeKey);
   const tabs = useTabs((s) => s.tabs);
   const broadcast = useTabs((s) => s.broadcast);
-  const tftpAddr = useTftp((s) => (s.status.running ? s.status.addr : null));
+  const serving = useServers((s) => s.servers.map((x) => x.kind.toUpperCase()).join(', '));
   const message = useUi((s) => s.statusMessage);
   const counters = useActiveCounters(activeKey);
   const activeLog = tabs.find((x) => x.key === activeKey)?.logPath ?? null;
@@ -100,15 +100,15 @@ export function StatusBar() {
           {t('status.broadcast', { count: broadcast.length })}
         </button>
       )}
-      {tftpAddr && (
+      {serving && (
         <button
           type="button"
           className="shrink-0 tone-text hover:underline"
           data-tone="success"
-          title={t('tftp.title')}
-          onClick={() => useUi.getState().setSidePanelTab('tools')}
+          title={t('servers.title')}
+          onClick={() => useUi.getState().openTool('servers')}
         >
-          {t('tftp.indicator', { addr: tftpAddr })}
+          {t('servers.indicator', { list: serving })}
         </button>
       )}
       <span className="ml-auto shrink-0">

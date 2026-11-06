@@ -4,13 +4,14 @@
 //! paths); uploads are optional and never overwrite unless allowed. Runs only while on.
 
 use std::net::SocketAddr;
-use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UdpSocket;
+
+pub use super::served::{Config, Event, resolve};
+use super::served::{confined, part_path, upload_refusal};
 
 const RRQ: u16 = 1;
 const WRQ: u16 = 2;
@@ -79,55 +80,6 @@ fn oack(options: &[(&str, String)]) -> Vec<u8> {
         p.push(0);
     }
     p
-}
-
-/// `root` + a client file name, or None when it would leave the root.
-pub fn resolve(root: &Path, name: &str) -> Option<PathBuf> {
-    let name = name.replace('\\', "/");
-    let rel = Path::new(name.trim_start_matches('/'));
-    let mut out = root.to_path_buf();
-    let mut depth = 0;
-    for c in rel.components() {
-        match c {
-            Component::Normal(p) => {
-                out.push(p);
-                depth += 1;
-            }
-            Component::CurDir => {}
-            _ => return None,
-        }
-    }
-    (depth > 0).then_some(out)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase", tag = "kind")]
-pub enum Event {
-    Started {
-        id: u64,
-        peer: String,
-        file: String,
-        upload: bool,
-        size: Option<u64>,
-    },
-    Progress {
-        id: u64,
-        bytes: u64,
-    },
-    Done {
-        id: u64,
-        bytes: u64,
-    },
-    Failed {
-        id: u64,
-        error: String,
-    },
-}
-
-pub struct Config {
-    pub root: PathBuf,
-    pub allow_upload: bool,
-    pub overwrite: bool,
 }
 
 /// Serves requests on `socket` until the task is aborted.
@@ -215,7 +167,7 @@ async fn send(
     peer: SocketAddr,
     events: &(dyn Fn(Event) + Send + Sync),
 ) -> Result<u64, String> {
-    let Some(path) = resolve(&cfg.root, &req.filename) else {
+    let Some(path) = resolve(&cfg.root, &req.filename).filter(|p| confined(&cfg.root, p)) else {
         let _ = sock.send(&error_packet(2, "access violation")).await;
         return Err("path outside the TFTP folder".into());
     };
@@ -282,23 +234,20 @@ async fn receive(
     peer: SocketAddr,
     events: &(dyn Fn(Event) + Send + Sync),
 ) -> Result<u64, String> {
-    if !cfg.allow_upload {
-        let _ = sock.send(&error_packet(2, "uploads are off")).await;
-        return Err("upload refused (uploads are off)".into());
-    }
     let Some(path) = resolve(&cfg.root, &req.filename) else {
         let _ = sock.send(&error_packet(2, "access violation")).await;
         return Err("path outside the TFTP folder".into());
     };
-    if !cfg.overwrite && tokio::fs::metadata(&path).await.is_ok() {
-        let _ = sock.send(&error_packet(6, "file already exists")).await;
-        return Err(format!("{} exists (overwrite is off)", req.filename));
+    if let Some(why) = upload_refusal(cfg, &path).await {
+        let code = if why.starts_with("file exists") { 6 } else { 2 };
+        let _ = sock.send(&error_packet(code, why)).await;
+        return Err(format!("{}: {why}", req.filename));
     }
     if let Some(dir) = path.parent() {
         let _ = tokio::fs::create_dir_all(dir).await;
     }
     // Written to a temporary name and moved into place when complete.
-    let part = path.with_extension("part");
+    let part = part_path(&path);
     let mut file = tokio::fs::File::create(&part)
         .await
         .map_err(|e| e.to_string())?;
@@ -372,6 +321,7 @@ async fn receive(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
     use std::sync::Mutex;
 
     fn rrq(op: u16, name: &str, opts: &[(&str, &str)]) -> Vec<u8> {
@@ -548,7 +498,7 @@ mod tests {
         );
         assert_eq!(
             put(addr, "backups/sw1-confg", b"x").await.unwrap_err(),
-            "file already exists"
+            "file exists (overwrite is off)"
         );
         task.abort();
 

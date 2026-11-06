@@ -1003,9 +1003,11 @@ export const transfer = {
   sftpClose: (sftp: number) => call<undefined>('sftp_close', { sftp }),
 };
 
-// ------------------------------------------------------------------ TFTP server (P5-T02)
+// ------------------------------------------------- File servers (P5-T02 TFTP, P5-T03 FTP/SCP)
 
-export type TftpEvent =
+export type ServerKind = 'tftp' | 'ftp' | 'scp';
+
+export type ServerEvent =
   | {
       kind: 'started';
       id: number;
@@ -1018,22 +1020,37 @@ export type TftpEvent =
   | { kind: 'done'; id: number; bytes: number }
   | { kind: 'failed'; id: number; error: string };
 
-export interface TftpStatus {
-  running: boolean;
-  addr: string | null;
-  root: string | null;
+export interface ServerStatus {
+  kind: ServerKind;
+  addr: string;
+  root: string;
+  allowUpload: boolean;
+  user: string | null;
+  password: string | null;
+  fingerprints: string[];
 }
 
-export const tftp = {
-  async start(
-    opts: { root: string; bindIp: string; port: number; allowUpload: boolean; overwrite: boolean },
-    onEvent: (e: TftpEvent) => void,
-  ): Promise<TftpStatus> {
-    if (!inTauri()) return (await loadMock()).mockTftpStart(opts, onEvent as (e: unknown) => void);
-    const ch = new Channel<TftpEvent>();
+export interface ServerOptions {
+  kind: ServerKind;
+  root: string;
+  bindIp: string;
+  port: number;
+  allowUpload: boolean;
+  overwrite: boolean;
+  user: string | null;
+  password: string | null;
+}
+
+export const fileServers = {
+  async start(opts: ServerOptions, onEvent: (e: ServerEvent) => void): Promise<ServerStatus[]> {
+    if (!inTauri())
+      return (await loadMock()).mockServerStart(opts, onEvent as (e: unknown) => void) as Promise<
+        ServerStatus[]
+      >;
+    const ch = new Channel<ServerEvent>();
     ch.onmessage = onEvent;
-    return invoke<TftpStatus>('tftp_start', { ...opts, onEvent: ch });
+    return invoke<ServerStatus[]>('server_start', { opts, onEvent: ch });
   },
-  stop: () => call<TftpStatus>('tftp_stop'),
-  status: () => call<TftpStatus>('tftp_status'),
+  stop: (kind: ServerKind) => call<ServerStatus[]>('server_stop', { kind }),
+  status: () => call<ServerStatus[]>('server_status'),
 };

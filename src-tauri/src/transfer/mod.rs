@@ -2,6 +2,9 @@
 //! offer it) and SFTP browsing. Channels are opened on the session's already
 //! authenticated connection — no second login.
 
+pub mod ftp;
 pub mod scp;
+pub mod scp_server;
+pub mod served;
 pub mod sftp;
 pub mod tftp;

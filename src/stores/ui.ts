@@ -5,6 +5,7 @@ import type { DropZone } from '../lib/split';
 
 export type PaletteScope = 'all' | 'consoles';
 export type SidePanelTab = 'notes' | 'analyzer' | 'snippets' | 'tools';
+export type ToolId = 'transfer' | 'servers';
 
 /** A tab being dragged: where it would land (P2-T19). */
 export interface TabDrag {
@@ -35,6 +36,9 @@ interface UiState {
   editor: EditorState | null;
   sidePanelOpen: boolean;
   sidePanelTab: SidePanelTab;
+  /** Tool shown in the side panel's Tools tab (Phase 5). */
+  tool: ToolId;
+  openTool(tool: ToolId): void;
   /** Text to start a new note with (terminal "Add note"); the notes panel takes it. */
   noteDraft: string | null;
   /** Snippet (item key) whose fill-in form the snippets panel opens (palette, P3-T17). */
@@ -83,6 +87,8 @@ export const useUi = create<UiState>()((set, get) => ({
   editor: null,
   sidePanelOpen: false,
   sidePanelTab: 'notes',
+  tool: 'transfer',
+  openTool: (tool) => set({ tool, sidePanelTab: 'tools', sidePanelOpen: true }),
   noteDraft: null,
   snippetFill: null,
   statusMessage: null,
