@@ -91,7 +91,7 @@ export default function NetScan() {
     }
   };
 
-  const hosts = result?.hosts ?? [];
+  const hosts = useMemo(() => result?.hosts ?? [], [result]);
   const used = useMemo(() => hosts.filter((h) => h.alive), [hosts]);
   const free = useMemo(() => freeBlocks(hosts), [hosts]);
   const grids = useMemo(() => gridCells(hosts), [hosts]);
