@@ -693,7 +693,15 @@
       "sec5": "5 sn %",
       "min1": "1 dk %",
       "min5": "5 dk %",
-      "no": "No"
+      "no": "No",
+      "admin": "Yönetim",
+      "link": "Bağlantı",
+      "proto": "Protokol",
+      "local": "Yerel adres",
+      "remote": "Uzak",
+      "item": "Parça",
+      "partNumber": "Parça no",
+      "parent": "Üst interface"
     },
     "field": {
       "hostname": "Hostname",

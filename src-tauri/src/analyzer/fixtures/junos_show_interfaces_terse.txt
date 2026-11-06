@@ -1,0 +1,9 @@
+Interface               Admin Link Proto    Local                 Remote
+ge-0/0/0                up    up
+ge-0/0/0.0              up    up   inet     10.0.0.1/24     
+                                   inet6    fe80::5254:ff:fe12:3456/64
+ge-0/0/1                up    down
+ge-0/0/2                down  down
+ae0                     up    up
+ae0.0                   up    up   eth-switch
+lo0.0                   up    up   inet     10.255.0.1          --> 0/0

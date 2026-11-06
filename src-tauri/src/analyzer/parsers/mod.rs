@@ -9,6 +9,7 @@ mod interfaces_status;
 mod inventory;
 mod ip_interface_brief;
 mod ip_route;
+mod juniper;
 mod lldp;
 mod mac_address_table;
 mod ruijie;
@@ -43,6 +44,11 @@ pub static ALL: &[&ParserDef] = &[
     &ruijie::poe::PARSER,
     &ruijie::cpu::PARSER,
     &ruijie::memory::PARSER,
+    // Juniper (P4-T04).
+    &juniper::INTERFACES_TERSE,
+    &juniper::VERSION,
+    &juniper::CHASSIS_HARDWARE,
+    &juniper::LLDP_NEIGHBORS,
 ];
 
 /// Lines that are not data: empty, the trailing prompt, `--More--` leftovers.

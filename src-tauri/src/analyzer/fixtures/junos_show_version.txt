@@ -1,0 +1,6 @@
+Hostname: mx1
+Model: mx204
+Junos: 21.4R3-S2.3
+JUNOS OS Kernel 64-bit  [20221013.4d6d0e6_builder_stable_12_214]
+JUNOS OS libs [20221013.4d6d0e6_builder_stable_12_214]
+JUNOS Packet Forwarding Engine Support (MX/EX92XX Common) [21.4R3-S2.3]

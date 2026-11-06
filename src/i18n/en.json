@@ -693,7 +693,15 @@
       "sec5": "5 s %",
       "min1": "1 min %",
       "min5": "5 min %",
-      "no": "No"
+      "no": "No",
+      "admin": "Admin",
+      "link": "Link",
+      "proto": "Protocol",
+      "local": "Local address",
+      "remote": "Remote",
+      "item": "Item",
+      "partNumber": "Part number",
+      "parent": "Parent interface"
     },
     "field": {
       "hostname": "Hostname",

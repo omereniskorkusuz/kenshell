@@ -1,0 +1,9 @@
+Hardware inventory:
+Item             Version  Part number  Serial number     Description
+Chassis                                JN12345AFJA       MX204
+Midplane         REV 27   750-070866   ABCD1234          Midplane
+PEM 0            Rev 04   740-069994   1EDE0123456       DC 1.6kW Power Entry Module
+FPC 0            REV 27   750-070866   ABCD1234          MPC-2PIC-4MRATE
+  PIC 0                   BUILTIN      BUILTIN           4XQSFP28 PIC
+    Xcvr 0       REV 01   740-058734   1ACQ2345678       QSFP-100GBASE-SR4
+Fan Tray 0                                               Fan Tray, Front to Back Airflow - AFO
