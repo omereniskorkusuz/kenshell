@@ -1,0 +1,112 @@
+{
+  "$comment": "Offline config best-practice rules (P4-T07). kinds: required (pattern must appear at top level), forbidden (must not appear), block (inside blocks whose header matches `block`: `forbid` must not appear / `require` must appear), interfaces (physical interfaces that are not shut down and have no description). Patterns are Rust regexes, matched per line (multi-line mode). `families` limits a rule; `severity`: critical | warning | info. UI text: cfgRule.<id> (TR/EN).",
+  "rules": [
+    {
+      "id": "enablePasswordPlain",
+      "families": ["cisco", "ruijie"],
+      "severity": "critical",
+      "kind": "forbidden",
+      "pattern": "^enable password "
+    },
+    {
+      "id": "noPasswordEncryption",
+      "families": ["cisco", "ruijie"],
+      "severity": "warning",
+      "kind": "required",
+      "pattern": "^service password-encryption"
+    },
+    {
+      "id": "userPasswordWeak",
+      "families": ["cisco", "ruijie"],
+      "severity": "warning",
+      "kind": "forbidden",
+      "pattern": "^username \\S+ (?:.* )?password (?:0 |7 )?\\S"
+    },
+    {
+      "id": "snmpDefaultCommunity",
+      "families": ["cisco", "ruijie"],
+      "severity": "critical",
+      "kind": "forbidden",
+      "pattern": "^snmp-server community (?:public|private)\\b"
+    },
+    {
+      "id": "noNtp",
+      "families": ["cisco", "ruijie"],
+      "severity": "warning",
+      "kind": "required",
+      "pattern": "^ntp server "
+    },
+    {
+      "id": "noSyslog",
+      "families": ["cisco"],
+      "severity": "warning",
+      "kind": "required",
+      "pattern": "^logging (?:host )?\\d"
+    },
+    {
+      "id": "noSyslog",
+      "families": ["ruijie"],
+      "severity": "warning",
+      "kind": "required",
+      "pattern": "^logging server "
+    },
+    {
+      "id": "httpServer",
+      "families": ["cisco"],
+      "severity": "warning",
+      "kind": "forbidden",
+      "pattern": "^ip http server"
+    },
+    {
+      "id": "httpServer",
+      "families": ["ruijie"],
+      "severity": "warning",
+      "kind": "forbidden",
+      "pattern": "^enable service web-server"
+    },
+    {
+      "id": "sshV2Missing",
+      "families": ["cisco"],
+      "severity": "info",
+      "kind": "required",
+      "pattern": "^ip ssh version 2"
+    },
+    {
+      "id": "sshDisabled",
+      "families": ["ruijie"],
+      "severity": "warning",
+      "kind": "required",
+      "pattern": "^enable service ssh-server"
+    },
+    {
+      "id": "telnetEnabled",
+      "families": ["cisco", "ruijie"],
+      "severity": "critical",
+      "kind": "block",
+      "block": "^line vty ",
+      "forbid": "^\\s*transport input .*\\b(?:telnet|all)\\b"
+    },
+    {
+      "id": "vtyNoAcl",
+      "families": ["cisco", "ruijie"],
+      "severity": "warning",
+      "kind": "block",
+      "block": "^line vty ",
+      "require": "^\\s*(?:access-class|ip access-class) "
+    },
+    {
+      "id": "noExecTimeout",
+      "families": ["cisco", "ruijie"],
+      "severity": "warning",
+      "kind": "block",
+      "block": "^line (?:vty|con)",
+      "forbid": "^\\s*exec-timeout 0(?: 0)?\\s*$"
+    },
+    {
+      "id": "portsWithoutDescription",
+      "families": ["cisco", "ruijie"],
+      "severity": "info",
+      "kind": "interfaces"
+    }
+  ]
+}

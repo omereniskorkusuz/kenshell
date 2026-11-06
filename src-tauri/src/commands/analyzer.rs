@@ -48,3 +48,9 @@ pub fn diagnostics_commands(family: Option<String>) -> Vec<String> {
 pub fn diagnostics_evaluate(family: Option<String>, outputs: Vec<CommandOutput>) -> Vec<Finding> {
     diagnostics::evaluate(family.as_deref(), &outputs)
 }
+
+/// Offline best-practice analysis of a running-config (P4-T07).
+#[tauri::command]
+pub fn config_audit(family: Option<String>, config: String) -> Vec<Finding> {
+    crate::analyzer::config_rules::audit(family.as_deref(), &config)
+}

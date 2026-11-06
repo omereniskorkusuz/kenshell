@@ -4,34 +4,14 @@
  * by severity. Never sends a configuration command (the backend refuses anything but
  * show/display).
  */
-import {
-  AlertOctagon,
-  AlertTriangle,
-  CheckCircle2,
-  ClipboardCopy,
-  Info,
-  RotateCw,
-  X,
-} from 'lucide-react';
+import { ClipboardCopy, RotateCw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useT, type TKey } from '../i18n';
 import { describeError } from '../lib/errors';
-import { api, type CommandOutput, type Finding, type Severity } from '../lib/ipc';
+import { api, type CommandOutput, type Finding } from '../lib/ipc';
 import type { LiveTab } from '../lib/sessionState';
 import { useUi } from '../stores/ui';
-
-const ICON: Record<Severity, typeof Info> = {
-  critical: AlertOctagon,
-  warning: AlertTriangle,
-  info: Info,
-  ok: CheckCircle2,
-};
-const TONE: Record<Severity, string> = {
-  critical: 'error',
-  warning: 'warning',
-  info: 'muted',
-  ok: 'success',
-};
+import { FindingList, useFindingText } from './Findings';
 
 /** Per-command time limit (a slow `show interfaces` on a big chassis). */
 const TIMEOUT_SECS = 90;
@@ -82,7 +62,7 @@ export function Diagnostics({ tab, onClose }: { tab: LiveTab; onClose: () => voi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const message = (f: Finding) => t(`diag.${f.code}` as TKey, f.params);
+  const message = useFindingText('diag');
   const copyReport = () => {
     const lines = [
       `${t('diag.title')} · ${tab.device.hostname ?? tab.name} · ${new Date().toLocaleString()}`,
@@ -151,29 +131,7 @@ export function Diagnostics({ tab, onClose }: { tab: LiveTab; onClose: () => voi
           </div>
         )}
         {error && <p className="text-sm text-danger">{error}</p>}
-        {findings && (
-          <ul className="flex flex-col gap-1">
-            {findings.map((f, i) => {
-              const Icon = ICON[f.severity];
-              return (
-                <li key={i} className="flex items-start gap-2 rounded-sm px-1 py-1 hover:bg-hover">
-                  <Icon
-                    size={14}
-                    className="mt-0.5 shrink-0 tone-text"
-                    data-tone={TONE[f.severity]}
-                    aria-label={t(`diag.sev.${f.severity}` as TKey)}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm">{message(f)}</p>
-                    {f.command && (
-                      <p className="mono truncate text-[11px] text-muted">{f.command}</p>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {findings && <FindingList findings={findings} prefix="diag" />}
         {outputs.length > 0 && (
           <details className="mt-3">
             <summary className="cursor-default text-xs text-secondary">{t('diag.outputs')}</summary>

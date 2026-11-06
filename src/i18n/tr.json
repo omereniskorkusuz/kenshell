@@ -743,5 +743,26 @@
     "outputErrors": "{{iface}}: {{count}} çıkış hatası.",
     "errDisabled": "{{iface}} err-disabled durumda ({{reason}}).",
     "logErrors": "Log'da {{count}} hata mesajı (önem 0–3), ör. {{sample}}"
+  },
+  "cfgRule": {
+    "enablePasswordPlain": "“enable password” şifreyi zayıf saklar ({{line}}): “enable secret” kullanın.",
+    "noPasswordEncryption": "“service password-encryption” kapalı: şifreler config'te okunabilir.",
+    "userPasswordWeak": "Kullanıcı şifresi “password” ile saklanıyor ({{line}}): “secret” kullanın.",
+    "snmpDefaultCommunity": "Varsayılan SNMP community ({{line}}).",
+    "noNtp": "NTP sunucusu yok: log saatleri kayabilir.",
+    "noSyslog": "Syslog sunucusu yok: loglar cihazda kalıyor.",
+    "httpServer": "Web yönetimi açık ({{line}}).",
+    "sshV2Missing": "“ip ssh version 2” ayarlı değil.",
+    "sshDisabled": "SSH sunucusu açık değil.",
+    "telnetEnabled": "{{block}} üzerinde Telnet'e izin var.",
+    "vtyNoAcl": "{{block}} için access-class yok (yönetim her adrese açık).",
+    "noExecTimeout": "{{block}} hiç zaman aşımına uğramıyor (exec-timeout 0).",
+    "portsWithoutDescription": "{{count}} port açıklamasız ve açık (kullanılmıyor mu?): {{list}}"
+  },
+  "cfgAudit": {
+    "title": "Config analizi",
+    "run": "Running-config'i analiz et",
+    "hint": "“show running-config”'i (gizli, yalnız okuma) okur ve en iyi uygulama kurallarına göre çevrimdışı denetler. Şifreler maskelenir.",
+    "reading": "Running-config okunuyor…"
   }
 }

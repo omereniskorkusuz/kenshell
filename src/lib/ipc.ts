@@ -600,6 +600,8 @@ export const api = {
   /** Read-only `show` command run hidden from the terminal (diagnostics, backups). */
   liveCapture: (id: number, command: string, timeoutSecs?: number) =>
     call<string>('live_capture', { id, command, timeoutSecs: timeoutSecs ?? null }),
+  configAudit: (family: string | null, config: string) =>
+    call<Finding[]>('config_audit', { family, config }),
   diagnosticsCommands: (family: string | null) =>
     call<string[]>('diagnostics_commands', { family }),
   diagnosticsEvaluate: (family: string | null, outputs: CommandOutput[]) =>

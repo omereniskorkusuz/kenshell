@@ -76,6 +76,7 @@ pub fn run() {
             commands::analyzer::analyzer_export_csv,
             commands::analyzer::diagnostics_commands,
             commands::analyzer::diagnostics_evaluate,
+            commands::analyzer::config_audit,
             commands::storage::snippets_list,
             commands::storage::snippet_create,
             commands::storage::snippet_update,

@@ -743,5 +743,26 @@
     "outputErrors": "{{iface}}: {{count}} output errors.",
     "errDisabled": "{{iface}} is err-disabled ({{reason}}).",
     "logErrors": "{{count}} error messages (severity 0–3) in the log, e.g. {{sample}}"
+  },
+  "cfgRule": {
+    "enablePasswordPlain": "“enable password” stores the password weakly ({{line}}): use “enable secret”.",
+    "noPasswordEncryption": "“service password-encryption” is off: passwords are readable in the config.",
+    "userPasswordWeak": "User password stored with “password” ({{line}}): use “secret”.",
+    "snmpDefaultCommunity": "SNMP default community ({{line}}).",
+    "noNtp": "No NTP server: log times can drift.",
+    "noSyslog": "No syslog server: logs stay on the device.",
+    "httpServer": "Web management is on ({{line}}).",
+    "sshV2Missing": "“ip ssh version 2” is not set.",
+    "sshDisabled": "The SSH server is not enabled.",
+    "telnetEnabled": "Telnet allowed on {{block}}.",
+    "vtyNoAcl": "{{block}} has no access-class (management open to any address).",
+    "noExecTimeout": "{{block}} never times out (exec-timeout 0).",
+    "portsWithoutDescription": "{{count}} ports are up without a description (unused?): {{list}}"
+  },
+  "cfgAudit": {
+    "title": "Config analysis",
+    "run": "Analyze the running-config",
+    "hint": "Reads “show running-config” (hidden, read-only) and checks it offline against best-practice rules. Secrets are masked.",
+    "reading": "Reading the running-config…"
   }
 }

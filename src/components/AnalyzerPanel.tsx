@@ -3,7 +3,7 @@
  * active tab as a sortable, filterable table, exported as CSV. When a command the analyzer
  * knows finishes in the active tab, its table appears automatically.
  */
-import { Download, ScanSearch, Stethoscope, TextSelect } from 'lucide-react';
+import { Download, FileCheck2, ScanSearch, Stethoscope, TextSelect } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useT, type TKey } from '../i18n';
 import { filterRows, shownColumns, sortRows, statusTone, type SortState } from '../lib/analyzer';
@@ -14,6 +14,7 @@ import { useAnalyzer } from '../stores/analyzer';
 import { useActiveTab } from '../stores/tabs';
 import { toast } from '../stores/toasts';
 import { useUi } from '../stores/ui';
+import { ConfigAudit } from './ConfigAudit';
 import { Diagnostics } from './Diagnostics';
 import { VirtualTable } from './VirtualTable';
 
@@ -28,7 +29,7 @@ export default function AnalyzerPanel() {
   const [miss, setMiss] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortState | null>(null);
-  const [diag, setDiag] = useState(false);
+  const [view, setView] = useState<'table' | 'diag' | 'config'>('table');
 
   useEffect(() => {
     void useAnalyzer.getState().loadParsers();
@@ -102,8 +103,11 @@ export default function AnalyzerPanel() {
     }
   };
 
-  if (diag && tab) {
-    return <Diagnostics key={tab.key} tab={tab} onClose={() => setDiag(false)} />;
+  if (view === 'diag' && tab) {
+    return <Diagnostics key={tab.key} tab={tab} onClose={() => setView('table')} />;
+  }
+  if (view === 'config' && tab) {
+    return <ConfigAudit key={tab.key} tab={tab} onClose={() => setView('table')} />;
   }
 
   return (
@@ -133,9 +137,19 @@ export default function AnalyzerPanel() {
           disabled={tab?.state !== 'connected'}
           aria-label={t('diag.run')}
           title={t('diag.run')}
-          onClick={() => setDiag(true)}
+          onClick={() => setView('diag')}
         >
           <Stethoscope size={13} />
+        </button>
+        <button
+          type="button"
+          className="icon-btn icon-btn-sm"
+          disabled={tab?.state !== 'connected'}
+          aria-label={t('cfgAudit.run')}
+          title={t('cfgAudit.run')}
+          onClick={() => setView('config')}
+        >
+          <FileCheck2 size={13} />
         </button>
         <span className="flex-1" />
         <button

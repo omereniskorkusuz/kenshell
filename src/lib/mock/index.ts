@@ -811,6 +811,22 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         return undefined;
       case 'live_capture':
         return mockCapture(String(a.command));
+      case 'config_audit':
+        return [
+          {
+            severity: 'critical',
+            code: 'telnetEnabled',
+            params: { block: 'line vty 0 4' },
+            command: 'show running-config',
+          },
+          { severity: 'warning', code: 'noNtp', params: {}, command: 'show running-config' },
+          {
+            severity: 'info',
+            code: 'portsWithoutDescription',
+            params: { count: '2', list: 'Gi1/0/2, Gi1/0/7' },
+            command: 'show running-config',
+          },
+        ];
       case 'diagnostics_commands':
         return [
           'show version',
