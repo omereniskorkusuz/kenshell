@@ -1,0 +1,15 @@
+Spanning tree enabled protocol rstp
+  Root ID    Priority    32768
+             Address     0011.2233.4400
+             this bridge is root
+             Hello Time   2 sec  Forward Delay 15 sec  Max Age 20 sec
+
+  Bridge ID  Priority    32768
+             Address     5869.6c00.1111
+             Hello Time   2 sec  Forward Delay 15 sec  Max Age 20 sec
+
+Interface        Role Sts Cost       Prio     OperEdge Type
+---------------- ---- --- ---------- -------- -------- ----------------
+Gi0/1            Desg FWD 20000      128      True     P2p
+Gi0/49           Root FWD 2000       128      False    P2p
+Ag1              Desg FWD 1000       128      False    P2p

@@ -1,0 +1,6 @@
+VLAN Name                             Status    Ports
+---- -------------------------------- --------- -----------------------------------
+   1 VLAN0001                         STATIC    Gi0/2, Gi0/3, Gi0/4, Gi0/5
+                                                Gi0/6, Gi0/7
+  10 USERS                            STATIC    Gi0/1, Ag1
+ 100 MGMT                             STATIC    Ag1

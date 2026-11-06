@@ -1,0 +1,14 @@
+System description      : Ruijie Full Gigabit Access Switch(S5750-48GT4XS-E) By Ruijie Networks
+System start time       : 2026-10-01 10:00:00
+System uptime           : 35:04:12:33
+System hardware version : 1.20
+System software version : S5750_RGOS 11.4(1)B12P10S2
+System patch number     : NA
+System serial number    : G1MQ3K8000123
+System boot version     : 1.3.8
+Module information:
+  Slot 0 : S5750-48GT4XS-E
+    Hardware version    : 1.20
+    Boot version        : 1.3.8
+    Software version    : S5750_RGOS 11.4(1)B12P10S2
+    Serial number       : G1MQ3K8000123

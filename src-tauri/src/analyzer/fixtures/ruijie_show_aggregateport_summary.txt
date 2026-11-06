@@ -1,0 +1,4 @@
+AggregatePort MaxPorts SwitchPort Mode   Load balance                 Ports
+------------- -------- ---------- ------ ---------------------------- -----------------------------------
+Ag1           16       Enabled    TRUNK  src-dst-mac                  Gi0/23  ,Gi0/24
+Ag2           16       Enabled    ACCESS src-dst-ip                   Te0/49

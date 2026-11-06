@@ -1,0 +1,10 @@
+=======================================
+CPU Using Rate Information
+CPU utilization in five seconds: 6.20%
+CPU utilization in one minute  : 5.90%
+CPU utilization in five minutes: 5.85%
+
+  NO   5Sec    1Min    5Min    Process
+   0   0.00%   0.00%   0.00%   LISR INT
+   1   0.00%   0.00%   0.00%   HISR INT
+  52   1.20%   1.10%   1.00%   ksoftirqd/0

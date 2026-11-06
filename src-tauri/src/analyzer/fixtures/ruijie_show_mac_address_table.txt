@@ -1,0 +1,5 @@
+Vlan        MAC Address          Type     Interface                      Live Time
+---------- -------------------- -------- ------------------------------ -------------
+         1 0011.2233.4455       DYNAMIC  GigabitEthernet 0/1            0d 00:10:12
+        10 aabb.cc00.0100       STATIC   AggregatePort 1                -
+       100 5869.6c00.1111       DYNAMIC  TenGigabitEthernet 0/49        2d 03:00:01

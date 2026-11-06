@@ -1,0 +1,27 @@
+LLDP neighbor-information of port [GigabitEthernet 0/49]
+---------------------------------------------------------------------------
+  Neighbor index                    : 1
+  Device type                       : LLDP Device
+  Update time                       : 2days 3hours
+  Aging time                        : 113s
+  Chassis ID type                   : MAC address
+  Chassis id                        : 0011.2233.4400
+  System name                       : core-sw1
+  System description                : Cisco IOS Software, Catalyst L3 Switch Software (CAT9K_IOSXE), Version 17.9.4a
+  System capabilities supported     : Bridge, Router
+  System capabilities enabled       : Bridge
+  Management address subtype        : ipv4
+  Management address                : 10.0.0.1
+  Port ID type                      : Interface name
+  Port id                           : Gi1/0/47
+  Port description                  : GigabitEthernet1/0/47
+
+LLDP neighbor-information of port [GigabitEthernet 0/5]
+---------------------------------------------------------------------------
+  Neighbor index                    : 2
+  Chassis id                        : 5869.6c00.2222
+  System name                       : ap-lobby
+  System description                : Ruijie Reyee AP RAP2260(G)
+  System capabilities supported     : WLAN Access Point
+  Management address                : 10.20.0.31
+  Port id                           : eth0

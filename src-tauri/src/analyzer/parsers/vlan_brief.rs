@@ -35,7 +35,7 @@ pub(crate) fn dash_offsets(line: &str) -> Option<Vec<usize>> {
     Some(out)
 }
 
-fn parse(text: &str) -> Vec<Vec<String>> {
+pub(crate) fn parse(text: &str) -> Vec<Vec<String>> {
     let mut rows: Vec<Vec<String>> = Vec::new();
     let mut offs: Option<Vec<usize>> = None;
     for line in text.lines() {

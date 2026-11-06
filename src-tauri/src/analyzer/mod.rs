@@ -241,6 +241,30 @@ mod tests {
     }
 
     #[test]
+    fn the_device_family_picks_the_parser() {
+        let ver = "sw#show version\nSystem serial number    : G1\n";
+        assert_eq!(
+            analyze(ver, Some("ruijie"), None).unwrap().parser,
+            "ruijie.show_version"
+        );
+        assert_eq!(
+            analyze(ver, Some("cisco"), None).unwrap().parser,
+            "cisco.show_version"
+        );
+        let mac = "sw#sh mac-address-table\n";
+        assert_eq!(
+            analyze(mac, Some("ruijie"), None).unwrap().parser,
+            "ruijie.show_mac_address_table"
+        );
+        assert_eq!(
+            analyze(mac, Some("cisco"), None).unwrap().parser,
+            "cisco.show_mac_address_table"
+        );
+        assert!(analyze("sw#show cpu\n", Some("cisco"), None).is_none());
+        assert_eq!(list().len(), parsers::ALL.len());
+    }
+
+    #[test]
     fn huge_input_is_capped_not_rejected() {
         let mut s = String::from(
             "sw1#show ip interface brief\nInterface IP-Address OK? Method Status Protocol\n",

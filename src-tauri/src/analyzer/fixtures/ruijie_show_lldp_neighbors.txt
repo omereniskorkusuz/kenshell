@@ -1,0 +1,9 @@
+Capability codes:
+    (R) Router, (B) Bridge, (C) Customer Bridge, (S) Service Bridge
+    (T) Telephone, (W) WLAN Access Point, (P) Repeater, (D) DOCSIS cable device, (O) Other
+
+System Name              Local Intf        Port ID              Capability     Aging-time
+core-sw1                 Gi0/49            Gi1/0/47             B, R           1min 45s
+ap-lobby                 Gi0/5             eth0                 W              1min 52s
+
+Total entries displayed: 2

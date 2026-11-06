@@ -11,6 +11,7 @@ mod ip_interface_brief;
 mod ip_route;
 mod lldp;
 mod mac_address_table;
+mod ruijie;
 mod spanning_tree;
 mod version;
 mod vlan_brief;
@@ -29,6 +30,19 @@ pub static ALL: &[&ParserDef] = &[
     &ip_route::PARSER,
     &etherchannel::PARSER,
     &spanning_tree::PARSER,
+    // Ruijie (P4-T03).
+    &ruijie::version::PARSER,
+    &ruijie::interfaces_status::PARSER,
+    &ruijie::reuse::VLAN,
+    &ruijie::lldp::BRIEF,
+    &ruijie::lldp::DETAIL,
+    &ruijie::mac_address_table::PARSER,
+    &ruijie::reuse::IP_ROUTE,
+    &ruijie::aggregate_port::PARSER,
+    &ruijie::reuse::STP_SUMMARY,
+    &ruijie::poe::PARSER,
+    &ruijie::cpu::PARSER,
+    &ruijie::memory::PARSER,
 ];
 
 /// Lines that are not data: empty, the trailing prompt, `--More--` leftovers.

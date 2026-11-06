@@ -25,7 +25,7 @@ const ROLES: &[&str] = &[
     "Root", "Desg", "Altn", "Back", "Mstr", "Shr", "Disa", "Bkup",
 ];
 
-fn parse(text: &str) -> Vec<Vec<String>> {
+pub(crate) fn parse(text: &str) -> Vec<Vec<String>> {
     let mut rows = Vec::new();
     let mut instance = String::new();
     let mut is_root = false;
@@ -42,7 +42,9 @@ fn parse(text: &str) -> Vec<Vec<String>> {
             is_root = false;
             continue;
         }
-        if t.contains("This bridge is the root") {
+        if t.to_ascii_lowercase().contains("this bridge is")
+            && t.to_ascii_lowercase().contains("root")
+        {
             is_root = true;
             continue;
         }

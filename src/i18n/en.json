@@ -680,7 +680,20 @@
       "state": "State",
       "cost": "Cost",
       "priority": "Prio.Nbr",
-      "root": "Root bridge"
+      "root": "Root bridge",
+      "maxPorts": "Max ports",
+      "switchport": "Switchport",
+      "mode": "Mode",
+      "loadBalance": "Load balance",
+      "poeEnable": "PoE",
+      "maxPower": "Max W",
+      "currentPower": "Current W",
+      "averagePower": "Average W",
+      "peakPower": "Peak W",
+      "sec5": "5 s %",
+      "min1": "1 min %",
+      "min5": "5 min %",
+      "no": "No"
     },
     "field": {
       "hostname": "Hostname",

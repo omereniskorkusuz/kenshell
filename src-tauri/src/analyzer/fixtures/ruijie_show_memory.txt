@@ -1,0 +1,5 @@
+System Memory Statistic:
+Free pages: 37452
+watermarks : min 1184, lower 1480, low 1776, high 2368
+Lowmem managed pages: 249792
+Total memory: 975.7MB, Free memory: 146.3MB, Used memory: 829.4MB, Used rate: 85%

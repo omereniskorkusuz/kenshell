@@ -680,7 +680,20 @@
       "state": "Durum",
       "cost": "Maliyet",
       "priority": "Öncelik.No",
-      "root": "Kök köprü"
+      "root": "Kök köprü",
+      "maxPorts": "Azami port",
+      "switchport": "Switchport",
+      "mode": "Mod",
+      "loadBalance": "Yük dengeleme",
+      "poeEnable": "PoE",
+      "maxPower": "Azami W",
+      "currentPower": "Anlık W",
+      "averagePower": "Ortalama W",
+      "peakPower": "Tepe W",
+      "sec5": "5 sn %",
+      "min1": "1 dk %",
+      "min5": "5 dk %",
+      "no": "No"
     },
     "field": {
       "hostname": "Hostname",

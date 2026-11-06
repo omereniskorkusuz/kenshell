@@ -35,6 +35,9 @@ fn route_tail(rest: &str) -> (String, String, String, String) {
         Some((dm, r)) => (dm.to_owned(), r.trim()),
         None => (String::new(), rest),
     };
+    if rest.starts_with("is local host") {
+        return (dm, String::new(), String::new(), String::new());
+    }
     if let Some(r) = rest.strip_prefix("is directly connected,") {
         return (dm, String::new(), r.trim().to_owned(), String::new());
     }
@@ -54,7 +57,7 @@ fn route_tail(rest: &str) -> (String, String, String, String) {
     (dm, nh, iface, age)
 }
 
-fn parse(text: &str) -> Vec<Vec<String>> {
+pub(crate) fn parse(text: &str) -> Vec<Vec<String>> {
     let mut rows: Vec<Vec<String>> = Vec::new();
     let mut last: Option<(String, String)> = None;
     for line in text.lines() {
