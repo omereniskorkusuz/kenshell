@@ -211,6 +211,8 @@ export interface ScanNetworks {
   maxAddresses: number;
   concurrency: number;
   ports: number[];
+  /** Prefixes in the embedded MAC vendor table. */
+  ouiSize: number;
 }
 
 /** Why a target may not be scanned (P4-T12 scope rules). */

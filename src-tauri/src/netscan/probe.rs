@@ -56,6 +56,8 @@ pub struct Host {
     pub icmp: bool,
     pub open_ports: Vec<u16>,
     pub mac: Option<String>,
+    /// From the MAC's OUI (P4-T15).
+    pub vendor: Option<String>,
     pub hostname: Option<String>,
     /// This computer.
     pub own: bool,
@@ -177,6 +179,10 @@ pub async fn run(
                     .map(|(p, _)| *p)
                     .collect(),
                 mac: arp.get(ip).cloned(),
+                vendor: arp
+                    .get(ip)
+                    .and_then(|m| super::oui::vendor(m))
+                    .map(str::to_owned),
                 hostname: None,
                 own: *ip == own,
                 gateway: gateway == Some(*ip),

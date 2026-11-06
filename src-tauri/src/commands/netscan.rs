@@ -20,6 +20,8 @@ pub struct Networks {
     pub max_addresses: u32,
     pub concurrency: usize,
     pub ports: Vec<u16>,
+    /// Prefixes in the embedded MAC vendor table (P4-T15).
+    pub oui_size: usize,
 }
 
 #[derive(Serialize)]
@@ -48,6 +50,7 @@ pub fn netscan_networks() -> Networks {
         max_addresses: scope::MAX_ADDRESSES,
         concurrency: scope::CONCURRENCY,
         ports: scope::PORTS.to_vec(),
+        oui_size: crate::netscan::oui::size(),
     }
 }
 

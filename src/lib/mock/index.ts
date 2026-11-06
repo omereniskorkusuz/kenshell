@@ -885,6 +885,7 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           maxAddresses: 1024,
           concurrency: 64,
           ports: [22, 23, 80, 443, 3389],
+          ouiSize: 3,
         };
       case 'netscan_check': {
         const target = String(a.target).trim();
@@ -1426,6 +1427,16 @@ export async function netscanRun(
       const n = i + 1;
       const d = devices[n];
       return {
+        vendor: d
+          ? ((
+              {
+                1: 'Ruijie Networks',
+                2: 'Cisco Systems',
+                3: 'Ruijie Networks',
+                11: 'Apple',
+              } as Record<number, string>
+            )[n] ?? null)
+          : null,
         ip: `${base}${n}`,
         alive: Boolean(d),
         icmp: Boolean(d) && n !== 90,
