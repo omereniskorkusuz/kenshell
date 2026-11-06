@@ -384,6 +384,13 @@ export const ACTIONS: readonly AppAction[] = [
     },
   },
   {
+    id: 'netscan.open',
+    title: 'shell.scanNetwork',
+    group: 'actions',
+    keywords: ['scan', 'tara', 'ip', 'subnet', 'alt ağ', 'free', 'boş', 'network', 'ağ'],
+    run: () => useUi.getState().setScanOpen(true),
+  },
+  {
     id: 'settings.open',
     title: 'actions.openSettings',
     group: 'settings',

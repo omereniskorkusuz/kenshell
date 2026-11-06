@@ -29,6 +29,9 @@ interface UiState {
   /** 'consoles' = only the detected consoles group (from "Connect detected console"). */
   paletteScope: PaletteScope;
   settingsOpen: boolean;
+  /** Network scanner dialog (P4-T14). */
+  scanOpen: boolean;
+  setScanOpen(open: boolean): void;
   editor: EditorState | null;
   sidePanelOpen: boolean;
   sidePanelTab: SidePanelTab;
@@ -76,6 +79,7 @@ export const useUi = create<UiState>()((set, get) => ({
   paletteQuery: '',
   paletteScope: 'all',
   settingsOpen: false,
+  scanOpen: false,
   editor: null,
   sidePanelOpen: false,
   sidePanelTab: 'notes',
@@ -94,6 +98,7 @@ export const useUi = create<UiState>()((set, get) => ({
     set({ paletteOpen: true, paletteQuery: query, paletteScope: scope }),
   closePalette: () => set({ paletteOpen: false }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setScanOpen: (open) => set({ scanOpen: open }),
   openEditor: (editor) => set({ editor }),
   closeEditor: () => set({ editor: null }),
   toggleSidePanel: (open) => set({ sidePanelOpen: open ?? !get().sidePanelOpen }),

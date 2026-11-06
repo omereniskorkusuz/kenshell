@@ -93,6 +93,7 @@ pub fn run() {
             commands::netscan::netscan_check,
             commands::netscan::netscan_run,
             commands::netscan::netscan_cancel,
+            commands::netscan::open_device_web,
             commands::backups::config_live_diff,
             commands::backups::backup_diff_live,
             commands::storage::snippets_list,

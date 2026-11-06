@@ -843,5 +843,60 @@
     "run_other": "Run on {{count}}",
     "running": "Running…",
     "readOnlyOnly": "Only read-only show / display commands (optionally | include …)."
+  },
+  "netscan": {
+    "title": "Scan my network",
+    "network": "Network",
+    "custom": "Custom range",
+    "target": "Range (CIDR, IP or a–b)",
+    "scan": "Scan",
+    "stop": "Stop",
+    "busy": "Another scan is running.",
+    "addresses_one": "{{count}} address on {{iface}}",
+    "addresses_other": "{{count}} addresses on {{iface}}",
+    "noNetworks": "No private network is connected.",
+    "scopeNote": "Only your own, directly connected private subnets; at most a /22. Discovery only: ping, the ARP table and a connection attempt to ports {{ports}}.",
+    "reason": {
+      "invalid": "Not an address, CIDR or range.",
+      "notPrivate": "Only private (10/8, 172.16/12, 192.168/16) and link-local addresses.",
+      "notConnected": "Not inside a subnet this computer is connected to.",
+      "tooLarge": "Too large: pick a /22 or smaller (e.g. one /24)."
+    },
+    "stage": {
+      "sweep": "Probing addresses…",
+      "arp": "Reading the ARP table…",
+      "details": "Ports and host names…"
+    },
+    "view": {
+      "grid": "Grid",
+      "list": "Used",
+      "free": "Free addresses"
+    },
+    "summary": "{{used}} used · {{free}} probably free",
+    "cancelled": "stopped early",
+    "noIcmp": "no ping (TCP + ARP)",
+    "used": "Used",
+    "free": "Probably free",
+    "own": "This computer",
+    "gateway": "Gateway",
+    "ports": "Open ports",
+    "ssh": "Connect (SSH)",
+    "saveSession": "Save as session",
+    "openWeb": "Open web page",
+    "copyIp": "Copy IP",
+    "copied": "Copied",
+    "freeNote": "“Probably free”: nothing answered, but a device may be off or ignore probes.",
+    "blockCount_one": "{{count}} address",
+    "blockCount_other": "{{count}} addresses",
+    "copyRange": "Copy range",
+    "copyAll": "Copy all",
+    "col": {
+      "ip": "IP",
+      "status": "Status",
+      "hostname": "Host name",
+      "mac": "MAC",
+      "vendor": "Vendor",
+      "ports": "Open ports"
+    }
   }
 }

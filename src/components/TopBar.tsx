@@ -1,4 +1,4 @@
-import { PanelLeft, Settings } from 'lucide-react';
+import { PanelLeft, Radar, Settings } from 'lucide-react';
 import { useT } from '../i18n';
 import { isMac } from '../lib/ipc';
 import { formatChord } from '../lib/shortcuts';
@@ -30,6 +30,15 @@ export function TopBar() {
       <span className="font-semibold tracking-tight">{t('app.name')}</span>
       <QuickConnect />
       <div className="ml-auto flex items-center gap-1">
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm text-secondary"
+          title={t('shell.scanNetwork')}
+          onClick={() => useUi.getState().setScanOpen(true)}
+        >
+          <Radar size={14} aria-hidden />{' '}
+          <span className="hidden lg:inline">{t('shell.scanNetwork')}</span>
+        </button>
         <button
           type="button"
           className="btn btn-ghost btn-sm text-secondary"

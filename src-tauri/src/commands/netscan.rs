@@ -122,3 +122,27 @@ pub async fn netscan_run(
 pub fn netscan_cancel() {
     CANCEL.store(true, Ordering::SeqCst);
 }
+
+/// Opens a scanned device's web interface (`http(s)://<ip>/`) in the system browser.
+/// Only private / link-local IPv4 addresses: the URL is built here, not taken from the UI.
+#[tauri::command]
+pub fn open_device_web(
+    app: tauri::AppHandle,
+    ip: String,
+    https: bool,
+) -> Result<(), crate::error::AppError> {
+    use tauri_plugin_opener::OpenerExt;
+    let addr: std::net::Ipv4Addr = ip
+        .trim()
+        .parse()
+        .map_err(|_| crate::error::AppError::invalid("not an IPv4 address"))?;
+    if !scope::allowed(addr) {
+        return Err(crate::error::AppError::invalid(
+            "only local network addresses",
+        ));
+    }
+    let url = format!("{}://{addr}/", if https { "https" } else { "http" });
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| crate::error::AppError::internal(e.to_string()))
+}

@@ -843,5 +843,60 @@
     "run_other": "{{count}} cihazda çalıştır",
     "running": "Çalışıyor…",
     "readOnlyOnly": "Yalnız okuma amaçlı show / display komutları (isteğe bağlı | include …)."
+  },
+  "netscan": {
+    "title": "Ağımı tara",
+    "network": "Ağ",
+    "custom": "Özel aralık",
+    "target": "Aralık (CIDR, IP ya da a–b)",
+    "scan": "Tara",
+    "stop": "Durdur",
+    "busy": "Başka bir tarama sürüyor.",
+    "addresses_one": "{{iface}} üzerinde {{count}} adres",
+    "addresses_other": "{{iface}} üzerinde {{count}} adres",
+    "noNetworks": "Bağlı özel ağ yok.",
+    "scopeNote": "Yalnız bu bilgisayarın doğrudan bağlı özel alt ağları; en fazla /22. Yalnız keşif: ping, ARP tablosu ve {{ports}} portlarına bağlantı denemesi.",
+    "reason": {
+      "invalid": "Adres, CIDR ya da aralık değil.",
+      "notPrivate": "Yalnız özel (10/8, 172.16/12, 192.168/16) ve link-local adresler.",
+      "notConnected": "Bu bilgisayarın bağlı olduğu bir alt ağın içinde değil.",
+      "tooLarge": "Çok geniş: /22 ya da daha küçüğünü seçin (ör. bir /24)."
+    },
+    "stage": {
+      "sweep": "Adresler yoklanıyor…",
+      "arp": "ARP tablosu okunuyor…",
+      "details": "Portlar ve host adları…"
+    },
+    "view": {
+      "grid": "Izgara",
+      "list": "Dolu",
+      "free": "Boş adresler"
+    },
+    "summary": "{{used}} dolu · {{free}} muhtemelen boş",
+    "cancelled": "erken durduruldu",
+    "noIcmp": "ping yok (TCP + ARP)",
+    "used": "Dolu",
+    "free": "Muhtemelen boş",
+    "own": "Bu bilgisayar",
+    "gateway": "Ağ geçidi",
+    "ports": "Açık portlar",
+    "ssh": "Bağlan (SSH)",
+    "saveSession": "Oturum olarak kaydet",
+    "openWeb": "Web sayfasını aç",
+    "copyIp": "IP'yi kopyala",
+    "copied": "Kopyalandı",
+    "freeNote": "“Muhtemelen boş”: hiçbir şey yanıt vermedi, ama cihaz kapalı olabilir ya da yoklamaları yok sayabilir.",
+    "blockCount_one": "{{count}} adres",
+    "blockCount_other": "{{count}} adres",
+    "copyRange": "Aralığı kopyala",
+    "copyAll": "Hepsini kopyala",
+    "col": {
+      "ip": "IP",
+      "status": "Durum",
+      "hostname": "Host adı",
+      "mac": "MAC",
+      "vendor": "Üretici",
+      "ports": "Açık portlar"
+    }
   }
 }

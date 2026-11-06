@@ -3,6 +3,7 @@
  * Types mirror `src-tauri/src/model.rs` and `error.rs` (camelCase) — keep them in sync.
  */
 import { Channel, invoke } from '@tauri-apps/api/core';
+import type { ScanHost } from './netscan';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { SessionPatch } from './bulk';
 import type * as MockModule from './mock';
@@ -214,6 +215,18 @@ export interface ScanNetworks {
 
 /** Why a target may not be scanned (P4-T12 scope rules). */
 export type ScopeReason = 'invalid' | 'notPrivate' | 'notConnected' | 'tooLarge';
+
+export interface ScanProgress {
+  stage: 'sweep' | 'arp' | 'details';
+  done: number;
+  total: number;
+}
+
+export interface ScanResult {
+  hosts: ScanHost[];
+  icmpAvailable: boolean;
+  cancelled: boolean;
+}
 
 export interface ScanCheck {
   range: { first: string; last: string };
@@ -713,6 +726,9 @@ export const api = {
   backupDiffLive: (backupId: number, id: number) =>
     call<ConfigDiff>('backup_diff_live', { backupId, id }),
   netscanNetworks: () => call<ScanNetworks>('netscan_networks'),
+  netscanCancel: () => call<undefined>('netscan_cancel'),
+  /** A scanned device's web UI (private IPv4 only; the URL is built by the backend). */
+  openDeviceWeb: (ip: string, https: boolean) => call<undefined>('open_device_web', { ip, https }),
   /** Rejects with `{ reason: ScopeReason }` when the target is out of scope. */
   netscanCheck: (target: string) => call<ScanCheck>('netscan_check', { target }),
   neighborsDiscover: (id: number, family: string | null) =>
@@ -869,4 +885,18 @@ export async function liveOpen(
 export async function onConsoleChanged(cb: (change: ConsoleChange) => void): Promise<UnlistenFn> {
   if (!inTauri()) return (await loadMock()).onConsoleChanged(cb);
   return listen<ConsoleChange>(EVENTS.consoleChanged, (e) => cb(e.payload));
+}
+
+/**
+ * Scans `target` (scope-checked again by the backend). Rejects with
+ * `{ type: 'scope', reason }` or `{ type: 'busy' }`.
+ */
+export async function netscanRun(
+  target: string,
+  onProgress: (p: ScanProgress) => void,
+): Promise<ScanResult> {
+  if (!inTauri()) return (await loadMock()).netscanRun(target, onProgress);
+  const ch = new Channel<ScanProgress>();
+  ch.onmessage = onProgress;
+  return invoke<ScanResult>('netscan_run', { target, onProgress: ch });
 }

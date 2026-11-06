@@ -33,6 +33,7 @@ import { framingLabel } from '../format';
 import { FakeCli } from './cli';
 
 const mockHistory = new Map<string, string[]>();
+let mockScanCancel = false;
 let mockSnippets: Snippet[] = [];
 let mockBackups: { id: number; text: string; [k: string]: unknown }[] = [];
 let nextSnippetId = 1;
@@ -855,6 +856,11 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           'hostname core-sw1\nntp server 10.0.0.1\nend',
           'hostname core-sw1\nntp server 10.0.0.2\nlogging host 10.0.0.5\nend',
         );
+      case 'netscan_cancel':
+        mockScanCancel = true;
+        return undefined;
+      case 'open_device_web':
+        return undefined;
       case 'netscan_networks':
         return {
           networks: [
@@ -1389,4 +1395,48 @@ function mockDiff(left: string, right: string) {
     });
   }
   return { rows, added, removed, changed, coarse: false };
+}
+
+/** Browser demo scan of 192.168.1.0/24: a handful of devices, progress over ~1.5 s. */
+export async function netscanRun(
+  target: string,
+  onProgress: (p: { stage: 'sweep' | 'arp' | 'details'; done: number; total: number }) => void,
+) {
+  mockScanCancel = false;
+  const base = target.startsWith('10.20.') ? '10.20.0.' : '192.168.1.';
+  const total = 254;
+  for (let done = 0; done <= total; done += 32) {
+    if (mockScanCancel) break;
+    onProgress({ stage: 'sweep', done: Math.min(done, total), total });
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  onProgress({ stage: 'details', done: 1, total: 1 });
+  const devices: Record<number, { ports: number[]; name?: string; mac: string }> = {
+    1: { ports: [80, 443], name: 'gateway.lan', mac: '58:69:6c:00:00:01' },
+    2: { ports: [22, 443], name: 'core-sw1.lan', mac: '00:1a:2b:03:04:05' },
+    3: { ports: [22, 23], name: 'ruijie-s5750.lan', mac: '58:69:6c:00:11:11' },
+    10: { ports: [80], name: 'printer-3f.lan', mac: '00:00:48:aa:bb:cc' },
+    11: { ports: [], mac: 'f0:18:98:12:34:56' },
+    34: { ports: [], name: 'my-laptop.lan', mac: 'a4:83:e7:00:00:34' },
+    90: { ports: [3389], name: 'win-pc', mac: '00:15:5d:01:02:03' },
+    200: { ports: [443], mac: 'b8:27:eb:11:22:33' },
+  };
+  return {
+    hosts: Array.from({ length: total }, (_, i) => {
+      const n = i + 1;
+      const d = devices[n];
+      return {
+        ip: `${base}${n}`,
+        alive: Boolean(d),
+        icmp: Boolean(d) && n !== 90,
+        openPorts: d?.ports ?? [],
+        mac: d?.mac ?? null,
+        hostname: d?.name ?? null,
+        own: n === 34,
+        gateway: n === 1,
+      };
+    }),
+    icmpAvailable: true,
+    cancelled: mockScanCancel,
+  };
 }

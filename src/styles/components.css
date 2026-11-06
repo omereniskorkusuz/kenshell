@@ -510,3 +510,30 @@
   stroke: var(--focus-ring);
   stroke-width: 2;
 }
+
+/* Network scanner grid (P4-T14). */
+.scan-cell {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+}
+.scan-cell[data-kind='used'] {
+  background: var(--success);
+}
+.scan-cell[data-kind='own'] {
+  background: var(--accent);
+}
+.scan-cell[data-kind='gateway'] {
+  background: var(--warning);
+}
+.scan-cell[data-kind='outside'] {
+  background: transparent;
+  outline: 1px dashed var(--border-subtle);
+  outline-offset: -1px;
+}
+.scan-cell[data-picked] {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+button.scan-cell:not(:disabled):hover {
+  filter: brightness(1.2);
+}

@@ -31,6 +31,7 @@ const loadPalette = () => import('../palette/CommandPalette');
 const loadSettings = () => import('../settings/SettingsView');
 const CommandPalette = lazy(loadPalette);
 const SettingsView = lazy(loadSettings);
+const NetScan = lazy(() => import('../netscan/NetScan'));
 
 /** Warm the lazy chunks after first paint so the first ⌘K / tab open is instant. */
 function preloadChunks(): void {
@@ -48,6 +49,7 @@ export function App() {
   const t = useT();
   const paletteOpen = useUi((s) => s.paletteOpen);
   const settingsOpen = useUi((s) => s.settingsOpen);
+  const scanOpen = useUi((s) => s.scanOpen);
   const editor = useUi((s) => s.editor);
 
   useEffect(() => {
@@ -109,6 +111,7 @@ export function App() {
       <Suspense fallback={null}>
         {paletteOpen && <CommandPalette />}
         {settingsOpen && <SettingsView />}
+        {scanOpen && <NetScan />}
       </Suspense>
       {editor && <SessionEditor key={editor.sessionId ?? 'new'} state={editor} />}
     </div>
