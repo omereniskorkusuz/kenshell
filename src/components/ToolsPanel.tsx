@@ -3,10 +3,12 @@ import { useT, type TKey } from '../i18n';
 import { useUi, type ToolId } from '../stores/ui';
 import { FileServers } from './FileServers';
 import { FileTransfer } from './FileTransfer';
+import { NetTools } from './NetTools';
 
 const TOOLS: [ToolId, TKey][] = [
   ['transfer', 'transfer.title'],
   ['servers', 'servers.title'],
+  ['nettools', 'nettools.title'],
 ];
 
 export function ToolsPanel() {
@@ -32,7 +34,7 @@ export function ToolsPanel() {
         <FileTransfer />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <FileServers />
+          {tool === 'servers' ? <FileServers /> : <NetTools />}
         </div>
       )}
     </div>

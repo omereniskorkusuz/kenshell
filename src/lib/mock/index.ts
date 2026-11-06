@@ -927,6 +927,17 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         return undefined;
       case 'open_device_web':
         return undefined;
+      case 'oui_lookup': {
+        const hex = String(a.mac)
+          .replace(/[^0-9a-fA-F]/g, '')
+          .slice(0, 6)
+          .toLowerCase();
+        const demo: Record<string, string> = {
+          '00000c': 'Cisco Systems',
+          '58696c': 'Ruijie Networks',
+        };
+        return { vendor: demo[hex] ?? null, tableSize: 3 };
+      }
       case 'netscan_networks':
         return {
           networks: [

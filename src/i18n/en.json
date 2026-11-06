@@ -948,5 +948,45 @@
     "starting": "Starting…",
     "indicator": "Servers: {{list}}",
     "scpHint": "No shell or forwarding: this SSH server only runs scp. Host keys are new on every start."
+  },
+  "nettools": {
+    "title": "Network tools",
+    "subnet": "Subnet calculator",
+    "subnetPlaceholder": "192.168.1.10/24 · 10.0.0.1 255.255.255.0 · 10.0.0.0 0.0.0.255",
+    "subnetInvalid": "An IPv4 address with a prefix, mask or wildcard",
+    "network": "Network",
+    "broadcast": "Broadcast",
+    "mask": "Mask",
+    "wildcard": "Wildcard",
+    "range": "Host range",
+    "hosts": "Usable hosts",
+    "total": "Addresses",
+    "binary": "Mask (binary)",
+    "scope": "Scope",
+    "scopes": {
+      "private": "Private (RFC 1918)",
+      "loopback": "Loopback",
+      "linkLocal": "Link-local",
+      "cgnat": "Carrier-grade NAT (RFC 6598)",
+      "multicast": "Multicast",
+      "reserved": "Reserved",
+      "public": "Public"
+    },
+    "mac": "MAC address",
+    "macPlaceholder": "aabb.ccdd.eeff · aa:bb:cc:dd:ee:ff · AA-BB-…",
+    "macInvalid": "12 hex digits, any separator",
+    "formats": {
+      "cisco": "Cisco / Ruijie",
+      "colon": "Linux / macOS",
+      "dash": "Windows",
+      "bare": "Bare"
+    },
+    "vendor": "Vendor",
+    "vendorUnknown": "Not in the table",
+    "ouiSample": "The vendor table is a small sample until the full IEEE list is generated.",
+    "group": "Group (multicast) address",
+    "local": "Locally administered (random or virtual)",
+    "universal": "Vendor-assigned (globally unique)",
+    "clickToCopy": "Click a value to copy it"
   }
 }

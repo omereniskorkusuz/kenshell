@@ -948,5 +948,45 @@
     "starting": "Başlatılıyor…",
     "indicator": "Sunucular: {{list}}",
     "scpHint": "Kabuk ya da yönlendirme yok: bu SSH sunucusu yalnız scp çalıştırır. Host anahtarları her başlatmada yenilenir."
+  },
+  "nettools": {
+    "title": "Ağ araçları",
+    "subnet": "Subnet hesaplayıcı",
+    "subnetPlaceholder": "192.168.1.10/24 · 10.0.0.1 255.255.255.0 · 10.0.0.0 0.0.0.255",
+    "subnetInvalid": "Önek, maske ya da wildcard ile bir IPv4 adresi",
+    "network": "Ağ",
+    "broadcast": "Broadcast",
+    "mask": "Maske",
+    "wildcard": "Wildcard",
+    "range": "Host aralığı",
+    "hosts": "Kullanılabilir host",
+    "total": "Adres",
+    "binary": "Maske (ikili)",
+    "scope": "Kapsam",
+    "scopes": {
+      "private": "Özel (RFC 1918)",
+      "loopback": "Loopback",
+      "linkLocal": "Link-local",
+      "cgnat": "Taşıyıcı NAT (RFC 6598)",
+      "multicast": "Multicast",
+      "reserved": "Ayrılmış",
+      "public": "Genel (public)"
+    },
+    "mac": "MAC adresi",
+    "macPlaceholder": "aabb.ccdd.eeff · aa:bb:cc:dd:ee:ff · AA-BB-…",
+    "macInvalid": "12 onaltılık rakam, ayraç fark etmez",
+    "formats": {
+      "cisco": "Cisco / Ruijie",
+      "colon": "Linux / macOS",
+      "dash": "Windows",
+      "bare": "Ayraçsız"
+    },
+    "vendor": "Üretici",
+    "vendorUnknown": "Tabloda yok",
+    "ouiSample": "Tam IEEE listesi üretilene kadar üretici tablosu küçük bir örnektir.",
+    "group": "Grup (multicast) adresi",
+    "local": "Yerel yönetilen (rastgele ya da sanal)",
+    "universal": "Üretici atamalı (küresel tekil)",
+    "clickToCopy": "Kopyalamak için değere tıklayın"
   }
 }

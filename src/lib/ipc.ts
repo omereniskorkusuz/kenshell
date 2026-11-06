@@ -728,6 +728,8 @@ export const api = {
   backupDiffLive: (backupId: number, id: number) =>
     call<ConfigDiff>('backup_diff_live', { backupId, id }),
   netscanNetworks: () => call<ScanNetworks>('netscan_networks'),
+  ouiLookup: (mac: string) =>
+    call<{ vendor: string | null; tableSize: number }>('oui_lookup', { mac }),
   netscanCancel: () => call<undefined>('netscan_cancel'),
   /** A scanned device's web UI (private IPv4 only; the URL is built by the backend). */
   openDeviceWeb: (ip: string, https: boolean) => call<undefined>('open_device_web', { ip, https }),

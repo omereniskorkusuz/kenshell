@@ -56,6 +56,22 @@ pub fn netscan_networks() -> Networks {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct OuiLookup {
+    pub vendor: Option<&'static str>,
+    pub table_size: usize,
+}
+
+/// MAC vendor from the embedded OUI table (P5-T04 network tools).
+#[tauri::command]
+pub fn oui_lookup(mac: String) -> OuiLookup {
+    OuiLookup {
+        vendor: crate::netscan::oui::vendor(&mac),
+        table_size: crate::netscan::oui::size(),
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CheckResult {
     pub range: Range,
     pub count: u64,

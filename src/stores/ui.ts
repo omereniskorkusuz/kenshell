@@ -5,7 +5,7 @@ import type { DropZone } from '../lib/split';
 
 export type PaletteScope = 'all' | 'consoles';
 export type SidePanelTab = 'notes' | 'analyzer' | 'snippets' | 'tools';
-export type ToolId = 'transfer' | 'servers';
+export type ToolId = 'transfer' | 'servers' | 'nettools';
 
 /** A tab being dragged: where it would land (P2-T19). */
 export interface TabDrag {
