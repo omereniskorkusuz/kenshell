@@ -1,0 +1,9 @@
+
+VLAN Name                             Status    Ports
+---- -------------------------------- --------- -------------------------------
+1    default                          active    Gi1/0/2, Gi1/0/5, Gi1/0/6
+                                                Gi1/0/7, Gi1/0/8
+10   USERS                            active    Gi1/0/3
+20   CAMERAS                          active    Gi1/0/4
+99   MGMT                             active    
+1002 fddi-default                     act/unsup 

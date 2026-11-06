@@ -9,6 +9,7 @@ pub static PARSER: ParserDef = ParserDef {
     id: "cisco.show_ip_interface_brief",
     families: &["cisco", "ruijie"],
     command: "show ip interface brief",
+    aliases: &[],
     columns: &[
         ("interface", ColumnKind::Iface),
         ("ip", ColumnKind::Ip),

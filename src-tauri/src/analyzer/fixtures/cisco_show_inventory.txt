@@ -1,0 +1,11 @@
+NAME: "c38xx Stack", DESCR: "c38xx Stack"
+PID: WS-C3850-48P      , VID: V07  , SN: FOC1234X0AB
+
+NAME: "Switch 1", DESCR: "WS-C3850-48P"
+PID: WS-C3850-48P      , VID: V07  , SN: FCW1234L0CD
+
+NAME: "Switch 1 - Power Supply A", DESCR: "Switch 1 - Power Supply A"
+PID: PWR-C1-715WAC     , VID: V02  , SN: LIT12345678
+
+NAME: "TenGigabitEthernet1/1/1", DESCR: "SFP-10GBase-SR"
+PID: SFP-10G-SR          , VID: V03  , SN: AVD1234567

@@ -30,7 +30,8 @@ export const useAnalyzer = create<AnalyzerState>()((set, get) => ({
 
   async commandDone(tabKey, command) {
     const parsers = await get().loadParsers();
-    if (!parsers.some((p) => commandMatches(command, p.command))) return;
+    if (!parsers.some((p) => [p.command, ...p.aliases].some((c) => commandMatches(command, c))))
+      return;
     set({ done: { tabKey, command, seq: ++seq } });
   },
 }));

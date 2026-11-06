@@ -168,7 +168,14 @@ export default function AnalyzerPanel() {
               )
             }
             cell={(v, c) => {
-              const kind = table.columns[shown.cols[c] ?? 0]?.kind;
+              const col = table.columns[shown.cols[c] ?? 0];
+              const kind = col?.kind;
+              // `show version`: the field column holds keys.
+              if (col?.key === 'field') {
+                const k = `analyzer.field.${v}` as TKey;
+                const label = t(k);
+                return label === k ? v : label;
+              }
               const tone = kind === 'status' ? statusTone(v) : null;
               return tone ? (
                 <span className="tone-text" data-tone={tone}>

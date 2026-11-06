@@ -164,6 +164,7 @@ export interface AnalyzerTable {
 export interface ParserInfo {
   id: string;
   command: string;
+  aliases: string[];
   families: string[];
 }
 

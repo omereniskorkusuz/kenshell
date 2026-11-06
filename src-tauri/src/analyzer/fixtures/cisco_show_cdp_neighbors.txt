@@ -1,0 +1,11 @@
+Capability Codes: R - Router, T - Trans Bridge, B - Source Route Bridge
+                  S - Switch, H - Host, I - IGMP, r - Repeater, P - Phone,
+                  D - Remote, C - CVTA, M - Two-port Mac Relay
+
+Device ID        Local Intrfce     Holdtme    Capability  Platform  Port ID
+core-sw1.lab.example.com
+                 Gig 1/0/24        150             R S I  WS-C3850- Gig 1/0/1
+ap-floor2        Gig 1/0/5         120               T    AIR-AP280 Gig 0
+SEP001122334455  Gig 1/0/6         165             H P M  IP Phone  Port 1
+
+Total cdp entries displayed : 3

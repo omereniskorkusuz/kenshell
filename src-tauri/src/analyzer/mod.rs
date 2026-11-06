@@ -58,9 +58,18 @@ pub struct ParserDef {
     pub families: &'static [&'static str],
     /// Canonical command words.
     pub command: &'static str,
+    /// Other spellings of the same command (`show mac-address-table`).
+    pub aliases: &'static [&'static str],
     pub columns: &'static [(&'static str, ColumnKind)],
     /// Rows from the output (without the command line and prompt). Never panics.
     pub parse: fn(&str) -> Vec<Vec<String>>,
+}
+
+impl ParserDef {
+    pub fn matches(&self, typed: &str) -> bool {
+        command_matches(typed, self.command)
+            || self.aliases.iter().any(|a| command_matches(typed, a))
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -68,6 +77,7 @@ pub struct ParserDef {
 pub struct ParserInfo {
     pub id: String,
     pub command: String,
+    pub aliases: Vec<String>,
     pub families: Vec<String>,
 }
 
@@ -77,6 +87,7 @@ pub fn list() -> Vec<ParserInfo> {
         .map(|p| ParserInfo {
             id: p.id.into(),
             command: p.command.into(),
+            aliases: p.aliases.iter().map(|a| (*a).into()).collect(),
             families: p.families.iter().map(|f| (*f).into()).collect(),
         })
         .collect()
@@ -145,13 +156,11 @@ pub fn analyze(text: &str, family: Option<&str>, command: Option<&str>) -> Optio
     let typed = typed.split('|').next().unwrap_or("").trim();
     let def = parsers::ALL
         .iter()
-        .find(|p| family_ok(p, family) && command_matches(typed, p.command))?;
+        .find(|p| family_ok(p, family) && p.matches(typed))?;
     let body = if command.is_some() {
         // The text may still start with the echo line: drop it when it is one.
         match text.lines().find(|l| !l.trim().is_empty()) {
-            Some(first)
-                if command_of_line(first).is_some_and(|c| command_matches(c, def.command)) =>
-            {
+            Some(first) if command_of_line(first).is_some_and(|c| def.matches(c)) => {
                 let at = text.find(first).unwrap_or(0) + first.len();
                 &text[at..]
             }

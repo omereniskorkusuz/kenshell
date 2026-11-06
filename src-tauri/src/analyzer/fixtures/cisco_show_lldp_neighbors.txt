@@ -1,0 +1,11 @@
+
+Capability codes:
+    (R) Router, (B) Bridge, (T) Telephone, (C) DOCSIS Cable Device
+    (W) WLAN Access Point, (P) Repeater, (S) Station, (O) Other
+
+Device ID           Local Intf     Hold-time  Capability      Port ID
+access-sw2          Gi1/0/48       120        B,R             Gi0/1
+ruijie-s5750        Gi1/0/47       120        B               GigabitEthernet 0/49
+printer-3f          Gi1/0/10       3601       S               0011.2233.4455
+
+Total entries displayed: 3

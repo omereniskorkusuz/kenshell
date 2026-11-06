@@ -814,6 +814,7 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           {
             id: 'cisco.show_ip_interface_brief',
             command: 'show ip interface brief',
+            aliases: [],
             families: ['cisco', 'ruijie'],
           },
         ];
