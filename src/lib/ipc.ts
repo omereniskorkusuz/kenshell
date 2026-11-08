@@ -624,6 +624,10 @@ export function isMac(): boolean {
   return /Mac|iPhone|iPad/.test(navigator.platform);
 }
 
+export function isLinux(): boolean {
+  return /Linux/.test(navigator.platform) && !/Android/.test(navigator.userAgent);
+}
+
 // ------------------------------------------------------------------ transport (Tauri or browser mock)
 
 /**
@@ -833,6 +837,8 @@ export const api = {
   recordingRead: (path: string) => call<string>('recording_read', { path }),
   textExport: (path: string, text: string) => call<undefined>('text_export', { path, text }),
   /** AI assistant key in the OS keychain (P5-T08). */
+  /** Linux: may this user open serial devices (dialout / uucp group, P5-T12)? */
+  serialAccess: () => call<{ ok: boolean; group: string | null }>('serial_access'),
   aiKeyStatus: () => call<boolean>('ai_key_status'),
   aiKeySet: (key: string) => call<undefined>('ai_key_set', { key }),
   aiKeyClear: () => call<undefined>('ai_key_clear'),

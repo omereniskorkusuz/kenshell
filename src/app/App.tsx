@@ -23,6 +23,7 @@ import { toast } from '../stores/toasts';
 import { useUi } from '../stores/ui';
 import { installSettingsEffects } from './effects';
 import { installShortcuts } from './keyboard';
+import { serialGroupHint } from './linuxHint';
 import { scheduleUpdateCheck } from './updates';
 
 /** Windows opened by moving a tab out (P2-T19) show only their sessions: no library. */
@@ -69,7 +70,11 @@ export function App() {
     const disposeEffects = installSettingsEffects();
     const disposeKeys = installShortcuts();
     const disposeUpdates = scheduleUpdateCheck();
-    void useSettings.getState().load();
+    void useSettings
+      .getState()
+      .load()
+      .then(() => serialGroupHint())
+      .catch(() => {});
     void useLibrary.getState().load();
     void useNotes.getState().loadPinned();
     void useConsoles.getState().load();

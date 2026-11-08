@@ -93,6 +93,7 @@ pub fn run() {
             commands::backups::config_file_read,
             commands::netscan::netscan_networks,
             commands::netscan::oui_lookup,
+            commands::console::serial_access,
             commands::update::update_status,
             commands::update::update_check,
             commands::update::update_install,

@@ -9,6 +9,8 @@ describe('latest.json', () => {
     'b/nsis/KenShell_0.2.0_x64-setup.exe',
     'b/nsis/KenShell_0.2.0_x64-setup.exe.sig',
     'b/msi/KenShell_0.2.0_x64_en-US.msi',
+    'c/appimage/KenShell_0.2.0_amd64.AppImage',
+    'c/appimage/KenShell_0.2.0_amd64.AppImage.sig',
   ];
   const sig = (p: string) => `SIG(${p})\n`;
 
@@ -19,6 +21,7 @@ describe('latest.json', () => {
     expect(Object.keys(m.platforms).sort()).toEqual([
       'darwin-aarch64',
       'darwin-x86_64',
+      'linux-x86_64',
       'windows-x86_64',
     ]);
     expect(m.platforms['darwin-x86_64']).toEqual({

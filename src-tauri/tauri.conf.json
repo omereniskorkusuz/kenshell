@@ -40,6 +40,7 @@
       "icons/icon.ico"
     ],
     "macOS": { "minimumSystemVersion": "11.0" },
+    "linux": { "deb": { "section": "net" } },
     "windows": { "webviewInstallMode": { "type": "downloadBootstrapper" } }
   }
 }

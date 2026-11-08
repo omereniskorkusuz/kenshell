@@ -16,3 +16,9 @@ pub fn console_rescan(state: State<'_, AppState>) -> ConsoleSnapshot {
     state.consoles.rescan();
     state.consoles.snapshot()
 }
+
+/// Linux: whether this user may open serial devices (group `dialout` / `uucp`, P5-T12).
+#[tauri::command]
+pub fn serial_access() -> crate::platform::serial_access::SerialAccess {
+    crate::platform::serial_access::check()
+}

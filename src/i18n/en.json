@@ -262,7 +262,10 @@
     "copyLink": "Copy link",
     "copied": "Link copied",
     "copyFailed": "Could not copy the link",
-    "rescanAfterInstall": "Rescan after installing"
+    "rescanAfterInstall": "Rescan after installing",
+    "groupHint": "Your user cannot open serial ports yet: add it to the \"{{group}}\" group, then log out and back in.",
+    "groupCommand": "sudo usermod -aG {{group}} $USER",
+    "groupCopy": "Copy command"
   },
   "editor": {
     "newTitle": "New serial session",

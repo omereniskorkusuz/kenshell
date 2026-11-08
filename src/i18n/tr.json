@@ -262,7 +262,10 @@
     "copyLink": "Bağlantıyı kopyala",
     "copied": "Bağlantı kopyalandı",
     "copyFailed": "Bağlantı kopyalanamadı",
-    "rescanAfterInstall": "Kurduktan sonra yeniden tara"
+    "rescanAfterInstall": "Kurduktan sonra yeniden tara",
+    "groupHint": "Kullanıcınız henüz seri portları açamıyor: \"{{group}}\" grubuna ekleyip oturumu kapatıp yeniden açın.",
+    "groupCommand": "sudo usermod -aG {{group}} $USER",
+    "groupCopy": "Komutu kopyala"
   },
   "editor": {
     "newTitle": "Yeni seri oturum",

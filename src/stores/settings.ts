@@ -69,6 +69,8 @@ export interface AppSettings {
   'ai.enabled': boolean;
   /** Ask the update server once after start (P5-T10). */
   'updates.autoCheck': boolean;
+  /** Linux: the serial group hint was shown once (P5-T12). */
+  'console.groupHintShown': boolean;
   'ai.model': 'model-id' | 'model-id' | 'model-id';
 }
 
@@ -114,6 +116,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'connection.sshKeepalive': 30,
   'ai.enabled': false,
   'updates.autoCheck': true,
+  'console.groupHintShown': false,
   'ai.model': 'model-id',
 };
 
@@ -191,6 +194,7 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'connection.sshLegacy':
       case 'ai.enabled':
       case 'updates.autoCheck':
+      case 'console.groupHintShown':
         return bool(value, d[k]);
       case 'ai.model':
         return oneOf(

@@ -1227,6 +1227,8 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         return `/demo/logs/recording.cast`;
       case 'recording_read':
         return mockCast();
+      case 'serial_access':
+        return { ok: true, group: null };
       case 'update_status':
         return { configured: false, current: '0.1.0' };
       case 'update_check':

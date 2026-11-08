@@ -32,6 +32,7 @@ export function manifest(version, baseUrl, files, readSig, notes = '', pubDate =
   for (const f of files) {
     if (f.endsWith('.app.tar.gz')) add(['darwin-aarch64', 'darwin-x86_64'], f);
     else if (/-setup\.exe$/.test(f)) add(['windows-x86_64'], f);
+    else if (f.endsWith('.AppImage')) add(['linux-x86_64'], f);
   }
   if (Object.keys(platforms).length === 0) throw new Error('no signed bundles found');
   return { version, notes, pub_date: pubDate ?? new Date().toISOString(), platforms };
