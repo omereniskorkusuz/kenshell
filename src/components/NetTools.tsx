@@ -148,13 +148,12 @@ function DiagTool() {
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-xs font-medium text-secondary">{t('nettools.diag')}</h3>
-      <div className="flex gap-1" role="tablist" aria-label={t('nettools.diag')}>
+      <div className="flex gap-1" role="group" aria-label={t('nettools.diag')}>
         {(['ping', 'trace'] as const).map((k) => (
           <button
             key={k}
             type="button"
-            role="tab"
-            aria-selected={kind === k}
+            aria-pressed={kind === k}
             disabled={busy}
             className={`btn h-7 flex-1 ${kind === k ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => set({ kind: k })}

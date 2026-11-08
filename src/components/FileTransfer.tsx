@@ -95,7 +95,7 @@ export function FileTransfer() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-1 border-b border-subtle p-2">
         <div
-          role="tablist"
+          role="group"
           aria-label={t('transfer.title')}
           className="flex gap-0.5 rounded-md bg-app p-0.5"
         >
@@ -103,8 +103,7 @@ export function FileTransfer() {
             <button
               key={m}
               type="button"
-              role="tab"
-              aria-selected={mode === m}
+              aria-pressed={mode === m}
               className={`h-6 rounded-sm px-2 text-xs ${mode === m ? 'bg-selected text-primary' : 'text-secondary'}`}
               onClick={() => setMode(m)}
             >

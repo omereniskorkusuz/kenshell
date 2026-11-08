@@ -282,7 +282,7 @@ export default function NetScan() {
           <>
             <div className="flex items-center gap-2 border-b border-subtle pb-2">
               <div
-                role="tablist"
+                role="group"
                 aria-label={t('netscan.title')}
                 className="flex gap-0.5 rounded-md bg-app p-0.5"
               >
@@ -290,8 +290,7 @@ export default function NetScan() {
                   <button
                     key={v}
                     type="button"
-                    role="tab"
-                    aria-selected={view === v}
+                    aria-pressed={view === v}
                     className={`h-6 rounded-sm px-2 text-xs ${view === v ? 'bg-selected text-primary' : 'text-secondary'}`}
                     onClick={() => setView(v)}
                   >

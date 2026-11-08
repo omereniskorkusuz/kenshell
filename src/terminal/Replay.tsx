@@ -66,6 +66,7 @@ export default function Replay({ path }: { path: string }) {
   const t = useT();
   const host = useRef<HTMLDivElement>(null);
   const engine = useRef<Engine | null>(null);
+  const playBtn = useRef<HTMLButtonElement>(null);
   const [cast, setCast] = useState<Cast | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -108,6 +109,9 @@ export default function Replay({ path }: { path: string }) {
     term.unicode.activeVersion = '11';
     term.open(host.current);
     engine.current = { term, cast, pos: 0, idx: 0 };
+    // The button was disabled while loading, so the dialog could not focus it then;
+    // focus it now so Space / arrows work right away.
+    playBtn.current?.focus();
     return () => {
       engine.current = null;
       term.dispose();
@@ -210,6 +214,7 @@ export default function Replay({ path }: { path: string }) {
             type="button"
             className="btn btn-primary h-7"
             disabled={!cast}
+            ref={playBtn}
             data-autofocus
             aria-label={playing ? t('replay.pause') : t('replay.play')}
             onClick={toggle}

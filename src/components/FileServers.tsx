@@ -77,15 +77,14 @@ export function FileServers() {
 
   return (
     <div className="flex flex-col gap-3 p-2">
-      <div className="flex gap-1" role="tablist" aria-label={t('servers.title')}>
+      <div className="flex gap-1" role="group" aria-label={t('servers.title')}>
         {KINDS.map((k) => {
           const on = servers.some((s) => s.kind === k.kind);
           return (
             <button
               key={k.kind}
               type="button"
-              role="tab"
-              aria-selected={kind === k.kind}
+              aria-pressed={kind === k.kind}
               className={`btn h-7 flex-1 ${kind === k.kind ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setKind(k.kind)}
             >
