@@ -11,6 +11,7 @@ import { SessionEditor } from '../components/SessionEditor';
 import { Sidebar } from '../components/Sidebar';
 import { StatusBar } from '../components/StatusBar';
 import { Toasts } from '../components/Toasts';
+import { UpdatePrompt } from '../components/UpdatePrompt';
 import { TopBar } from '../components/TopBar';
 import { Workspace } from '../components/Workspace';
 import { loadTerminalView } from '../components/Pane';
@@ -117,6 +118,7 @@ export function App() {
       </div>
       <StatusBar />
       <Toasts />
+      <UpdatePrompt />
       <LiveRegion />
       <Suspense fallback={null}>
         {paletteOpen && <CommandPalette />}

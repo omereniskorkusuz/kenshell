@@ -1114,7 +1114,12 @@
     "install": "Kur ve yeniden başlat",
     "upToDate": "KenShell güncel.",
     "downloading": "Güncelleme indiriliyor… %{{percent}}",
-    "downloadingBytes": "Güncelleme indiriliyor…"
+    "downloadingBytes": "Güncelleme indiriliyor…",
+    "promptTitle": "KenShell'in yeni sürümü çıktı",
+    "promptVersions": "Sürüm {{version}} · sizdeki {{current}}",
+    "updateNow": "Şimdi güncelle",
+    "later": "Sonra",
+    "retry": "Tekrar dene"
   },
   "notesBar": {
     "title": "Notlar",

@@ -1,26 +1,37 @@
 <p align="center">
-  <img src="docs/assets/icon.svg" width="112" alt="KenShell logo" />
+  <img src="docs/assets/icon.svg" width="128" alt="KenShell logo" />
 </p>
 
 <h1 align="center">KenShell</h1>
 
 <p align="center">
-  <b>A lightweight network terminal for network engineers.</b><br/>
-  PuTTY-style connections and a Cisco/Ruijie-aware CLI analyzer in one small, fast desktop app.
+  <b>The terminal that knows it is talking to a switch.</b><br/>
+  SSH, Telnet and serial console in one small, fast desktop app,<br/>
+  with a built-in CLI analyzer for Cisco and Ruijie devices.
 </p>
 
 <p align="center">
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-3cc6a6" />
-  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db" />
-  <img alt="Rust" src="https://img.shields.io/badge/Rust-1.90%2B-b7410e" />
-  <img alt="React 19" src="https://img.shields.io/badge/React-19-61dafb" />
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-supported-3cc6a6" />
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-supported-3cc6a6" />
+  <img alt="Linux" src="https://img.shields.io/badge/Linux-supported-3cc6a6" />
+</p>
+
+<p align="center">
+  <a href="#download-and-install"><b>Download</b></a> ·
+  <a href="docs/USER_GUIDE.md"><b>User Guide</b></a> ·
+  <a href="#features"><b>Features</b></a> ·
+  <a href="#for-developers"><b>For developers</b></a>
 </p>
 
 <p align="center">
   <img src="docs/assets/screenshot-home.png" width="860" alt="KenShell start screen with saved sessions and a detected USB console" />
 </p>
 
----
+KenShell is a lightweight network terminal for network engineers. It combines what you
+would normally use PuTTY or SecureCRT for (connecting to devices) with what you would use
+a CLI analyzer for (understanding their output). Plug in a console cable and you're on the
+device in seconds. Open an SSH session and KenShell tells you which device it is, which CLI
+mode you're in, and whether it's production. Run a `show` command and get a sortable table.
 
 ## Why KenShell
 
@@ -36,15 +47,7 @@ to network gear:
   them for lab gear.
 - **Built for Cisco and Ruijie first**, and it also recognises Juniper, Alcatel-Lucent
   OmniSwitch, Aruba/HPE, Huawei and FortiGate prompts.
-- **Small and fast.** The performance budget is part of the spec, and CI checks it.
-
-| Measure (macOS arm64 release build) | Result   | Budget  |
-| ----------------------------------- | -------- | ------- |
-| Cold start (median)                 | 265 ms   | < 1 s   |
-| Idle memory                         | 84.3 MB  | < 100 MB |
-| Extra memory per open session       | 3.3 MB   | < 15 MB |
-| Installer (dmg)                     | 7.05 MB  | < 15 MB |
-| JavaScript (gzipped)                | 433.9 KB | < 500 KB |
+- **Small and fast.** Starts in a quarter of a second and stays under 100 MB of memory.
 
 ## Features
 
@@ -105,14 +108,24 @@ to network gear:
 **App**
 - **Interface:** dark, light or system theme, English and Turkish, customisable shortcuts,
   a command palette for every action, and accessible keyboard navigation.
-- **Updates:** you are asked before an update installs; nothing updates silently.
+- **Updates:** a small card announces a new version; nothing installs until you click it.
 - **Privacy:** no telemetry. Passwords and secrets never reach logs, the database or exports.
 
-See the **[User Guide](docs/USER_GUIDE.md)** for how to use each feature.
+## Performance
 
-## Install
+KenShell is built to stay out of your way, even on an old laptop in a cold server room.
 
-Release builds are produced by CI for each `v*` tag:
+| Measure (macOS arm64 release build) | Result   | Budget  |
+| ----------------------------------- | -------- | ------- |
+| Cold start (median)                 | 265 ms   | < 1 s   |
+| Idle memory                         | 84.3 MB  | < 100 MB |
+| Extra memory per open session       | 3.3 MB   | < 15 MB |
+| Installer (dmg)                     | 7.05 MB  | < 15 MB |
+| JavaScript (gzipped)                | 435.1 KB | < 500 KB |
+
+## Download and install
+
+Get the latest version from the **[Releases](../../releases)** page:
 
 | Platform | Package                                                |
 | -------- | ------------------------------------------------------ |
@@ -123,7 +136,31 @@ Release builds are produced by CI for each `v*` tag:
 On Linux your user needs serial-port access (`dialout` or `uucp` group). KenShell shows the
 exact command on first launch if it is missing.
 
-## Building from source
+## Documentation
+
+- **[User Guide](docs/USER_GUIDE.md):** every feature step by step, keyboard shortcuts and
+  troubleshooting.
+
+## Privacy
+
+- **No telemetry:** KenShell collects no usage data and never reports on you or your devices.
+- **Secrets stay put:** saved passwords live in the operating system's keychain. Passwords
+  and secrets never reach log files, the database or exports.
+- **Updates ask first:** when a new version is out, a small card offers it; nothing is
+  installed until you click **Update now**.
+
+---
+
+## For developers
+
+<p>
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24c8db" />
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-1.90%2B-b7410e" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61dafb" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-6-3178c6" />
+</p>
+
+### Building from source
 
 **Requirements:** Node.js 24, Rust 1.90+ (`rustup`), and the
 [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
@@ -138,7 +175,7 @@ npm run app:build       # release build + installers
 The frontend also runs in a plain browser (`npm run dev`, port 1420) with demo data, which is
 handy for UI work.
 
-### Checks
+#### Checks
 
 | Task                       | Command                                                      |
 | -------------------------- | ------------------------------------------------------------ |
@@ -155,7 +192,7 @@ The **device simulator** (`tools/device-simulator`) emulates Cisco and Ruijie CL
 Telnet, SSH, raw TCP or stdio, including `--More--` paging and mode changes. It drives the
 end-to-end tests and is useful for trying the app without real hardware.
 
-## Architecture
+### Architecture
 
 KenShell is a [Tauri 2](https://v2.tauri.app/) app. The **Rust backend** owns every
 connection, file and secret; the **React frontend** renders the UI and talks to the backend
@@ -182,7 +219,7 @@ only through typed IPC commands and event channels.
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Repository layout
+#### Repository layout
 
 | Path                     | What is there                                                       |
 | ------------------------ | ------------------------------------------------------------------- |
@@ -201,7 +238,7 @@ only through typed IPC commands and event channels.
 | `bench/`                 | Bundle-size and app start/RAM/CPU measurements                      |
 | `docs/`                  | User guide and README assets                                        |
 
-### Design rules
+#### Design rules
 
 - **No confirm dialogs.** Feedback is a toast or a status-bar message. The single exception
   is a changed SSH host key, which blocks the connection.
@@ -214,7 +251,7 @@ only through typed IPC commands and event channels.
 - **Rust:** `clippy -D warnings` clean. `unsafe` is used only for required platform APIs,
   each with a justification.
 
-## Continuous integration
+### Continuous integration
 
 `.github/workflows/ci.yml` runs on every push:
 - **Lint, typecheck and tests** on macOS and Windows.

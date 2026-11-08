@@ -1114,7 +1114,12 @@
     "install": "Install and restart",
     "upToDate": "KenShell is up to date.",
     "downloading": "Downloading update… {{percent}}%",
-    "downloadingBytes": "Downloading update…"
+    "downloadingBytes": "Downloading update…",
+    "promptTitle": "A new version of KenShell is available",
+    "promptVersions": "Version {{version}} · you have {{current}}",
+    "updateNow": "Update now",
+    "later": "Later",
+    "retry": "Try again"
   },
   "notesBar": {
     "title": "Notes",

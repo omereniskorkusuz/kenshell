@@ -322,8 +322,11 @@ Open with **⌘,**. Changes apply immediately.
 | **Shortcuts** | Change any shortcut: click a shortcut and press the new keys. Conflicts are shown, and you can reset to the default. |
 | **Import / export** | Import from other apps, export sessions, encrypted backup and restore. |
 
-**Updates:** when a new version is available, a toast asks you; nothing is installed until
-you click **Install and restart**.
+**Updates:** when a new version is out, a small card appears at the top right of the
+window with the new version number and what has changed. Click **Update now** to download
+it (a progress bar shows how far along it is); KenShell restarts on the new version. Click
+**Later** to hide the card; it asks again the next time you start KenShell, or check any
+time from **Settings → Import / export → Updates**.
 
 ---
 
