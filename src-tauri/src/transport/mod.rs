@@ -11,6 +11,7 @@ pub mod serial;
 pub mod ssh;
 pub mod telnet;
 pub mod tunnel;
+pub mod x11;
 
 use async_trait::async_trait;
 

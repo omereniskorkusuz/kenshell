@@ -52,6 +52,7 @@ export interface Draft {
   legacyAlgorithms: boolean;
   keyPath: string;
   useAgent: boolean;
+  x11: boolean;
   /** Seconds as typed; empty = default (30), 0 = off. */
   keepalive: string;
   /** "user@host:port" (user and port optional). */
@@ -96,6 +97,7 @@ export function draftFrom(input: Partial<SessionInput> | null | undefined): Draf
     legacyAlgorithms: input?.ssh?.legacyAlgorithms ?? false,
     keyPath: input?.ssh?.keyPath ?? '',
     useAgent: input?.ssh?.useAgent ?? false,
+    x11: input?.ssh?.x11 ?? false,
     keepalive: input?.ssh?.keepaliveSecs != null ? String(input.ssh.keepaliveSecs) : '',
     jump: formatJump(input?.ssh?.jump),
     proxyKind: input?.ssh?.proxy?.kind ?? 'none',
@@ -221,6 +223,7 @@ export function draftToInput(d: Draft, base?: Partial<SessionInput>): SessionInp
             legacyAlgorithms: d.legacyAlgorithms,
             keyPath: d.keyPath.trim() || null,
             useAgent: d.useAgent,
+            x11: d.x11,
             keepaliveSecs: d.keepalive.trim() === '' ? null : Number(d.keepalive.trim()),
             ...tunnels(d),
           }

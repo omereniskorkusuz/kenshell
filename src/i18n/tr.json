@@ -335,7 +335,9 @@
     "lineOff": "Kapalı",
     "lineHint": "Port açıldıktan sonraki hat seviyeleri. Bazı konsol kabloları veya cihazlar DTR ya da RTS kapalı ister.",
     "identify": "Girişten sonra cihaz kimliğini oku",
-    "identifyHint": "Arka planda bir kez salt-okunur show version çalıştırır; çıktısı terminalde görünmez."
+    "identifyHint": "Arka planda bir kez salt-okunur show version çalıştırır; çıktısı terminalde görünmez.",
+    "x11": "X11 yönlendirme",
+    "x11Hint": "Sunucudaki grafik programları bu bilgisayarda açar. Yerel X sunucusu gerekir (macOS'ta XQuartz, Windows'ta VcXsrv ya da X410). Sunucu gerçek X çerezinizi asla görmez."
   },
   "palette": {
     "placeholder": "Oturum, snippet, konsol ve eylem ara…",

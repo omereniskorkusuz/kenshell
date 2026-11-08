@@ -419,6 +419,8 @@ export interface SshOptions {
   keepaliveSecs: number | null;
   /** Try SSH agent keys first (off: devices often allow only ~3 attempts). */
   useAgent: boolean;
+  /** Forward X11 to the local X server (P5-T09). */
+  x11: boolean;
   /** Connect through this SSH server first (bastion). */
   jump: JumpHost | null;
   /** Started after login; failures are reported in the terminal, the session stays up. */
@@ -456,6 +458,7 @@ export const DEFAULT_SSH: SshOptions = {
   keyPath: null,
   keepaliveSecs: null,
   useAgent: false,
+  x11: false,
   jump: null,
   forwards: [],
   proxy: null,

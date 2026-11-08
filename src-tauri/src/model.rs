@@ -442,6 +442,8 @@ pub struct SshOptions {
     pub forwards: Vec<Forward>,
     /// SOCKS5 / HTTP CONNECT proxy for the first TCP connection.
     pub proxy: Option<ProxyConfig>,
+    /// Forward X11 to the local X server (P5-T09; off by default).
+    pub x11: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

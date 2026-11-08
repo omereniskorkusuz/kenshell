@@ -2,6 +2,7 @@
 
 pub mod diag;
 pub mod net;
+pub mod x11;
 
 use crate::error::{AppError, ErrorCode};
 

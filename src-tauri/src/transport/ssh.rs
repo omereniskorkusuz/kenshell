@@ -88,12 +88,56 @@ enum KeyVerdict {
 /// Remote-forward targets by server-side port (read by the handler).
 type RemoteMap = Arc<Mutex<HashMap<u32, (String, u16)>>>;
 
+/// X11 forwarding while on (P5-T09): the local display and both cookies.
+pub(crate) struct X11Forward {
+    display: super::x11::Display,
+    fake: Vec<u8>,
+    real: Option<Vec<u8>>,
+}
+
+/// Set once X11 was requested; X11 channels are refused while it is empty.
+type X11Slot = Arc<Mutex<Option<Arc<X11Forward>>>>;
+
+/// Largest X11 connection setup we accept (it is a few dozen bytes in practice).
+const X11_SETUP_MAX: usize = 4096;
+
+/// Relays one X11 channel to the local display after swapping the fake cookie.
+async fn x11_relay(channel: Channel<client::Msg>, fwd: Arc<X11Forward>) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut ch = channel.into_stream();
+    let mut header = [0u8; 12];
+    if ch.read_exact(&mut header).await.is_err() {
+        return;
+    }
+    let Some(len) = super::x11::setup_len(&header).filter(|l| *l <= X11_SETUP_MAX) else {
+        return;
+    };
+    let mut setup = header.to_vec();
+    setup.resize(len, 0);
+    if ch.read_exact(&mut setup[12..]).await.is_err() {
+        return;
+    }
+    let Ok(setup) = super::x11::rewrite_setup(&setup, &fwd.fake, fwd.real.as_deref()) else {
+        tracing::warn!("x11: channel with a foreign cookie closed");
+        return;
+    };
+    match crate::platform::x11::connect(&fwd.display).await {
+        Ok(mut local) => {
+            if local.write_all(&setup).await.is_ok() {
+                let _ = tokio::io::copy_bidirectional(&mut ch, &mut local).await;
+            }
+        }
+        Err(e) => tracing::debug!("x11: local display: {e}"),
+    }
+}
+
 pub(crate) struct Client {
     host: String,
     port: u16,
     keys: Arc<dyn HostKeyStore>,
     verdict: Arc<Mutex<Option<KeyVerdict>>>,
     remote: RemoteMap,
+    x11: X11Slot,
     /// Negotiated (kex, cipher, mac) names — never the shared secret.
     algorithms: Arc<Mutex<Option<[String; 3]>>>,
 }
@@ -181,6 +225,24 @@ impl client::Handler for Client {
             *v = Some(verdict);
         }
         Ok(ok)
+    }
+
+    /// X11 forwarding: accepted only while this session asked for it.
+    async fn server_channel_open_x11(
+        &mut self,
+        channel: Channel<client::Msg>,
+        _originator_address: &str,
+        _originator_port: u32,
+        reply: client::ChannelOpenHandle,
+        _session: &mut client::Session,
+    ) -> std::result::Result<(), Self::Error> {
+        let fwd = self.x11.lock().ok().and_then(|x| x.clone());
+        let Some(fwd) = fwd else {
+            return Ok(()); // dropping `reply` rejects the channel
+        };
+        reply.accept().await;
+        tokio::spawn(x11_relay(channel, fwd));
+        Ok(())
     }
 
     /// Remote forwarding (`-R`): the server opens a channel for a connection it
@@ -301,6 +363,7 @@ impl Login {
         &self,
         stream: Box<dyn Io>,
         remote: RemoteMap,
+        x11: X11Slot,
     ) -> Result<(Handle<Client>, HostKeyInfo)> {
         let target = self.target();
         let verdict = Arc::new(Mutex::new(None));
@@ -311,6 +374,7 @@ impl Login {
             keys: Arc::clone(&self.keys),
             verdict: Arc::clone(&verdict),
             remote,
+            x11,
             algorithms: Arc::clone(&algorithms),
         };
         let handshake = client::connect_stream(Arc::new(self.config()), stream, client);
@@ -346,8 +410,9 @@ impl Login {
         &mut self,
         stream: Box<dyn Io>,
         remote: RemoteMap,
+        x11: X11Slot,
     ) -> Result<(Handle<Client>, HostKeyInfo)> {
-        let (mut handle, info) = self.handshake(stream, remote).await?;
+        let (mut handle, info) = self.handshake(stream, remote, x11).await?;
         let user = self.resolve_user().await?;
         self.authenticate(&mut handle, &user).await?;
         Ok((handle, info))
@@ -516,6 +581,7 @@ pub struct SshTransport {
     reader: Option<JoinHandle<()>>,
     host_key: Option<HostKeyInfo>,
     remote: RemoteMap,
+    x11: X11Slot,
     /// Port-forward listeners.
     tasks: Vec<JoinHandle<()>>,
 }
@@ -552,7 +618,45 @@ impl SshTransport {
             reader: None,
             host_key: None,
             remote: Arc::new(Mutex::new(HashMap::new())),
+            x11: Arc::new(Mutex::new(None)),
             tasks: Vec::new(),
+        }
+    }
+
+    /// Asks the server for X11 forwarding with a fresh fake cookie. Best effort: no local
+    /// display or a refusing server only means X programs will not open.
+    async fn request_x11(&self, channel: &Channel<client::Msg>) {
+        use crate::platform::x11 as px;
+        let Some(name) = px::default_display() else {
+            tracing::info!("x11: no local display (DISPLAY unset)");
+            return;
+        };
+        let Some((display, screen)) = super::x11::parse_display(&name, px::UNIX_SOCKETS) else {
+            tracing::info!("x11: unreadable DISPLAY");
+            return;
+        };
+        let lookup = name.clone();
+        let real = tokio::task::spawn_blocking(move || px::cookie(&lookup))
+            .await
+            .ok()
+            .flatten();
+        let mut fake = vec![0u8; 16];
+        if ring::rand::SecureRandom::fill(&ring::rand::SystemRandom::new(), &mut fake).is_err() {
+            return;
+        }
+        let cookie = super::x11::hex(&fake);
+        if let Ok(mut slot) = self.x11.lock() {
+            *slot = Some(Arc::new(X11Forward {
+                display,
+                fake,
+                real,
+            }));
+        }
+        if let Err(e) = channel
+            .request_x11(false, false, super::x11::PROTO, cookie, screen)
+            .await
+        {
+            tracing::debug!("x11 request: {e}");
         }
     }
 
@@ -600,7 +704,11 @@ impl SshTransport {
             .await
             .map_err(jump_err)?;
         let (jh, _) = jump
-            .login(Box::new(tcp), Arc::new(Mutex::new(HashMap::new())))
+            .login(
+                Box::new(tcp),
+                Arc::new(Mutex::new(HashMap::new())),
+                Arc::new(Mutex::new(None)),
+            )
             .await
             .map_err(jump_err)?;
         let ch = jh
@@ -724,7 +832,10 @@ impl Transport for SshTransport {
         }
         let target = self.target();
         let stream = self.open_stream().await?;
-        let (handle, info) = self.login.login(stream, Arc::clone(&self.remote)).await?;
+        let (handle, info) = self
+            .login
+            .login(stream, Arc::clone(&self.remote), Arc::clone(&self.x11))
+            .await?;
         self.host_key = Some(info);
         let handle = Arc::new(handle);
 
@@ -735,6 +846,9 @@ impl Transport for SshTransport {
             .request_pty(false, TERM, cols.into(), rows.into(), 0, 0, &[])
             .await
             .map_err(ssh_err)?;
+        if self.login.opts.x11 {
+            self.request_x11(&channel).await;
+        }
         channel.request_shell(false).await.map_err(ssh_err)?;
         let (mut read, write) = channel.split();
 

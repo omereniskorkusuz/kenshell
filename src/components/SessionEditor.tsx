@@ -415,6 +415,17 @@ export function SessionEditor({ state }: { state: EditorState }) {
                       <span className="block text-xs text-muted">{t('editor.useAgentHint')}</span>
                     </span>
                   </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={draft.x11}
+                      onChange={(e) => set('x11', e.target.checked)}
+                    />
+                    <span>
+                      {t('editor.x11')}
+                      <span className="block text-xs text-muted">{t('editor.x11Hint')}</span>
+                    </span>
+                  </label>
                   <Field label={t('editor.keyPath')}>
                     {(id) => (
                       <input

@@ -335,7 +335,9 @@
     "lineOff": "Off",
     "lineHint": "Line levels after the port opens. Some console cables or devices need DTR or RTS off.",
     "identify": "Read the device identity after login",
-    "identifyHint": "Runs a read-only show version once in the background; its output never appears in the terminal."
+    "identifyHint": "Runs a read-only show version once in the background; its output never appears in the terminal.",
+    "x11": "Forward X11",
+    "x11Hint": "Opens graphical programs of the server on this computer. Needs a local X server (XQuartz on macOS, VcXsrv or X410 on Windows). The server never sees your real X cookie."
   },
   "palette": {
     "placeholder": "Search sessions, snippets, consoles and actions…",
