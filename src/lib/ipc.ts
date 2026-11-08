@@ -1092,3 +1092,23 @@ export const diag = {
   },
   stop: (job: number) => call<undefined>('diag_stop', { job }),
 };
+
+// ------------------------------------------------------------------ Updates (P5-T10)
+
+export interface UpdateInfo {
+  version: string;
+  current: string;
+  notes: string | null;
+  date: string | null;
+}
+
+export const updates = {
+  status: () => call<{ configured: boolean; current: string }>('update_status'),
+  check: () => call<UpdateInfo | null>('update_check'),
+  async install(onProgress: (done: number, total: number | null) => void): Promise<void> {
+    if (!inTauri()) return;
+    const ch = new Channel<[number, number | null]>();
+    ch.onmessage = ([done, total]) => onProgress(done, total);
+    await invoke<undefined>('update_install', { onProgress: ch });
+  },
+};

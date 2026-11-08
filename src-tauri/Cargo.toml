@@ -44,6 +44,8 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 if-addrs = "0.15"
 # SFTP client protocol over a russh channel (ADR-019).
 russh-sftp = "3"
+# Signed app updates, registered only in release builds with an updater config (ADR-021).
+tauri-plugin-updater = "2"
 
 # Network scanner OS calls (ADR-018): all already in the tree.
 [target.'cfg(unix)'.dependencies]

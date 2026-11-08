@@ -7,7 +7,8 @@ import { Dialog } from '../components/Dialog';
 import ColorsSection from './ColorsSection';
 import { ShortcutsSection } from './ShortcutsSection';
 import KeysSection from './KeysSection';
-import { api, type ImportReport, type ImportSource, type ImportSources } from '../lib/ipc';
+import { checkForUpdate } from '../app/updates';
+import { api, updates, type ImportReport, type ImportSource, type ImportSources } from '../lib/ipc';
 import { describeError } from '../lib/errors';
 import { toast } from '../stores/toasts';
 import { useLibrary } from '../stores/library';
@@ -706,6 +707,41 @@ function ProfileRow(p: {
   );
 }
 
+function UpdatesRows() {
+  const t = useT();
+  const [auto, setAuto] = useSetting('updates.autoCheck');
+  const [status, setStatus] = useState<{ configured: boolean; current: string } | null>(null);
+  useEffect(() => {
+    void updates
+      .status()
+      .then(setStatus)
+      .catch(() => {});
+  }, []);
+  return (
+    <>
+      <h3 className="label-caps">{t('updates.title')}</h3>
+      <Row
+        label={t('updates.version', { version: status?.current ?? '' })}
+        {...(status && !status.configured ? { hint: t('updates.notConfigured') } : {})}
+      >
+        {() => (
+          <button
+            type="button"
+            className="btn btn-ghost h-8"
+            disabled={!status?.configured}
+            onClick={() => void checkForUpdate(false)}
+          >
+            {t('updates.checkNow')}
+          </button>
+        )}
+      </Row>
+      <Row label={t('updates.autoCheck')} hint={t('updates.autoCheckHint')}>
+        {(id) => <Toggle id={id} checked={auto} onChange={setAuto} />}
+      </Row>
+    </>
+  );
+}
+
 function DataSection() {
   const t = useT();
   const [sources, setSources] = useState<ImportSources | null>(null);
@@ -768,6 +804,7 @@ function DataSection() {
 
   return (
     <div className="flex flex-col gap-4">
+      <UpdatesRows />
       <h3 className="label-caps">{t('data.import')}</h3>
       <p className="text-sm text-muted">{t('data.importHint')}</p>
       <div className="flex flex-wrap gap-2">

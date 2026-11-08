@@ -93,6 +93,9 @@ pub fn run() {
             commands::backups::config_file_read,
             commands::netscan::netscan_networks,
             commands::netscan::oui_lookup,
+            commands::update::update_status,
+            commands::update::update_check,
+            commands::update::update_install,
             commands::ai::ai_key_status,
             commands::ai::ai_key_set,
             commands::ai::ai_key_clear,
@@ -202,6 +205,7 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            commands::update::install_plugin(app)?;
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let db = Arc::new(Db::open(&dir.join(DB_FILE))?);

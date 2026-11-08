@@ -12,3 +12,4 @@ bench/results/*.local.json
 
 # agent worktrees
 .assistant/worktrees/
+src-tauri/tauri.ci.conf.json

@@ -109,7 +109,64 @@ jobs:
         with: { targets: '${{ matrix.targets }}' }
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
-      - run: npx tauri build ${{ matrix.args }}
+      # Signing and updater artifacts are optional: each step does nothing until its
+      # secrets / variables exist. Unsigned builds work.
+      - name: Signing and updater config (only when configured)
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          UPDATER_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          UPDATER_PUBKEY: ${{ vars.UPDATER_PUBKEY }}
+          UPDATER_BASE_URL: ${{ vars.UPDATER_BASE_URL }}
+        run: |
+          overlay='{}'
+          if [ "$RUNNER_OS" = macOS ] && [ -n "$APPLE_CERTIFICATE" ]; then
+            for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+              if [ -n "${!v}" ]; then { echo "$v<<EOF"; echo "${!v}"; echo EOF; } >> "$GITHUB_ENV"; fi
+            done
+            echo "macOS signing + notarization: on"
+          fi
+          if [ -n "$UPDATER_KEY" ] && [ -n "$UPDATER_PUBKEY" ] && [ -n "$UPDATER_BASE_URL" ]; then
+            { echo "TAURI_SIGNING_PRIVATE_KEY<<EOF"; echo "$UPDATER_KEY"; echo EOF; } >> "$GITHUB_ENV"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATER_KEY_PASSWORD" >> "$GITHUB_ENV"
+            overlay=$(node -e 'const [k,u]=process.argv.slice(1);console.log(JSON.stringify({bundle:{createUpdaterArtifacts:true},plugins:{updater:{pubkey:k,endpoints:[u.replace(/\/+$/,"")+"/latest.json"]}}}))' "$UPDATER_PUBKEY" "$UPDATER_BASE_URL")
+            echo "updater artifacts: on"
+          fi
+          echo "$overlay" > src-tauri/tauri.ci.conf.json
+      - name: Windows code signing (only when configured)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE) { Write-Host "Windows signing: off"; exit 0 }
+          $pfx = Join-Path $env:RUNNER_TEMP cert.pfx
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $pass = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pass
+          Remove-Item $pfx
+          $conf = Get-Content src-tauri/tauri.ci.conf.json | ConvertFrom-Json -AsHashtable
+          $conf.bundle = ($conf.bundle ?? @{})
+          $conf.bundle.windows = @{ certificateThumbprint = $cert.Thumbprint; digestAlgorithm = 'sha256'; timestampUrl = 'http://timestamp.digicert.com' }
+          $conf | ConvertTo-Json -Depth 8 | Set-Content src-tauri/tauri.ci.conf.json
+          Write-Host "Windows signing: on"
+      - run: npx tauri build ${{ matrix.args }} --config src-tauri/tauri.ci.conf.json
+      - name: Windows portable zip
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ver = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          New-Item -ItemType Directory -Force target/release/bundle/portable | Out-Null
+          Copy-Item target/release/kenshell.exe target/release/bundle/portable/KenShell.exe
+          Compress-Archive -Force -Path target/release/bundle/portable/KenShell.exe -DestinationPath "target/release/bundle/portable/KenShell_${ver}_x64_portable.zip"
+          Remove-Item target/release/bundle/portable/KenShell.exe
       - name: Installer size budget
         shell: bash
         run: |
@@ -121,5 +178,34 @@ jobs:
           path: |
             target/**/bundle/dmg/*.dmg
             target/**/bundle/nsis/*.exe
+            target/**/bundle/nsis/*.sig
             target/**/bundle/msi/*.msi
+            target/**/bundle/macos/*.app.tar.gz
+            target/**/bundle/macos/*.sig
+            target/**/bundle/portable/*.zip
           if-no-files-found: warn
+
+  release:
+    # A version tag makes a DRAFT release with every bundle (and latest.json when the
+    # updater is configured); publishing it stays a manual step.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [bundle]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: dist-release }
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPDATER_BASE_URL: ${{ vars.UPDATER_BASE_URL }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          files=$(find dist-release -type f \( -name '*.dmg' -o -name '*.msi' -o -name '*-setup.exe' -o -name '*.zip' -o -name '*.app.tar.gz' -o -name '*.sig' \))
+          if [ -n "$UPDATER_BASE_URL" ] && ls $files | grep -q '\.sig$'; then
+            node tools/scripts/latest-json.mjs "$tag" "${UPDATER_BASE_URL%/}/$tag" dist-release > latest.json
+            files="$files latest.json"
+          fi
+          gh release create "$tag" --draft --title "KenShell $tag" --generate-notes $files

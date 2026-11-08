@@ -23,6 +23,7 @@ import { toast } from '../stores/toasts';
 import { useUi } from '../stores/ui';
 import { installSettingsEffects } from './effects';
 import { installShortcuts } from './keyboard';
+import { scheduleUpdateCheck } from './updates';
 
 /** Windows opened by moving a tab out (P2-T19) show only their sessions: no library. */
 const DETACHED = typeof location !== 'undefined' && location.hash === '#detached';
@@ -67,6 +68,7 @@ export function App() {
     });
     const disposeEffects = installSettingsEffects();
     const disposeKeys = installShortcuts();
+    const disposeUpdates = scheduleUpdateCheck();
     void useSettings.getState().load();
     void useLibrary.getState().load();
     void useNotes.getState().loadPinned();
@@ -95,6 +97,7 @@ export function App() {
       unlisten?.();
       disposeEffects();
       disposeKeys();
+      disposeUpdates();
     };
     // Boot once; `t` is a stable module function.
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1098,5 +1098,18 @@
       "aborted": "Stopped.",
       "api": "The API returned an error."
     }
+  },
+  "updates": {
+    "title": "Updates",
+    "version": "KenShell {{version}}",
+    "notConfigured": "This build has no update server (development build).",
+    "checkNow": "Check now",
+    "autoCheck": "Check for updates after start",
+    "autoCheckHint": "Only asks; an update installs when you click Install.",
+    "available": "KenShell {{version}} is available.",
+    "install": "Install and restart",
+    "upToDate": "KenShell is up to date.",
+    "downloading": "Downloading update… {{percent}}%",
+    "downloadingBytes": "Downloading update…"
   }
 }

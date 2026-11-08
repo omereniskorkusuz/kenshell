@@ -1227,6 +1227,10 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         return `/demo/logs/recording.cast`;
       case 'recording_read':
         return mockCast();
+      case 'update_status':
+        return { configured: false, current: '0.1.0' };
+      case 'update_check':
+        throw { code: 'unsupported', message: 'updates are not configured in this build' };
       case 'ai_key_status':
         return mockAiKey !== null;
       case 'ai_key_set':

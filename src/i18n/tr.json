@@ -1098,5 +1098,18 @@
       "aborted": "Durduruldu.",
       "api": "API bir hata döndürdü."
     }
+  },
+  "updates": {
+    "title": "Güncellemeler",
+    "version": "KenShell {{version}}",
+    "notConfigured": "Bu derlemede güncelleme sunucusu yok (geliştirme derlemesi).",
+    "checkNow": "Şimdi denetle",
+    "autoCheck": "Açılıştan sonra güncellemeleri denetle",
+    "autoCheckHint": "Yalnız sorar; güncelleme Kur'a tıkladığınızda kurulur.",
+    "available": "KenShell {{version}} hazır.",
+    "install": "Kur ve yeniden başlat",
+    "upToDate": "KenShell güncel.",
+    "downloading": "Güncelleme indiriliyor… %{{percent}}",
+    "downloadingBytes": "Güncelleme indiriliyor…"
   }
 }
