@@ -63,12 +63,14 @@ function NotesList({ sessionId, deviceId }: { sessionId: number | null; deviceId
   }, []);
   const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
 
+  const rev = useNotes((s) => s.rev);
   const load = useCallback(() => {
+    void rev; // reload after edits made in a notes bar
     api
       .notesList(sessionId, deviceId)
       .then(setNotes)
       .catch(() => setNotes([]));
-  }, [sessionId, deviceId]);
+  }, [sessionId, deviceId, rev]);
   useEffect(load, [load]);
   /** After a change: this list, the terminal tooltips and the session list subtitles. */
   const reload = () => {

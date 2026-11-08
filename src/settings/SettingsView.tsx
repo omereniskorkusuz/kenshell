@@ -1,6 +1,7 @@
 /**
  * Settings (lazy chunk). Every change applies instantly and is persisted — no Save/OK.
  */
+import { AI_FEATURE } from '../lib/features';
 import { HIGHLIGHT_CATEGORIES } from '../terminal/highlight';
 import { useEffect, useId, useState, type ReactNode, type FormEvent } from 'react';
 import { Dialog } from '../components/Dialog';
@@ -38,7 +39,7 @@ const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'logging', label: 'settings.logging' },
   { id: 'console', label: 'settings.console' },
   { id: 'shortcuts', label: 'settings.shortcuts' },
-  { id: 'ai', label: 'settings.ai' },
+  ...(AI_FEATURE ? [{ id: 'ai' as const, label: 'settings.ai' as const }] : []),
   { id: 'data', label: 'settings.data' },
 ];
 
@@ -81,7 +82,7 @@ export default function SettingsView() {
           {section === 'logging' && <LoggingSection />}
           {section === 'console' && <ConsoleSection />}
           {section === 'shortcuts' && <ShortcutsSection />}
-          {section === 'ai' && <AiSection />}
+          {AI_FEATURE && section === 'ai' && <AiSection />}
           {section === 'data' && <DataSection />}
           <p className="mt-auto text-xs text-muted">{t('settings.instantHint')}</p>
         </div>
@@ -106,14 +107,16 @@ function Row({
 }) {
   const id = useId();
   return (
-    <div className="flex items-center gap-4">
-      <div className="min-w-0 flex-1">
+    // Wraps instead of squeezing: a wide control (key field, checkbox group) moves under
+    // its label rather than crushing the label column to one word per line.
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="min-w-48 flex-1 basis-56">
         <label htmlFor={id} className="text-sm text-primary">
           {label}
         </label>
         {hint && <p className="text-xs text-muted">{hint}</p>}
       </div>
-      <div className="shrink-0">{children(id)}</div>
+      <div className="max-w-full">{children(id)}</div>
     </div>
   );
 }
@@ -368,7 +371,7 @@ function TerminalSection() {
               className="flex flex-wrap gap-x-4 gap-y-1"
             >
               {HIGHLIGHT_CATEGORIES.map((c) => (
-                <label key={c} className="flex items-center gap-1.5">
+                <label key={c} className="flex items-center gap-1.5 whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={!highlightOff.includes(c)}
@@ -506,7 +509,7 @@ function AiSection() {
         hint={`${t('settings.aiKeyHint')} · ${hasKey ? t('settings.aiKeySaved') : t('settings.aiKeyNone')}`}
       >
         {(id) => (
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             <input
               id={id}
               type="password"

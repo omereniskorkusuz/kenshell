@@ -82,6 +82,7 @@
   --mode-boot: #e08fd6;
   --mode-boot-alt: #8a4e83;
   --mode-shell: #3cc6a6;
+  --brand: #3cc6a6;
   --mode-chip-alpha: 14%;
 
   --env-prod: #f2737a;
@@ -142,6 +143,7 @@
   --mode-boot: #8e2f78;
   --mode-boot-alt: #d7a6cc;
   --mode-shell: #0a6656;
+  --brand: #0a6656;
   --mode-chip-alpha: 10%;
 
   --env-prod: #a8232b;

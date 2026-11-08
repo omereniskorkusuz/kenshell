@@ -46,6 +46,9 @@ interface UiState {
   /** Tool shown in the side panel's Tools tab (Phase 5). */
   tool: ToolId;
   openTool(tool: ToolId): void;
+  /** Tabs whose notes bar (under the terminal) is open. */
+  notesBar: string[];
+  toggleNotesBar(key: string): void;
   /** Text to start a new note with (terminal "Add note"); the notes panel takes it. */
   noteDraft: string | null;
   /** Snippet (item key) whose fill-in form the snippets panel opens (palette, P3-T17). */
@@ -101,6 +104,13 @@ export const useUi = create<UiState>()((set, get) => ({
   openReplay: (path) => set({ replay: path }),
   closeReplay: () => set({ replay: null }),
   openTool: (tool) => set({ tool, sidePanelTab: 'tools', sidePanelOpen: true }),
+  notesBar: [],
+  toggleNotesBar: (key) =>
+    set((s) => ({
+      notesBar: s.notesBar.includes(key)
+        ? s.notesBar.filter((k) => k !== key)
+        : [...s.notesBar, key],
+    })),
   noteDraft: null,
   snippetFill: null,
   statusMessage: null,

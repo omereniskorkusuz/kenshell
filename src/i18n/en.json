@@ -74,7 +74,8 @@
     "exportHtml": "Export output as HTML (colours)",
     "openRecording": "Open a recording (replay)",
     "aiExplainSelection": "AI: explain the selection",
-    "aiExplainOutput": "AI: explain the last output"
+    "aiExplainOutput": "AI: explain the last output",
+    "toggleNotesBar": "Toggle notes bar"
   },
   "quick": {
     "label": "Quick connect",
@@ -1114,5 +1115,13 @@
     "upToDate": "KenShell is up to date.",
     "downloading": "Downloading update… {{percent}}%",
     "downloadingBytes": "Downloading update…"
+  },
+  "notesBar": {
+    "title": "Notes",
+    "placeholder": "Write a note and press Enter (saved with the time)",
+    "expand": "Show notes",
+    "collapse": "Hide notes",
+    "close": "Close notes bar",
+    "toggle": "Notes bar"
   }
 }

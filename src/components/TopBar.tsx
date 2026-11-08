@@ -5,6 +5,7 @@ import { useShortcuts } from '../app/actions';
 import { useSettings } from '../stores/settings';
 import { useUi } from '../stores/ui';
 import { runAction } from '../app/actions';
+import { Logo } from './Logo';
 import { QuickConnect } from './QuickConnect';
 
 export function TopBar() {
@@ -28,7 +29,7 @@ export function TopBar() {
       >
         <PanelLeft size={16} />
       </button>
-      <span className="font-semibold tracking-tight">{t('app.name')}</span>
+      <Logo size={18} className="select-none" />
       <QuickConnect />
       <div className="ml-auto flex items-center gap-1">
         <button

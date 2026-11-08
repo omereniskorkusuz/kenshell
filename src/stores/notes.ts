@@ -13,6 +13,8 @@ interface NotesState {
   /** owner → interface key → note text (pinned first, then newest). */
   byOwner: Record<string, Record<string, string>>;
   pinned: PinnedNote[];
+  /** Bumped on every change, so the side panel and the notes bar reload each other's edits. */
+  rev: number;
   loadOwner(sessionId: number | null, deviceId: number | null): Promise<void>;
   loadPinned(): Promise<void>;
   changed(sessionId: number | null, deviceId: number | null): void;
@@ -21,6 +23,7 @@ interface NotesState {
 export const useNotes = create<NotesState>()((set) => ({
   byOwner: {},
   pinned: [],
+  rev: 0,
 
   async loadOwner(sessionId, deviceId) {
     if (sessionId === null && deviceId === null) return;
@@ -37,6 +40,7 @@ export const useNotes = create<NotesState>()((set) => ({
   },
 
   changed(sessionId, deviceId) {
+    set((s) => ({ rev: s.rev + 1 }));
     void useNotes.getState().loadOwner(sessionId, deviceId);
     void useNotes.getState().loadPinned();
   },

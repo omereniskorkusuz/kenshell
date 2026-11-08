@@ -8,7 +8,7 @@
  * Mode/env colors come from data-mode/data-env on the pane (CSS variables), never React state.
  */
 import { useEffect, useState } from 'react';
-import { Info, KeyRound, PanelRight, RotateCw } from 'lucide-react';
+import { Info, KeyRound, NotebookPen, PanelRight, RotateCw } from 'lucide-react';
 import { useT, type TKey } from '../i18n';
 import { compactParts } from '../lib/compact';
 import { formatUptime, formatUptimeShort, msToNextMinute } from '../lib/format';
@@ -37,6 +37,7 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
   const sc = useShortcuts(mac);
   const status = tabStatus(tab, t);
   const sidePanelOpen = useUi((s) => s.sidePanelOpen);
+  const notesOpen = useUi((s) => s.notesBar.includes(tab.key));
   const baudMenu = useMenu();
   const [details, setDetails] = useState(false);
   const customLabels = useSettings((s) => s.values['appearance.colors'].labels);
@@ -214,6 +215,16 @@ export function IdentityBar({ tab, compact, width, visible }: Props) {
           {t('identity.break')}
         </button>
       )}
+      <button
+        type="button"
+        className="icon-btn"
+        aria-pressed={notesOpen}
+        aria-label={t('notesBar.toggle')}
+        title={t('notesBar.toggle') + sc.hint('notes.toggleBar')}
+        onClick={() => useUi.getState().toggleNotesBar(tab.key)}
+      >
+        <NotebookPen size={15} />
+      </button>
       <button
         type="button"
         className="icon-btn"

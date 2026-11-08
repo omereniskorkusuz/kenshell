@@ -1,4 +1,5 @@
 /** Side panel → Tools (Phase 5): file transfer, embedded file servers, network tools. */
+import { AI_FEATURE } from '../lib/features';
 import { useT, type TKey } from '../i18n';
 import { useSettings } from '../stores/settings';
 import { useUi, type ToolId } from '../stores/ui';
@@ -16,7 +17,7 @@ const TOOLS: [ToolId, TKey][] = [
 
 export function ToolsPanel() {
   const t = useT();
-  const aiOn = useSettings((s) => s.values['ai.enabled']);
+  const aiOn = useSettings((s) => s.values['ai.enabled']) && AI_FEATURE;
   const picked = useUi((s) => s.tool);
   // The assistant is listed only while it is turned on.
   const tool = picked === 'ai' && !aiOn ? 'transfer' : picked;

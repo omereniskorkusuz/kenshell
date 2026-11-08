@@ -11,6 +11,7 @@ import { envKind } from '../lib/tree';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
 import { IdentityBar } from './IdentityBar';
+import { NotesBar } from './NotesBar';
 import { SearchBar } from './SearchBar';
 
 export const loadTerminalView = () => import('../terminal/TerminalView');
@@ -44,6 +45,7 @@ export function Pane({ tab, visible, focused, rect }: Props) {
   const ref = useRef<HTMLElement>(null);
   const [layout, setLayout] = useState<Layout>({ compact: false, width: 0 });
   const searching = useUi((s) => s.findKey === tab.key);
+  const notesOpen = useUi((s) => s.notesBar.includes(tab.key));
   const casting = useTabs((s) => s.broadcast.includes(tab.key));
   const dropZone = useUi((s) => (s.tabDrag?.pane === tab.key ? s.tabDrag.zone : null));
   const box: CSSProperties | undefined = rect
@@ -102,6 +104,7 @@ export function Pane({ tab, visible, focused, rect }: Props) {
             <TerminalView tabKey={tab.key} visible={visible} focused={visible && focused} />
           </Suspense>
         </div>
+        {notesOpen && <NotesBar tab={tab} />}
       </div>
       {dropZone && <div className="drop-hint" data-zone={dropZone} aria-hidden />}
     </section>

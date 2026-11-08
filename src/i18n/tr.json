@@ -74,7 +74,8 @@
     "exportHtml": "Çıktıyı HTML olarak dışa aktar (renkli)",
     "openRecording": "Kayıt aç (tekrar oynat)",
     "aiExplainSelection": "AI: seçimi açıkla",
-    "aiExplainOutput": "AI: son çıktıyı açıkla"
+    "aiExplainOutput": "AI: son çıktıyı açıkla",
+    "toggleNotesBar": "Not çubuğunu aç/kapat"
   },
   "quick": {
     "label": "Hızlı bağlan",
@@ -1114,5 +1115,13 @@
     "upToDate": "KenShell güncel.",
     "downloading": "Güncelleme indiriliyor… %{{percent}}",
     "downloadingBytes": "Güncelleme indiriliyor…"
+  },
+  "notesBar": {
+    "title": "Notlar",
+    "placeholder": "Notunuzu yazıp Enter'a basın (saatiyle kaydedilir)",
+    "expand": "Notları göster",
+    "collapse": "Notları gizle",
+    "close": "Not çubuğunu kapat",
+    "toggle": "Not çubuğu"
   }
 }

@@ -22,6 +22,7 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-info: var(--info);
+  --color-brand: var(--brand);
   --color-mode: var(--mode-current);
   --color-env: var(--env-current);
   --color-focus: var(--focus-ring);

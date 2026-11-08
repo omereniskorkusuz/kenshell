@@ -2,6 +2,7 @@
  * Central action registry. Every user-facing command lives here once; the command palette
  * lists them, the global keyboard handler triggers them and menus show their shortcut hint.
  */
+import { AI_FEATURE } from '../lib/features';
 import { pagingDisableCommand } from '../lib/paging';
 import { t, type TKey } from '../i18n';
 import type * as AssistantPanelModule from '../components/AssistantPanel';
@@ -83,7 +84,7 @@ function aiTake(m: AssistantModule, what: 'selection' | 'output') {
   if (!m.takeFromTerminal(what, t('ai.presets.explain'))) useUi.getState().flash(t('ai.nothing'));
 }
 
-export const ACTIONS: readonly AppAction[] = [
+const ALL_ACTIONS: readonly AppAction[] = [
   {
     id: 'palette.open',
     title: 'actions.commandPalette',
@@ -402,6 +403,18 @@ export const ACTIONS: readonly AppAction[] = [
     run: () => useUi.getState().toggleSidePanel(),
   },
   {
+    id: 'notes.toggleBar',
+    title: 'actions.toggleNotesBar',
+    group: 'actions',
+    shortcut: 'mod+alt+n',
+    keywords: ['notes', 'notlar', 'not', 'memo', 'log'],
+    enabled: hasActiveTab,
+    run: () => {
+      const key = useTabs.getState().activeKey;
+      if (key) useUi.getState().toggleNotesBar(key);
+    },
+  },
+  {
     id: 'theme.dark',
     title: 'actions.themeDark',
     group: 'settings',
@@ -461,6 +474,11 @@ export const ACTIONS: readonly AppAction[] = [
   ...paneFocus,
   ...tabSelectors,
 ];
+
+/** Actions of features that are switched off are left out everywhere. */
+export const ACTIONS: readonly AppAction[] = AI_FEATURE
+  ? ALL_ACTIONS
+  : ALL_ACTIONS.filter((a) => !a.id.startsWith('ai.'));
 
 export const actionById = (id: string): AppAction | undefined => ACTIONS.find((a) => a.id === id);
 

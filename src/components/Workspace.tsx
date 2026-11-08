@@ -7,6 +7,7 @@ import { newSerialSession } from '../app/actions';
 import { chipLabel, useConsoles } from '../stores/consoles';
 import { cellRect } from '../lib/split';
 import { useTabs } from '../stores/tabs';
+import { LogoMark, Wordmark } from './Logo';
 import { Pane } from './Pane';
 import { SidePanel } from './SidePanel';
 import { TabBar } from './TabBar';
@@ -55,6 +56,10 @@ function EmptyState() {
     <div className="flex h-full" data-mode="unknown">
       <div className="mode-stripe shrink-0" aria-hidden />
       <div className="m-auto flex max-w-md flex-col items-center gap-3 px-6 text-center">
+        <div className="mb-4 flex select-none flex-col items-center gap-3">
+          <LogoMark size={96} />
+          <Wordmark className="text-3xl" />
+        </div>
         <h1 className="text-lg font-medium text-secondary">{t('shell.emptyTitle')}</h1>
         <p className="text-sm text-muted">
           {t('shell.emptyHint', { shortcut: sc.label('quickConnect.focus') })}
