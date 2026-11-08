@@ -829,6 +829,11 @@ export const api = {
   liveRecordStop: (id: RuntimeId) => call<string | null>('live_record_stop', { id }),
   recordingRead: (path: string) => call<string>('recording_read', { path }),
   textExport: (path: string, text: string) => call<undefined>('text_export', { path, text }),
+  /** AI assistant key in the OS keychain (P5-T08). */
+  aiKeyStatus: () => call<boolean>('ai_key_status'),
+  aiKeySet: (key: string) => call<undefined>('ai_key_set', { key }),
+  aiKeyClear: () => call<undefined>('ai_key_clear'),
+  aiKeyGet: () => call<string | null>('ai_key_get'),
   liveBreak: (id: RuntimeId) => call<undefined>('live_break', { id }),
   liveClose: (id: RuntimeId) => call<undefined>('live_close', { id }),
   liveReconnect: (id: RuntimeId) => call<undefined>('live_reconnect', { id }),

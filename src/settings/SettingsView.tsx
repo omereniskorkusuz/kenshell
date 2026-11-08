@@ -25,6 +25,7 @@ type SectionId =
   | 'logging'
   | 'console'
   | 'shortcuts'
+  | 'ai'
   | 'data';
 const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'appearance', label: 'settings.appearance' },
@@ -36,6 +37,7 @@ const SECTIONS: { id: SectionId; label: TKey }[] = [
   { id: 'logging', label: 'settings.logging' },
   { id: 'console', label: 'settings.console' },
   { id: 'shortcuts', label: 'settings.shortcuts' },
+  { id: 'ai', label: 'settings.ai' },
   { id: 'data', label: 'settings.data' },
 ];
 
@@ -78,6 +80,7 @@ export default function SettingsView() {
           {section === 'logging' && <LoggingSection />}
           {section === 'console' && <ConsoleSection />}
           {section === 'shortcuts' && <ShortcutsSection />}
+          {section === 'ai' && <AiSection />}
           {section === 'data' && <DataSection />}
           <p className="mt-auto text-xs text-muted">{t('settings.instantHint')}</p>
         </div>
@@ -462,6 +465,91 @@ function TerminalSection() {
           />
         )}
       </Row>
+    </>
+  );
+}
+
+function AiSection() {
+  const t = useT();
+  const [enabled, setEnabled] = useSetting('ai.enabled');
+  const [model, setModel] = useSetting('ai.model');
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
+  const [draft, setDraft] = useState('');
+  useEffect(() => {
+    void api
+      .aiKeyStatus()
+      .then(setHasKey)
+      .catch(() => setHasKey(false));
+  }, []);
+  const saveKey = async () => {
+    try {
+      await api.aiKeySet(draft);
+      setDraft('');
+      setHasKey(true);
+    } catch (e) {
+      const d = describeError(e, t);
+      toast({ kind: 'error', message: d.message, detail: d.detail });
+    }
+  };
+  const clearKey = async () => {
+    await api.aiKeyClear().catch(() => {});
+    setHasKey(false);
+  };
+  return (
+    <>
+      <Row label={t('settings.aiEnabled')} hint={t('settings.aiEnabledHint')}>
+        {(id) => <Toggle id={id} checked={enabled} onChange={setEnabled} />}
+      </Row>
+      <Row
+        label={t('settings.aiKey')}
+        hint={`${t('settings.aiKeyHint')} · ${hasKey ? t('settings.aiKeySaved') : t('settings.aiKeyNone')}`}
+      >
+        {(id) => (
+          <div className="flex gap-1">
+            <input
+              id={id}
+              type="password"
+              className="field mono h-8 w-56 text-xs"
+              value={draft}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="sk-ant-…"
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn-primary h-8"
+              disabled={!draft.trim()}
+              onClick={() => void saveKey()}
+            >
+              {t('settings.aiKeySave')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost h-8"
+              disabled={!hasKey}
+              onClick={() => void clearKey()}
+            >
+              {t('settings.aiKeyClear')}
+            </button>
+          </div>
+        )}
+      </Row>
+      <Row label={t('settings.aiModel')}>
+        {(id) => (
+          <select
+            id={id}
+            className="field h-8 text-sm"
+            value={model}
+            onChange={(e) => setModel(e.target.value as typeof model)}
+          >
+            <option value="model-id">Model</option>
+            <option value="model-id">Model</option>
+            <option value="model-id">Model</option>
+          </select>
+        )}
+      </Row>
+      <p className="text-xs text-muted">{t('settings.aiPrivacy')}</p>
     </>
   );
 }

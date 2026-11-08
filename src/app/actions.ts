@@ -4,6 +4,7 @@
  */
 import { pagingDisableCommand } from '../lib/paging';
 import { t, type TKey } from '../i18n';
+import type * as AssistantPanelModule from '../components/AssistantPanel';
 import { api, canDetach, DEFAULT_SERIAL } from '../lib/ipc';
 import { effective, formatChord } from '../lib/shortcuts';
 import type { Arrow } from '../lib/split';
@@ -75,6 +76,12 @@ const tabSelectors: AppAction[] = Array.from({ length: 9 }, (_, i) => ({
   hidden: true,
   run: () => useTabs.getState().selectIndex(i),
 }));
+
+type AssistantModule = typeof AssistantPanelModule;
+
+function aiTake(m: AssistantModule, what: 'selection' | 'output') {
+  if (!m.takeFromTerminal(what, t('ai.presets.explain'))) useUi.getState().flash(t('ai.nothing'));
+}
 
 export const ACTIONS: readonly AppAction[] = [
   {
@@ -352,6 +359,22 @@ export const ACTIONS: readonly AppAction[] = [
         .then((path) => path && useUi.getState().openReplay(path))
         .catch(() => {});
     },
+  },
+  {
+    id: 'ai.explainSelection',
+    title: 'actions.aiExplainSelection',
+    group: 'actions',
+    keywords: ['ai', 'assistant', 'explain', 'assistant', 'asistan', 'açıkla', 'yapay zeka'],
+    enabled: () => getSetting('ai.enabled') && hasActiveTab(),
+    run: () => void import('../components/AssistantPanel').then((m) => aiTake(m, 'selection')),
+  },
+  {
+    id: 'ai.explainOutput',
+    title: 'actions.aiExplainOutput',
+    group: 'actions',
+    keywords: ['ai', 'assistant', 'explain', 'output', 'asistan', 'çıktı', 'yapay zeka'],
+    enabled: () => getSetting('ai.enabled') && hasActiveTab(),
+    run: () => void import('../components/AssistantPanel').then((m) => aiTake(m, 'output')),
   },
   {
     id: 'terminal.timestamps',

@@ -65,6 +65,9 @@ export interface AppSettings {
   'connection.sshLegacy': boolean;
   /** SSH keepalive seconds where the session sets none (0 = off). */
   'connection.sshKeepalive': number;
+  /** Optional AI assistant (P5-T08): off by default; its code loads only when on. */
+  'ai.enabled': boolean;
+  'ai.model': 'model-id' | 'model-id' | 'model-id';
 }
 
 export type SettingKey = keyof AppSettings;
@@ -107,6 +110,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'terminal.renderer': 'auto',
   'connection.sshLegacy': false,
   'connection.sshKeepalive': 30,
+  'ai.enabled': false,
+  'ai.model': 'model-id',
 };
 
 export const LIMITS = {
@@ -181,7 +186,14 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'terminal.autoMore':
       case 'log.timestamps':
       case 'connection.sshLegacy':
+      case 'ai.enabled':
         return bool(value, d[k]);
+      case 'ai.model':
+        return oneOf(
+          value,
+          ['model-id', 'model-id', 'model-id'] as const,
+          d[k],
+        );
       case 'shortcuts.overrides':
         return sanitizeOverrides(value);
       case 'terminal.renderer':

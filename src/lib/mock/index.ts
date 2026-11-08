@@ -1227,6 +1227,16 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         return `/demo/logs/recording.cast`;
       case 'recording_read':
         return mockCast();
+      case 'ai_key_status':
+        return mockAiKey !== null;
+      case 'ai_key_set':
+        mockAiKey = String(a.key);
+        return undefined;
+      case 'ai_key_clear':
+        mockAiKey = null;
+        return undefined;
+      case 'ai_key_get':
+        return mockAiKey;
       case 'text_export':
         return undefined;
       case 'live_resize':
@@ -1678,3 +1688,5 @@ function mockCast(): string {
     ...ev.map((e) => JSON.stringify(e)),
   ].join('\n');
 }
+
+let mockAiKey: string | null = null;

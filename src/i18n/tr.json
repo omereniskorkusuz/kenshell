@@ -72,7 +72,9 @@
     "toggleRecording": "Kaydı başlat / durdur",
     "exportText": "Çıktıyı metin olarak dışa aktar",
     "exportHtml": "Çıktıyı HTML olarak dışa aktar (renkli)",
-    "openRecording": "Kayıt aç (tekrar oynat)"
+    "openRecording": "Kayıt aç (tekrar oynat)",
+    "aiExplainSelection": "AI: seçimi açıkla",
+    "aiExplainOutput": "AI: son çıktıyı açıkla"
   },
   "quick": {
     "label": "Hızlı bağlan",
@@ -446,7 +448,18 @@
     "renderer": "Terminal çizici",
     "rendererHint": "Otomatik, varsa GPU'yu (WebGL) kullanır. Yeni açılan sekmelerde geçerli.",
     "rendererAuto": "Otomatik",
-    "rendererDom": "Uyumlu (DOM)"
+    "rendererDom": "Uyumlu (DOM)",
+    "ai": "AI asistanı",
+    "aiEnabled": "AI asistanını aç",
+    "aiEnabledHint": "Varsayılan kapalı. Kapalıyken kodu hiç yüklenmez ve hiçbir şey gönderilmez.",
+    "aiKey": "API anahtarı (Anthropic)",
+    "aiKeyHint": "Sistem anahtar zincirinde saklanır; dosyaya, loga ya da dışa aktarmaya girmez.",
+    "aiKeySaved": "Kayıtlı",
+    "aiKeyNone": "Yok",
+    "aiKeySave": "Anahtarı kaydet",
+    "aiKeyClear": "Anahtarı sil",
+    "aiModel": "Model",
+    "aiPrivacy": "Bu bilgisayardan yalnız asistan panelinden gönderdiğiniz çıkar: maskelenmiş önizleme ve sorunuz. Şifreler, secret'lar, anahtarlar ve SNMP community'leri önce maskelenir. Asistan hiçbir oturuma yazmaz."
   },
   "shortcuts": {
     "filter": "Eylem ya da tuş ara",
@@ -1048,5 +1061,40 @@
     "close": "Kapat",
     "invalid": "asciicast v2 kaydı değil",
     "hint": "Boşluk: oynat / duraklat · ←/→: 5 sn · Esc: kapat"
+  },
+  "ai": {
+    "title": "AI asistanı",
+    "takeSelection": "Seçimi kullan",
+    "takeOutput": "Son çıktıyı kullan",
+    "preview": "Gönderilecek",
+    "masked_one": "{{count}} gizli değer maskelendi",
+    "masked_other": "{{count}} gizli değer maskelendi",
+    "trimmed": "sonundan kısaltıldı",
+    "clearContext": "Terminal metnini kaldır",
+    "question": "Sorunuz (⌘/Ctrl+Enter gönderir)",
+    "presetLabels": {
+      "explain": "Açıkla",
+      "error": "Hatayı yorumla",
+      "suggest": "Komut öner"
+    },
+    "presets": {
+      "explain": "Bu çıktıyı açıkla. Sorunlu görünen bir şey varsa belirt.",
+      "error": "Bu hata ne anlama geliyor, nasıl düzeltirim?",
+      "suggest": "Bunu kontrol etmek ya da düzeltmek için sırada hangi komutları çalıştırmalıyım?"
+    },
+    "send": "Gönder",
+    "stop": "Durdur",
+    "privacy": "Yalnız yukarıdaki metin ve sorunuz Anthropic'e gider.",
+    "copy": "Yanıtı kopyala",
+    "nothing": "Alınacak metin yok: önce metin seçin ya da bir komut çalıştırın.",
+    "errors": {
+      "noKey": "Henüz API anahtarı yok: Ayarlar → AI asistanı'ndan ekleyin.",
+      "auth": "API anahtarı reddedildi.",
+      "rateLimit": "API hız sınırı; biraz sonra tekrar deneyin.",
+      "refused": "Model bunu yanıtlamayı reddetti.",
+      "network": "API'ye ulaşılamıyor (ağ).",
+      "aborted": "Durduruldu.",
+      "api": "API bir hata döndürdü."
+    }
   }
 }

@@ -72,7 +72,9 @@
     "toggleRecording": "Start / stop recording",
     "exportText": "Export output as text",
     "exportHtml": "Export output as HTML (colours)",
-    "openRecording": "Open a recording (replay)"
+    "openRecording": "Open a recording (replay)",
+    "aiExplainSelection": "AI: explain the selection",
+    "aiExplainOutput": "AI: explain the last output"
   },
   "quick": {
     "label": "Quick connect",
@@ -446,7 +448,18 @@
     "renderer": "Terminal renderer",
     "rendererHint": "Automatic uses the GPU (WebGL) when available. Applies to newly opened tabs.",
     "rendererAuto": "Automatic",
-    "rendererDom": "Compatible (DOM)"
+    "rendererDom": "Compatible (DOM)",
+    "ai": "AI assistant",
+    "aiEnabled": "Turn on the AI assistant",
+    "aiEnabledHint": "Off by default. While off, none of its code is loaded and nothing is ever sent.",
+    "aiKey": "API key (Anthropic)",
+    "aiKeyHint": "Stored in the system keychain; never in files, logs or exports.",
+    "aiKeySaved": "Saved",
+    "aiKeyNone": "Not set",
+    "aiKeySave": "Save key",
+    "aiKeyClear": "Remove key",
+    "aiModel": "Model",
+    "aiPrivacy": "Only what you send from the assistant panel leaves this computer: the masked preview and your question. Passwords, secrets, keys and SNMP communities are masked first. The assistant never types into a session."
   },
   "shortcuts": {
     "filter": "Filter actions or keys",
@@ -1048,5 +1061,40 @@
     "close": "Close",
     "invalid": "Not an asciicast v2 recording",
     "hint": "Space: play / pause · ←/→: 5 s · Esc: close"
+  },
+  "ai": {
+    "title": "AI assistant",
+    "takeSelection": "Use selection",
+    "takeOutput": "Use last output",
+    "preview": "Will be sent",
+    "masked_one": "{{count}} secret masked",
+    "masked_other": "{{count}} secrets masked",
+    "trimmed": "shortened to the end",
+    "clearContext": "Remove the terminal text",
+    "question": "Your question (⌘/Ctrl+Enter sends)",
+    "presetLabels": {
+      "explain": "Explain",
+      "error": "Interpret error",
+      "suggest": "Suggest commands"
+    },
+    "presets": {
+      "explain": "Explain this output. Point out anything that looks wrong.",
+      "error": "What does this error mean, and how do I fix it?",
+      "suggest": "Which commands should I run next to check or fix this?"
+    },
+    "send": "Send",
+    "stop": "Stop",
+    "privacy": "Only the text above and your question go to Anthropic.",
+    "copy": "Copy answer",
+    "nothing": "Nothing to take: select text or run a command first.",
+    "errors": {
+      "noKey": "No API key yet: add it in Settings → AI assistant.",
+      "auth": "The API key was rejected.",
+      "rateLimit": "Rate limited by the API; try again shortly.",
+      "refused": "The model declined to answer this.",
+      "network": "Cannot reach the API (network).",
+      "aborted": "Stopped.",
+      "api": "The API returned an error."
+    }
   }
 }
