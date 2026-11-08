@@ -26,7 +26,10 @@ pub fn install_plugin(app: &tauri::App) -> tauri::Result<()> {
 }
 
 fn not_configured() -> AppError {
-    AppError::with(ErrorCode::Unsupported, "updates are not configured in this build")
+    AppError::with(
+        ErrorCode::Unsupported,
+        "updates are not configured in this build",
+    )
 }
 
 #[derive(Serialize)]
@@ -81,7 +84,10 @@ pub async fn update_check(app: AppHandle) -> Result<Option<UpdateInfo>> {
 /// Downloads (signature verified by the plugin) and installs the update found by
 /// `update_check`, reporting `(done, total)`, then restarts the app.
 #[tauri::command]
-pub async fn update_install(app: AppHandle, on_progress: Channel<(u64, Option<u64>)>) -> Result<()> {
+pub async fn update_install(
+    app: AppHandle,
+    on_progress: Channel<(u64, Option<u64>)>,
+) -> Result<()> {
     let update = PENDING
         .lock()
         .ok()
