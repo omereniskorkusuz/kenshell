@@ -125,16 +125,39 @@ KenShell is built to stay out of your way, even on an old laptop in a cold serve
 
 ## Download and install
 
-Get the latest version from the **[Releases](../../releases)** page:
+<p align="center">
+  <a href="../../releases/latest"><img alt="Download for macOS" src="https://img.shields.io/badge/Download-macOS-3cc6a6?style=for-the-badge&logo=apple&logoColor=white" /></a>
+  &nbsp;
+  <a href="../../releases/latest"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows-3cc6a6?style=for-the-badge&logo=windows&logoColor=white" /></a>
+  &nbsp;
+  <a href="../../releases/latest"><img alt="Download for Linux" src="https://img.shields.io/badge/Download-Linux-3cc6a6?style=for-the-badge&logo=linux&logoColor=white" /></a>
+</p>
 
-| Platform | Package                                                |
-| -------- | ------------------------------------------------------ |
-| macOS    | Universal `.dmg` (Apple silicon + Intel)               |
-| Windows  | NSIS installer, MSI, and a portable `.zip`             |
-| Linux    | AppImage and `.deb`                                    |
+Open the **[latest release](../../releases/latest)** and download the file for your system
+from its **Assets** list:
 
-On Linux your user needs serial-port access (`dialout` or `uucp` group). KenShell shows the
-exact command on first launch if it is missing.
+| System | File | Notes |
+| --- | --- | --- |
+| **macOS** (Apple silicon and Intel) | `KenShell_<version>_universal.dmg` | Open it and drag KenShell into Applications. |
+| **Windows** (recommended) | `KenShell_<version>_x64-setup.exe` | Installer for your user account; no admin rights needed. |
+| **Windows** (IT deployment) | `KenShell_<version>_x64_en-US.msi` | MSI package for managed installs. |
+| **Windows** (portable) | `KenShell_<version>_x64_portable.zip` | Unzip and run `KenShell.exe`; nothing is installed. Windows 10/11 already include the WebView2 runtime it needs. |
+| **Linux** | `KenShell_<version>_amd64.AppImage` or `.deb` | AppImage runs anywhere (`chmod +x` first); `.deb` for Debian and Ubuntu. |
+
+### First launch
+
+Until the builds are code-signed, your system will warn you the first time:
+
+- **macOS:** "KenShell can't be opened because Apple cannot check it…". Open
+  **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to
+  KenShell (or right-click the app in Applications → **Open**). This is needed only once.
+- **Windows:** SmartScreen shows "Windows protected your PC". Click **More info → Run
+  anyway**.
+- **Linux:** your user needs serial-port access (`dialout` or `uucp` group). KenShell shows
+  the exact command on first launch if it is missing.
+
+After installing, KenShell tells you about new versions itself: a small card appears when an
+update is available.
 
 ## Documentation
 
