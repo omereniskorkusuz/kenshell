@@ -219,4 +219,15 @@ jobs:
             node tools/scripts/latest-json.mjs "$tag" "${UPDATER_BASE_URL%/}/$tag" dist-release > latest.json
             files="$files latest.json"
           fi
-          gh release create "$tag" --draft --title "KenShell $tag" --generate-notes $files
+          # Notes from .github/release-notes/<tag>.md when present, else generated.
+          notes=(--generate-notes)
+          [ -f ".github/release-notes/$tag.md" ] && notes=(--notes-file ".github/release-notes/$tag.md")
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --draft --title "KenShell ${tag#v}" "${notes[@]}"
+          # Uploads right after creating a draft can 404 for a moment: retry each file.
+          for f in $files; do
+            for i in 1 2 3 4 5; do
+              gh release upload "$tag" "$f" --clobber && break
+              echo "upload of $f failed (attempt $i), retrying"; sleep $((i * 5))
+              [ "$i" = 5 ] && exit 1
+            done
+          done
