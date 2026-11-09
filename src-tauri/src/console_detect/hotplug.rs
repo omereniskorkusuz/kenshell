@@ -239,8 +239,11 @@ mod tests {
         tx.send(()).unwrap();
         drop(tx);
         h.join().unwrap();
-        // Pending rescans still ran before the thread exited.
-        assert_eq!(n.load(Ordering::SeqCst), 3);
+        // Pending rescans still ran before the thread exited: 3 deadlines (80/200/350 ms),
+        // or 2 on a slow machine where a late wake-up finds two already due and coalesces
+        // them into one rescan (intended).
+        let runs = n.load(Ordering::SeqCst);
+        assert!((2..=3).contains(&runs), "rescans after disconnect: {runs}");
         assert!(*done.lock().unwrap());
     }
 
