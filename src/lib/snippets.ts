@@ -5,16 +5,16 @@
 import starter from '../data/snippets.json';
 import type { Snippet } from './ipc';
 
-/** Vendor families (brand names, not translated). */
-export const VENDOR_FAMILIES: [string, string][] = [
-  ['cisco', 'Cisco'],
-  ['ruijie', 'Ruijie'],
-  ['juniper', 'Juniper'],
-  ['alcatel', 'Alcatel-Lucent'],
-  ['aruba', 'Aruba / HPE'],
-  ['huawei', 'Huawei'],
-  ['fortinet', 'Fortinet'],
-];
+/** Vendor families, in display order (names shown neutrally via `familyLabel`). */
+export const VENDOR_FAMILIES = [
+  'cisco',
+  'ruijie',
+  'juniper',
+  'alcatel',
+  'aruba',
+  'huawei',
+  'fortinet',
+] as const;
 /** A snippet as listed: the user's (`id` = number) or a read-only starter one. */
 export interface SnippetItem {
   key: string;

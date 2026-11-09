@@ -10,11 +10,8 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 
-export const AI_MODELS = ['model-id', 'model-id', 'model-id'] as const;
-export type AiModel = (typeof AI_MODELS)[number];
-
-const SYSTEM = `You help network engineers working in a terminal app with Cisco IOS / IOS-XE, \
-Ruijie RGOS and other network devices. You explain device output, interpret errors and \
+const SYSTEM = `You help network engineers working in a terminal app with switches, \
+routers, firewalls and other network devices. You explain device output, interpret errors and \
 suggest CLI commands. Be concise and practical. Put commands in fenced code blocks, one \
 command per line. Prefer read-only show/display commands; when a suggestion changes \
 configuration, say so clearly in one short line before it. You cannot run commands \
@@ -23,7 +20,8 @@ do not ask for them. Answer in the language of the user's question.`;
 
 export interface AskRequest {
   apiKey: string;
-  model: AiModel;
+  /** Model id typed by the user in Settings (none is built in). */
+  model: string;
   /** Masked terminal text (may be empty). */
   context: string;
   question: string;
@@ -52,10 +50,6 @@ export async function ask(req: AskRequest): Promise<{ ok: true } | { ok: false; 
         max_tokens: 16000,
         system: SYSTEM,
         output_config: { effort: 'medium' },
-        // Refusals re-run on Anthropic's recommended fallback model (Opus / Sonnet only).
-        ...(req.model === 'model-id'
-          ? {}
-          : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }),
         messages: [{ role: 'user', content }],
       },
       { signal: req.signal },

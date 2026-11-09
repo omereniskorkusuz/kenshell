@@ -3,5 +3,6 @@ target
 node_modules
 src-tauri
 package-lock.json
-project rules file
 *.md
+# local tool config
+.cl*/

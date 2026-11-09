@@ -71,7 +71,8 @@ export interface AppSettings {
   'updates.autoCheck': boolean;
   /** Linux: the serial group hint was shown once (P5-T12). */
   'console.groupHintShown': boolean;
-  'ai.model': 'model-id' | 'model-id' | 'model-id';
+  /** Model id for the AI assistant, typed by the user ('' = not set). */
+  'ai.model': string;
 }
 
 export type SettingKey = keyof AppSettings;
@@ -117,7 +118,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'ai.enabled': false,
   'updates.autoCheck': true,
   'console.groupHintShown': false,
-  'ai.model': 'model-id',
+  'ai.model': '',
 };
 
 export const LIMITS = {
@@ -197,11 +198,7 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
       case 'console.groupHintShown':
         return bool(value, d[k]);
       case 'ai.model':
-        return oneOf(
-          value,
-          ['model-id', 'model-id', 'model-id'] as const,
-          d[k],
-        );
+        return typeof value === 'string' ? value.trim().slice(0, 100) : d[k];
       case 'shortcuts.overrides':
         return sanitizeOverrides(value);
       case 'terminal.renderer':

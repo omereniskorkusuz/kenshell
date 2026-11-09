@@ -26,7 +26,6 @@ import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
 import { PALETTE_TOGGLES, parsePaletteQuery } from '../lib/paletteQuery';
 import {
-  VENDOR_FAMILIES,
   snippetPayload,
   snippetVariables,
   STARTER,
@@ -35,6 +34,7 @@ import {
 } from '../lib/snippets';
 import { useSettings } from '../stores/settings';
 import { useSnippets } from '../stores/snippets';
+import { familyLabel } from '../lib/vendors';
 
 export default function CommandPalette() {
   const t = useT();
@@ -185,7 +185,7 @@ export default function CommandPalette() {
                   <span className="min-w-0 flex-1 truncate">{s.name}</span>
                   <span className="truncate text-xs text-muted">
                     {[
-                      ...new Set([s.folder, VENDOR_FAMILIES.find(([id]) => id === s.vendor)?.[1]]),
+                      ...new Set([s.folder, s.vendor ? familyLabel(t, s.vendor) : null]),
                       snippetVariables(s.body).length > 0 ? '{{…}}' : null,
                     ]
                       .filter(Boolean)

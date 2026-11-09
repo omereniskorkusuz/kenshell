@@ -2,7 +2,7 @@
 //! gateway and an unprivileged ICMP echo sweep. OS calls live here (ADR-018); the output
 //! parsers are pure and tested.
 
-// Platform API exception (project rules file): reverse DNS has no safe std API, so `getnameinfo`
+// Platform API exception (project rules): reverse DNS has no safe std API, so `getnameinfo`
 // (Unix) / `GetNameInfoW` (Windows) are called through FFI. Each unsafe block states why
 // it is sound; nothing else in this file is unsafe.
 #![allow(unsafe_code)]

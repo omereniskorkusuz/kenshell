@@ -18,16 +18,7 @@ import {
   withKey,
 } from '../lib/modeColors';
 import { useSettings } from '../stores/settings';
-
-const FAMILY_LABELS: Record<Family, string> = {
-  cisco: 'Cisco',
-  ruijie: 'Ruijie',
-  juniper: 'Juniper',
-  aruba: 'Aruba / HPE',
-  huawei: 'Huawei',
-  fortinet: 'Fortinet',
-  alcatel: 'Alcatel-Lucent',
-};
+import { familyLabel } from '../lib/vendors';
 
 /** Current value of a colour token (with any override already applied). */
 function tokenColor(name: string): string {
@@ -119,7 +110,7 @@ export default function ColorsSection() {
       >
         {FAMILIES.map((f) => (
           <option key={f} value={f}>
-            {FAMILY_LABELS[f]}
+            {familyLabel(t, f)}
             {colors.vendors[f] ? ' •' : ''}
           </option>
         ))}
@@ -133,7 +124,7 @@ export default function ColorsSection() {
               <input
                 type="color"
                 aria-label={t('colors.vendorColor', {
-                  vendor: FAMILY_LABELS[family],
+                  vendor: familyLabel(t, family),
                   mode: modeName(m),
                 })}
                 className="h-7 w-10 cursor-pointer rounded-sm border border-subtle bg-transparent"

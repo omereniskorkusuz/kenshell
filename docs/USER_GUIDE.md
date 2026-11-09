@@ -125,7 +125,7 @@ can also reconnect automatically (see the session's advanced options).
 
 ### Device awareness
 
-- **Identification:** after login, KenShell identifies the device: hostname, vendor, model
+- **Identification:** after login, KenShell identifies the device: hostname, device type (shown as Type A, Type B …), model
   and OS version, shown in the identity bar. **ⓘ** shows the full connection details: SSH
   algorithms, host key fingerprint and serial port settings.
 - **Mode tracking:** the CLI mode is followed from the prompt, and the mode stripe changes
@@ -180,8 +180,8 @@ terminal to see the note.
 
 ## 5. Snippets and templates
 
-Side panel → **Snippets**. A searchable library of commands, filtered by vendor. Cisco and
-Ruijie starter sets are included.
+Side panel → **Snippets**. A searchable library of commands, filtered by device type.
+Starter sets for common CLIs are included.
 
 - **Send a snippet:** click it to send it to the active session.
 - **Templates:** use variables such as `{{vlan}}` or `{{interface}}`. Before sending, you
@@ -199,7 +199,7 @@ Side panel → **Analyzer**.
   the output turns into a table automatically. You can also select text and choose
   **Analyze selection**.
 - **Working with tables:** sort, **Filter rows** and **Export CSV**.
-- **Diagnostics:** a set of read-only checks for Cisco and Ruijie. The findings are ranked
+- **Diagnostics:** a set of read-only checks for the supported device types. The findings are ranked
   by severity, and nothing is ever changed on the device.
 - **Config audit:** checks a running config against best-practice rules.
 - **Config backups:** take compressed backups and compare any two side by side.
@@ -236,7 +236,7 @@ Side panel → **Tools**.
 
 This works over the active SSH tab:
 - **SFTP:** browse folders, upload, download, rename, create a folder and delete.
-- **SCP:** what most switches and routers offer (Cisco, Ruijie). Enter the path on the
+- **SCP:** what most switches and routers offer. Enter the path on the
   device.
 
 ### File servers (TFTP, FTP, SCP)
@@ -311,7 +311,7 @@ Open with **⌘,**. Changes apply immediately.
 
 | Section | Highlights |
 | --- | --- |
-| **Appearance** | Theme (dark, light, system), mode stripe width, mode colours per vendor. |
+| **Appearance** | Theme (dark, light, system), mode stripe width, mode colours per device type. |
 | **Language** | English or Turkish. On first launch, the system language is used. |
 | **Terminal** | Font, size, line spacing, cursor, output colouring categories, autocomplete, `--More--` handling, scrollback, copy on select, right-click paste, charset, line timestamps, renderer. |
 | **Connection** | SSH defaults (keepalive, legacy algorithms), paste delay, identifying devices after login. |
@@ -365,7 +365,7 @@ Defaults (all can be changed in **Settings → Shortcuts**):
 | Problem | What to do |
 | --- | --- |
 | The console cable isn't listed | Check the sidebar for a driver hint and install the driver from the official page, then **Rescan**. On Linux, add your user to the `dialout` (or `uucp`) group and log in again; KenShell shows the exact command. |
-| Garbled characters on the console | The speed is wrong. Change it from the identity bar (9600 is typical for Cisco and Ruijie), or let autobaud try again. |
+| Garbled characters on the console | The speed is wrong. Change it from the identity bar (9600 is typical for most switches and routers), or let autobaud try again. |
 | "Host key changed": connection blocked | The device's SSH key is different from last time. Confirm the change is expected, then use **Forget stored key** and reconnect. |
 | Old device rejects SSH | Turn on **legacy SSH algorithms** for that session (advanced options). |
 | Pasted config loses characters on serial | Increase the **paste line delay** in Settings → Connection. |

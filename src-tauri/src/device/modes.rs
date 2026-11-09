@@ -233,7 +233,7 @@ impl Profile {
     }
 }
 
-/// The fallback profile ("Cisco-like CLI") used until the vendor is known.
+/// The fallback profile ("Standard CLI") used until the vendor is known.
 pub fn default_profile() -> &'static Profile {
     let t = table();
     &t.profiles[t.default]
@@ -372,7 +372,7 @@ mod tests {
         assert_eq!(default_profile().id, "cisco-like");
         assert_eq!(default_profile().disable_paging, "terminal length 0");
         assert_eq!(default_profile().more, "--More--");
-        assert_eq!(default_profile().label, "Cisco-like CLI");
+        assert_eq!(default_profile().label, "Standard CLI");
         // Cisco-like CLIs (Cisco, Ruijie, Aruba) all accept the generic prompt shapes.
         for p in table()
             .profiles

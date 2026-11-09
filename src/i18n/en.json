@@ -167,7 +167,6 @@
     "breakHint": "Send a serial BREAK signal (e.g. to enter ROMMON)",
     "device": "Device (from the prompt and version output)",
     "reloading": "Device restarting · {{time}}",
-    "ciscoLike": "Cisco-like CLI",
     "osVersion": "OS version",
     "serial": "Serial number",
     "deviceUptime": "Device uptime"
@@ -311,7 +310,7 @@
     "usernameHint": "Asked when connecting if empty",
     "advanced": "Advanced",
     "legacyAlgorithms": "Legacy algorithms",
-    "legacyAlgorithmsHint": "For old Cisco/Ruijie/Juniper devices: also offers diffie-hellman-group1/14-sha1, ssh-rsa, CBC ciphers and hmac-sha1.",
+    "legacyAlgorithmsHint": "For older network devices: also offers diffie-hellman-group1/14-sha1, ssh-rsa, CBC ciphers and hmac-sha1.",
     "keyPath": "Private key file",
     "portRange": "Port must be 1–65535.",
     "useAgent": "Use SSH agent keys",
@@ -448,7 +447,7 @@
     "autoMoreHint": "Answers the device's pager (--More--, ---- More ----, ---(more)---) with a space so long output runs through. Off by default; \"Disable paging\" in the command palette sends the vendor's terminal length 0 instead.",
     "shortcuts": "Shortcuts",
     "sshLegacy": "Legacy SSH algorithms for every device",
-    "sshLegacyHint": "Also offer diffie-hellman-group1/14-sha1, ssh-rsa, CBC ciphers and hmac-sha1 (old IOS / RGOS). Modern algorithms still come first.",
+    "sshLegacyHint": "Also offer diffie-hellman-group1/14-sha1, ssh-rsa, CBC ciphers and hmac-sha1 (older device software). Modern algorithms still come first.",
     "sshKeepalive": "SSH keepalive (seconds)",
     "sshKeepaliveHint": "For sessions without their own value; 0 = off.",
     "renderer": "Terminal renderer",
@@ -465,6 +464,7 @@
     "aiKeySave": "Save key",
     "aiKeyClear": "Remove key",
     "aiModel": "Model",
+    "aiModelPlaceholder": "Model ID from your provider",
     "aiPrivacy": "Only what you send from the assistant panel leaves this computer: the masked preview and your question. Passwords, secrets, keys and SNMP communities are masked first. The assistant never types into a session."
   },
   "shortcuts": {
@@ -955,7 +955,7 @@
     "sameConnection": "Over this tab's SSH connection",
     "needsSsh": "File transfer works on an SSH tab.",
     "connectFirst": "Connect the SSH tab first.",
-    "scpHint": "SCP: what most switches and routers offer (Cisco, Ruijie). Enter the device path.",
+    "scpHint": "SCP: what most switches and routers offer. Enter the device path.",
     "remoteFile": "File on the device",
     "remoteDir": "Upload to (device folder)",
     "download": "Download",
@@ -1027,7 +1027,7 @@
     "macPlaceholder": "aabb.ccdd.eeff · aa:bb:cc:dd:ee:ff · AA-BB-…",
     "macInvalid": "12 hex digits, any separator",
     "formats": {
-      "cisco": "Cisco / Ruijie",
+      "cisco": "Dotted (aabb.ccdd.eeff)",
       "colon": "Linux / macOS",
       "dash": "Windows",
       "bare": "Bare"
@@ -1095,6 +1095,7 @@
     "nothing": "Nothing to take: select text or run a command first.",
     "errors": {
       "noKey": "No API key yet: add it in Settings → AI assistant.",
+      "noModel": "No model set: enter a model ID in Settings → AI assistant.",
       "auth": "The API key was rejected.",
       "rateLimit": "Rate limited by the API; try again shortly.",
       "refused": "The model declined to answer this.",
@@ -1128,5 +1129,15 @@
     "collapse": "Hide notes",
     "close": "Close notes bar",
     "toggle": "Notes bar"
+  },
+  "vendorFamily": {
+    "generic": "Standard CLI",
+    "cisco": "Type A",
+    "ruijie": "Type B",
+    "juniper": "Type C",
+    "alcatel": "Type D",
+    "aruba": "Type E",
+    "huawei": "Type F",
+    "fortinet": "Type G"
   }
 }

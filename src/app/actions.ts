@@ -365,7 +365,7 @@ const ALL_ACTIONS: readonly AppAction[] = [
     id: 'ai.explainSelection',
     title: 'actions.aiExplainSelection',
     group: 'actions',
-    keywords: ['ai', 'assistant', 'explain', 'assistant', 'asistan', 'açıkla', 'yapay zeka'],
+    keywords: ['ai', 'assistant', 'explain', 'asistan', 'açıkla', 'yapay zeka'],
     enabled: () => getSetting('ai.enabled') && hasActiveTab(),
     run: () => void import('../components/AssistantPanel').then((m) => aiTake(m, 'selection')),
   },

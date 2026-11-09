@@ -25,8 +25,7 @@ import { useSnippets } from '../stores/snippets';
 import { useActiveTab, useTabs } from '../stores/tabs';
 import { toast } from '../stores/toasts';
 import { useUi } from '../stores/ui';
-
-const vendorLabel = (v: string | null) => VENDOR_FAMILIES.find(([id]) => id === v)?.[1] ?? '';
+import { familyLabel } from '../lib/vendors';
 
 type Draft = SnippetInput & { id: number | null };
 
@@ -43,7 +42,8 @@ export function SnippetsPanel() {
   // null = follow the active device.
   const [vendorPick, setVendorPick] = useState<string | null>(null);
   const vendor =
-    vendorPick ?? (family && VENDOR_FAMILIES.some(([id]) => id === family) ? family : 'all');
+    vendorPick ??
+    (family && (VENDOR_FAMILIES as readonly string[]).includes(family) ? family : 'all');
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState<Draft | null>(null);
   const [filling, setFilling] = useState<SnippetItem | null>(null);
@@ -152,9 +152,9 @@ export function SnippetsPanel() {
           onChange={(e) => setVendorPick(e.target.value)}
         >
           <option value="all">{t('snippets.allVendors')}</option>
-          {VENDOR_FAMILIES.map(([id, label]) => (
+          {VENDOR_FAMILIES.map((id) => (
             <option key={id} value={id}>
-              {label}
+              {familyLabel(t, id)}
             </option>
           ))}
         </select>
@@ -255,7 +255,7 @@ function SnippetRow({
         <div className="flex items-center gap-1.5">
           <span className="truncate text-sm">{item.name}</span>
           {item.vendor && (
-            <span className="shrink-0 text-[10px] text-muted">{vendorLabel(item.vendor)}</span>
+            <span className="shrink-0 text-[10px] text-muted">{familyLabel(t, item.vendor)}</span>
           )}
         </div>
         <div className="mono truncate text-xs text-muted" title={item.body}>
@@ -375,9 +375,9 @@ function SnippetEditor({
             onChange={(e) => setD({ ...d, vendor: e.target.value || null })}
           >
             <option value="">{t('snippets.anyVendor')}</option>
-            {VENDOR_FAMILIES.map(([id, label]) => (
+            {VENDOR_FAMILIES.map((id) => (
               <option key={id} value={id}>
-                {label}
+                {familyLabel(t, id)}
               </option>
             ))}
           </select>

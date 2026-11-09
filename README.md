@@ -7,7 +7,7 @@
 <p align="center">
   <b>The terminal that knows it is talking to a switch.</b><br/>
   SSH, Telnet and serial console in one small, fast desktop app,<br/>
-  with a built-in CLI analyzer for Cisco and Ruijie devices.
+  with a built-in CLI analyzer for switches, routers and firewalls.
 </p>
 
 <p align="center">
@@ -45,8 +45,8 @@ to network gear:
   target, device hostname, model, OS version) and a colour stripe for the current CLI mode:
   user, privileged, config, boot or shell. Production sessions are tagged so you don't mistake
   them for lab gear.
-- **Built for Cisco and Ruijie first**, and it also recognises Juniper, Alcatel-Lucent
-  OmniSwitch, Aruba/HPE, Huawei and FortiGate prompts.
+- **Knows the major network CLIs.** It recognises the prompts and modes of the common
+  switch, router and firewall operating systems.
 - **Small and fast.** Starts in a quarter of a second and stays under 100 MB of memory.
 
 ## Features
@@ -82,7 +82,7 @@ to network gear:
 
 **Analysis**
 - **Structured output:** parsers turn `show` output into sortable tables you can export to
-  CSV (Cisco, Ruijie, Juniper).
+  CSV.
 - **Read-only checks:** a diagnostics run with findings ranked by severity, and config audit
   rules.
 - **Config backups:** compressed backups compared in a side-by-side diff.
@@ -96,7 +96,7 @@ to network gear:
 - **Device notes:** Markdown, pinnable, searchable, and linked to interfaces
   (`Gi1/0/24: camera`). They are shown as terminal tooltips and in the session list.
 - **Notes bar:** opens under each session for quick, time-stamped notes, like a work log.
-- **Snippets:** a library with Cisco and Ruijie starter sets, plus templates with variables
+- **Snippets:** a library with starter sets for common CLIs, plus templates with variables
   and a fill-in form.
 
 **Tools**
@@ -212,9 +212,9 @@ handy for UI work.
 | Rust tests                 | `cargo test --workspace`                                     |
 | Bundle-size budget         | `npx vite build && npm run bench:bundle`                     |
 | App budget (start/RAM/CPU) | `npm run app:build && npm run bench:app`                     |
-| Device simulator           | `npm run sim -- --profile ruijie --port 2323`                |
+| Device simulator           | `npm run sim -- --list` · `npm run sim -- --profile <name> --port 2323`                |
 
-The **device simulator** (`tools/device-simulator`) emulates Cisco and Ruijie CLIs over
+The **device simulator** (`tools/device-simulator`) emulates network-device CLIs over
 Telnet, SSH, raw TCP or stdio, including `--More--` paging and mode changes. It drives the
 end-to-end tests and is useful for trying the app without real hardware.
 
@@ -259,7 +259,7 @@ only through typed IPC commands and event channels.
 | `src/styles/tokens.css`  | Design tokens: every colour and size used in the UI                 |
 | `src-tauri/src/`         | Rust backend (see the diagram above)                                |
 | `src-tauri/data/`        | Embedded data, such as the compressed IEEE OUI table               |
-| `tools/device-simulator` | Cisco/Ruijie CLI simulator used by tests                            |
+| `tools/device-simulator` | Network CLI simulator used by tests                                   |
 | `tools/scripts/`         | Generators (OUI table, icons, updater manifest)                     |
 | `bench/`                 | Bundle-size and app start/RAM/CPU measurements                      |
 | `docs/`                  | User guide and README assets                                        |

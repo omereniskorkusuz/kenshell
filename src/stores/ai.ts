@@ -20,7 +20,7 @@ interface AiState {
   question: string;
   answer: string;
   running: boolean;
-  error: AskError | { kind: 'noKey' } | null;
+  error: AskError | { kind: 'noKey' } | { kind: 'noModel' } | null;
   setContext(text: string, question?: string): void;
   setQuestion(q: string): void;
   send(): Promise<void>;
@@ -80,11 +80,16 @@ export const useAi = create<AiState>()((set, get) => ({
         set({ error: { kind: 'noKey' } });
         return;
       }
+      const model = getSetting('ai.model').trim();
+      if (!model) {
+        set({ error: { kind: 'noModel' } });
+        return;
+      }
       const { ask } = await import('../ai/client');
       // Re-mask the question too: it may be pasted config.
       const res = await ask({
         apiKey,
-        model: getSetting('ai.model'),
+        model,
         context,
         question: maskSecrets(question).text,
         onText,

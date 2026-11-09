@@ -42,7 +42,7 @@ describe('snippet library (P3-T15)', () => {
     expect(filterSnippets(all, 'all', 'allowed vlan only').map((s) => s.key)).toEqual([
       'b:ruijie-trunk-port',
     ]);
-    expect(groupSnippets(all).map(([f]) => f)).toEqual(['Ops', 'Cisco', 'Ruijie']);
+    expect(groupSnippets(all).map(([f]) => f)).toEqual(['Ops', 'Type A', 'Type B']);
   });
 
   it('variables and payload', () => {

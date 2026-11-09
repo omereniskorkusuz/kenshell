@@ -18,7 +18,7 @@
   "profiles": [
     {
       "id": "cisco-like",
-      "label": "Cisco-like CLI",
+      "label": "Standard CLI",
       "family": "generic",
       "identify": [],
       "prompts": [
@@ -69,7 +69,7 @@
     },
     {
       "id": "cisco-ios",
-      "label": "Cisco IOS / IOS-XE",
+      "label": "Type A",
       "family": "cisco",
       "identify": [
         {
@@ -141,7 +141,7 @@
     },
     {
       "id": "cisco-nxos",
-      "label": "Cisco NX-OS",
+      "label": "Type A (data center)",
       "family": "cisco",
       "identify": [
         {
@@ -192,7 +192,7 @@
     },
     {
       "id": "ruijie-rgos",
-      "label": "Ruijie RGOS",
+      "label": "Type B",
       "family": "ruijie",
       "identify": [
         {
@@ -256,7 +256,7 @@
     },
     {
       "id": "ruijie-reyee",
-      "label": "Ruijie Reyee",
+      "label": "Type B (cloud)",
       "family": "ruijie",
       "identify": [
         {
@@ -306,7 +306,7 @@
     },
     {
       "id": "juniper-junos",
-      "label": "Juniper Junos",
+      "label": "Type C",
       "family": "juniper",
       "inferFromPrompt": true,
       "identify": [
@@ -356,7 +356,7 @@
     },
     {
       "id": "alcatel-aos",
-      "label": "Alcatel-Lucent OmniSwitch",
+      "label": "Type D",
       "family": "alcatel",
       "inferFromPrompt": true,
       "identify": [
@@ -395,7 +395,7 @@
     },
     {
       "id": "aruba",
-      "label": "Aruba / HPE",
+      "label": "Type E",
       "family": "aruba",
       "identify": [
         {
@@ -446,7 +446,7 @@
     },
     {
       "id": "huawei-vrp",
-      "label": "Huawei VRP",
+      "label": "Type F",
       "family": "huawei",
       "inferFromPrompt": true,
       "identify": [
@@ -492,7 +492,7 @@
     },
     {
       "id": "fortinet-fortios",
-      "label": "FortiGate (FortiOS)",
+      "label": "Type G",
       "family": "fortinet",
       "inferFromPrompt": true,
       "identify": [

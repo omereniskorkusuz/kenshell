@@ -167,7 +167,6 @@
     "breakHint": "Seri BREAK sinyali gönder (ör. ROMMON'a girmek için)",
     "device": "Cihaz (prompt ve sürüm çıktısından)",
     "reloading": "Cihaz açılıyor · {{time}}",
-    "ciscoLike": "Cisco-benzeri CLI",
     "osVersion": "İşletim sistemi sürümü",
     "serial": "Seri numarası",
     "deviceUptime": "Cihaz çalışma süresi"
@@ -311,7 +310,7 @@
     "usernameHint": "Boşsa bağlanırken sorulur",
     "advanced": "Gelişmiş",
     "legacyAlgorithms": "Eski algoritmalar",
-    "legacyAlgorithmsHint": "Eski Cisco/Ruijie/Juniper cihazları için: diffie-hellman-group1/14-sha1, ssh-rsa, CBC şifreleri ve hmac-sha1 de önerilir.",
+    "legacyAlgorithmsHint": "Eski ağ cihazları için: diffie-hellman-group1/14-sha1, ssh-rsa, CBC şifreleri ve hmac-sha1 de önerilir.",
     "keyPath": "Özel anahtar dosyası",
     "portRange": "Port 1–65535 arasında olmalı.",
     "useAgent": "SSH agent anahtarlarını kullan",
@@ -448,7 +447,7 @@
     "autoMoreHint": "Cihazın sayfalayıcısına (--More--, ---- More ----, ---(more)---) boşlukla cevap verir, uzun çıktı akıp gider. Varsayılan kapalı; komut paletindeki \"Sayfalamayı kapat\" bunun yerine üreticinin terminal length 0 komutunu gönderir.",
     "shortcuts": "Kısayollar",
     "sshLegacy": "Tüm cihazlara eski SSH algoritmaları",
-    "sshLegacyHint": "diffie-hellman-group1/14-sha1, ssh-rsa, CBC şifreleri ve hmac-sha1 de önerilir (eski IOS / RGOS). Modern algoritmalar yine önce gelir.",
+    "sshLegacyHint": "diffie-hellman-group1/14-sha1, ssh-rsa, CBC şifreleri ve hmac-sha1 de önerilir (eski cihaz yazılımları). Modern algoritmalar yine önce gelir.",
     "sshKeepalive": "SSH keepalive (saniye)",
     "sshKeepaliveHint": "Kendi değeri olmayan oturumlar için; 0 = kapalı.",
     "renderer": "Terminal çizici",
@@ -465,6 +464,7 @@
     "aiKeySave": "Anahtarı kaydet",
     "aiKeyClear": "Anahtarı sil",
     "aiModel": "Model",
+    "aiModelPlaceholder": "Sağlayıcınızın model kimliği",
     "aiPrivacy": "Bu bilgisayardan yalnız asistan panelinden gönderdiğiniz çıkar: maskelenmiş önizleme ve sorunuz. Şifreler, secret'lar, anahtarlar ve SNMP community'leri önce maskelenir. Asistan hiçbir oturuma yazmaz."
   },
   "shortcuts": {
@@ -955,7 +955,7 @@
     "sameConnection": "Bu sekmenin SSH bağlantısı üzerinden",
     "needsSsh": "Dosya transferi SSH sekmesinde çalışır.",
     "connectFirst": "Önce SSH sekmesine bağlanın.",
-    "scpHint": "SCP: switch ve router'ların çoğunun sunduğu yöntem (Cisco, Ruijie). Cihazdaki yolu yazın.",
+    "scpHint": "SCP: switch ve router'ların çoğunun sunduğu yöntem. Cihazdaki yolu yazın.",
     "remoteFile": "Cihazdaki dosya",
     "remoteDir": "Yükleneceği yer (cihaz klasörü)",
     "download": "İndir",
@@ -1027,7 +1027,7 @@
     "macPlaceholder": "aabb.ccdd.eeff · aa:bb:cc:dd:ee:ff · AA-BB-…",
     "macInvalid": "12 onaltılık rakam, ayraç fark etmez",
     "formats": {
-      "cisco": "Cisco / Ruijie",
+      "cisco": "Noktalı (aabb.ccdd.eeff)",
       "colon": "Linux / macOS",
       "dash": "Windows",
       "bare": "Ayraçsız"
@@ -1095,6 +1095,7 @@
     "nothing": "Alınacak metin yok: önce metin seçin ya da bir komut çalıştırın.",
     "errors": {
       "noKey": "Henüz API anahtarı yok: Ayarlar → AI asistanı'ndan ekleyin.",
+      "noModel": "Model ayarlı değil: Ayarlar → AI asistanı bölümüne model kimliğini girin.",
       "auth": "API anahtarı reddedildi.",
       "rateLimit": "API hız sınırı; biraz sonra tekrar deneyin.",
       "refused": "Model bunu yanıtlamayı reddetti.",
@@ -1128,5 +1129,15 @@
     "collapse": "Notları gizle",
     "close": "Not çubuğunu kapat",
     "toggle": "Not çubuğu"
+  },
+  "vendorFamily": {
+    "generic": "Standart CLI",
+    "cisco": "Tip A",
+    "ruijie": "Tip B",
+    "juniper": "Tip C",
+    "alcatel": "Tip D",
+    "aruba": "Tip E",
+    "huawei": "Tip F",
+    "fortinet": "Tip G"
   }
 }

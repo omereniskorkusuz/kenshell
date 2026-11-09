@@ -81,7 +81,7 @@ const WCH_CH343SER: Driver = Driver {
 /// The Cisco USB console driver ships with IOS software downloads; this support page is
 /// the closest stable entry point (to be verified with real hardware, see Known Issues).
 const CISCO_CONSOLE: Driver = Driver {
-    name: "Cisco USB Console",
+    name: "Switch USB console driver",
     windows: "https://www.cisco.com/c/en/us/support/switches/index.html",
     macos: "https://www.cisco.com/c/en/us/support/switches/index.html",
 };
@@ -166,7 +166,7 @@ static TABLE: &[Entry] = &[
     exact(VID_WCH, 0x55D3, "WCH", "CH343", &WCH_CH343SER),
     exact(VID_WCH, 0x55D4, "WCH", "CH9102", &WCH_CH343SER),
     // Cisco
-    exact(VID_CISCO, 0x0009, "Cisco", "USB Console", &CISCO_CONSOLE),
+    exact(VID_CISCO, 0x0009, "Switch", "USB Console", &CISCO_CONSOLE),
 ];
 
 /// Chip info for a USB VID:PID, if it is a known console chip.
@@ -218,7 +218,7 @@ mod tests {
             (0x1A86, 0x5523, "WCH", "CH341"),
             (0x1A86, 0x55D4, "WCH", "CH9102"),
             (0x1A86, 0x7522, "WCH", "CH340K"),
-            (0x05A6, 0x0009, "Cisco", "USB Console"),
+            (0x05A6, 0x0009, "Switch", "USB Console"),
         ];
         for (vid, pid, vendor, model) in cases {
             let c = chip(vid, pid).unwrap_or_else(|| panic!("{vid:04x}:{pid:04x}"));

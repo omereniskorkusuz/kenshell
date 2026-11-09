@@ -12,6 +12,7 @@ import { protocolOf, serialOf, type LiveTab } from '../lib/sessionState';
 import { envLabel } from '../lib/tree';
 import { useUi } from '../stores/ui';
 import { Dialog } from './Dialog';
+import { familyLabel } from '../lib/vendors';
 
 interface Props {
   tab: LiveTab;
@@ -146,12 +147,7 @@ export function IdentityDetails({ tab, onClose }: Props) {
 
         <Section title={t('details.device')}>
           <Item label={t('details.hostname')} value={tab.device.hostname} />
-          <Item
-            label={t('details.vendor')}
-            value={
-              vendor ? (vendor.family === 'generic' ? t('identity.ciscoLike') : vendor.label) : null
-            }
-          />
+          <Item label={t('details.vendor')} value={vendor ? familyLabel(t, vendor.family) : null} />
           <Item label={t('details.model')} value={facts?.model ?? null} />
           <Item label={t('identity.osVersion')} value={facts?.version ?? null} />
           <Item

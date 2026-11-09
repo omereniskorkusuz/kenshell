@@ -541,16 +541,15 @@ function AiSection() {
       </Row>
       <Row label={t('settings.aiModel')}>
         {(id) => (
-          <select
+          <input
             id={id}
-            className="field h-8 text-sm"
+            className="field h-8 w-64 max-w-full font-mono text-sm"
             value={model}
-            onChange={(e) => setModel(e.target.value as typeof model)}
-          >
-            <option value="model-id">Model</option>
-            <option value="model-id">Model</option>
-            <option value="model-id">Model</option>
-          </select>
+            placeholder={t('settings.aiModelPlaceholder')}
+            spellCheck={false}
+            autoComplete="off"
+            onChange={(e) => setModel(e.target.value)}
+          />
         )}
       </Row>
       <p className="text-xs text-muted">{t('settings.aiPrivacy')}</p>

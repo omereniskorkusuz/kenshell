@@ -100,15 +100,15 @@ const ciscoConsole: ConsolePort = {
   altPath: MAC ? '/dev/tty.usbmodem14201' : null,
   displayName: MAC ? 'usbmodem14201' : 'COM6',
   chip: {
-    vendor: 'Cisco',
+    vendor: 'Switch',
     model: 'USB Console',
     vid: 0x05a6,
     pid: 0x0009,
     driverName: null,
     driverUrl: null,
   },
-  manufacturer: 'Cisco',
-  product: 'Cisco USB Console',
+  manufacturer: 'Switch',
+  product: 'Switch USB Console',
   serialNumber: 'FOC2301X0AB',
   rememberedBaud: null,
   lastDevice: null,
@@ -185,7 +185,7 @@ let sessions: SessionRecord[] = [
   record(1, 1, 'core-sw1', FTDI_PATH, 9600, 'prod', now() - 2 * HOUR),
   record(2, 1, 'fw-edge', MISSING_PATH, 115200, 'prod', now() - 26 * HOUR),
   record(3, 2, 'lab-r2', FTDI_PATH, null, 'lab', now() - 5 * HOUR),
-  record(4, 3, 'ruijie-s5750', FTDI_PATH, null, 'test', null),
+  record(4, 3, 'access-sw3', FTDI_PATH, null, 'test', null),
   record(5, null, 'bench-console', FTDI_PATH, null, null, null),
 ];
 let nextId = 100;
@@ -294,7 +294,7 @@ class MockModeWatch {
       this.onEvent({
         type: 'identity',
         hostname: hit.host ?? null,
-        vendor: { id: 'cisco-ios', label: 'Cisco IOS / IOS-XE', family: 'cisco' },
+        vendor: { id: 'cisco-ios', label: 'Type A', family: 'cisco' },
         facts: {
           hostname: hit.host ?? null,
           model: 'WS-C2960X-48FPD-L',
@@ -1014,7 +1014,7 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
             lldp: false,
           },
           {
-            name: 'ruijie-s5750',
+            name: 'access-sw3',
             ip: '10.0.0.20',
             platform: 'Ruijie S5750-48GT4XS-E',
             capability: 'Bridge',
@@ -1520,7 +1520,7 @@ export async function netscanRun(
   const devices: Record<number, { ports: number[]; name?: string; mac: string }> = {
     1: { ports: [80, 443], name: 'gateway.lan', mac: '58:69:6c:00:00:01' },
     2: { ports: [22, 443], name: 'core-sw1.lan', mac: '00:1a:2b:03:04:05' },
-    3: { ports: [22, 23], name: 'ruijie-s5750.lan', mac: '58:69:6c:00:11:11' },
+    3: { ports: [22, 23], name: 'access-sw3.lan', mac: '58:69:6c:00:11:11' },
     10: { ports: [80], name: 'printer-3f.lan', mac: '00:00:48:aa:bb:cc' },
     11: { ports: [], mac: 'f0:18:98:12:34:56' },
     34: { ports: [], name: 'my-laptop.lan', mac: 'a4:83:e7:00:00:34' },

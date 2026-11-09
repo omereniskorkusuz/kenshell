@@ -4,70 +4,70 @@
     {
       "id": "cisco-access-port",
       "vendor": "cisco",
-      "folder": "Cisco",
+      "folder": "Type A",
       "name": "Access port",
       "body": "configure terminal\ninterface {{interface}}\n description {{description}}\n switchport mode access\n switchport access vlan {{vlan_id}}\n spanning-tree portfast\n no shutdown\nend"
     },
     {
       "id": "cisco-trunk-port",
       "vendor": "cisco",
-      "folder": "Cisco",
+      "folder": "Type A",
       "name": "Trunk port",
       "body": "configure terminal\ninterface {{interface}}\n description {{description}}\n switchport mode trunk\n switchport trunk native vlan {{native_vlan}}\n switchport trunk allowed vlan {{allowed_vlans}}\n no shutdown\nend"
     },
     {
       "id": "cisco-vlan",
       "vendor": "cisco",
-      "folder": "Cisco",
+      "folder": "Type A",
       "name": "Create VLAN",
       "body": "configure terminal\nvlan {{vlan_id}}\n name {{vlan_name}}\nend"
     },
     {
       "id": "cisco-ssh",
       "vendor": "cisco",
-      "folder": "Cisco",
+      "folder": "Type A",
       "name": "Enable SSH",
       "body": "configure terminal\nhostname {{hostname}}\nip domain-name {{domain}}\ncrypto key generate rsa modulus 2048\nip ssh version 2\nline vty 0 15\n transport input ssh\n login local\nend"
     },
     {
       "id": "cisco-ntp-syslog",
       "vendor": "cisco",
-      "folder": "Cisco",
+      "folder": "Type A",
       "name": "NTP and syslog",
       "body": "configure terminal\nntp server {{ntp_server}}\nservice timestamps log datetime msec localtime\nlogging host {{syslog_server}}\nlogging trap informational\nend"
     },
     {
       "id": "ruijie-access-port",
       "vendor": "ruijie",
-      "folder": "Ruijie",
+      "folder": "Type B",
       "name": "Access port",
       "body": "configure terminal\ninterface {{interface}}\n description {{description}}\n switchport mode access\n switchport access vlan {{vlan_id}}\n spanning-tree portfast\n no shutdown\nend"
     },
     {
       "id": "ruijie-trunk-port",
       "vendor": "ruijie",
-      "folder": "Ruijie",
+      "folder": "Type B",
       "name": "Trunk port",
       "body": "configure terminal\ninterface {{interface}}\n description {{description}}\n switchport mode trunk\n switchport trunk native vlan {{native_vlan}}\n switchport trunk allowed vlan only {{allowed_vlans}}\n no shutdown\nend"
     },
     {
       "id": "ruijie-vlan",
       "vendor": "ruijie",
-      "folder": "Ruijie",
+      "folder": "Type B",
       "name": "Create VLAN",
       "body": "configure terminal\nvlan {{vlan_id}}\n name {{vlan_name}}\nend"
     },
     {
       "id": "ruijie-ssh",
       "vendor": "ruijie",
-      "folder": "Ruijie",
+      "folder": "Type B",
       "name": "Enable SSH",
       "body": "configure terminal\nhostname {{hostname}}\nenable service ssh-server\nip ssh version 2\nline vty 0 4\n transport input ssh\n login local\nend"
     },
     {
       "id": "ruijie-ntp-syslog",
       "vendor": "ruijie",
-      "folder": "Ruijie",
+      "folder": "Type B",
       "name": "NTP and syslog",
       "body": "configure terminal\nntp server {{ntp_server}}\nntp update-calendar\nservice timestamps log datetime\nlogging server {{syslog_server}}\nlogging trap informational\nend"
     }
