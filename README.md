@@ -126,23 +126,26 @@ KenShell is built to stay out of your way, even on an old laptop in a cold serve
 ## Download and install
 
 <p align="center">
-  <a href="../../releases/latest"><img alt="Download for macOS" src="https://img.shields.io/badge/Download-macOS-3cc6a6?style=for-the-badge&logo=apple&logoColor=white" /></a>
+  <a href="../../releases/latest/download/KenShell-macOS.dmg"><img alt="Download for macOS" src="https://img.shields.io/badge/Download-macOS-3cc6a6?style=for-the-badge&logo=apple&logoColor=white" /></a>
   &nbsp;
-  <a href="../../releases/latest"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows-3cc6a6?style=for-the-badge&logo=windows&logoColor=white" /></a>
+  <a href="../../releases/latest/download/KenShell-Windows-setup.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows-3cc6a6?style=for-the-badge&logo=windows&logoColor=white" /></a>
   &nbsp;
-  <a href="../../releases/latest"><img alt="Download for Linux" src="https://img.shields.io/badge/Download-Linux-3cc6a6?style=for-the-badge&logo=linux&logoColor=white" /></a>
+  <a href="../../releases/latest/download/KenShell-Linux.AppImage"><img alt="Download for Linux" src="https://img.shields.io/badge/Download-Linux-3cc6a6?style=for-the-badge&logo=linux&logoColor=white" /></a>
 </p>
 
-Open the **[latest release](../../releases/latest)** and download the file for your system
-from its **Assets** list:
+Click the button for your system: the download starts directly, always the newest version.
+Other packages for the same system:
 
-| System | File | Notes |
+| System | Download | Notes |
 | --- | --- | --- |
-| **macOS** (Apple silicon and Intel) | `KenShell_<version>_universal.dmg` | Open it and drag KenShell into Applications. |
-| **Windows** (recommended) | `KenShell_<version>_x64-setup.exe` | Installer for your user account; no admin rights needed. |
-| **Windows** (IT deployment) | `KenShell_<version>_x64_en-US.msi` | MSI package for managed installs. |
-| **Windows** (portable) | `KenShell_<version>_x64_portable.zip` | Unzip and run `KenShell.exe`; nothing is installed. Windows 10/11 already include the WebView2 runtime it needs. |
-| **Linux** | `KenShell_<version>_amd64.AppImage` or `.deb` | AppImage runs anywhere (`chmod +x` first); `.deb` for Debian and Ubuntu. |
+| **macOS** (Apple silicon and Intel) | [KenShell-macOS.dmg](../../releases/latest/download/KenShell-macOS.dmg) | Open it and drag KenShell into Applications. |
+| **Windows** (recommended) | [KenShell-Windows-setup.exe](../../releases/latest/download/KenShell-Windows-setup.exe) | Installer for your user account; no admin rights needed. |
+| **Windows** (IT deployment) | [KenShell-Windows.msi](../../releases/latest/download/KenShell-Windows.msi) | MSI package for managed installs. |
+| **Windows** (portable) | [KenShell-Windows-portable.zip](../../releases/latest/download/KenShell-Windows-portable.zip) | Unzip and run `KenShell.exe`; nothing is installed. Windows 10/11 already include the WebView2 runtime it needs. |
+| **Linux** (any distribution) | [KenShell-Linux.AppImage](../../releases/latest/download/KenShell-Linux.AppImage) | Run `chmod +x` on it first. |
+| **Linux** (Debian, Ubuntu) | [KenShell-Linux.deb](../../releases/latest/download/KenShell-Linux.deb) | Install with `sudo apt install ./KenShell-Linux.deb`. |
+
+Release notes and older versions: [Releases](../../releases).
 
 ### First launch
 

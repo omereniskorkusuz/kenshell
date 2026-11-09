@@ -214,6 +214,22 @@ jobs:
           UPDATER_BASE_URL: ${{ vars.UPDATER_BASE_URL }}
         run: |
           tag="${GITHUB_REF_NAME}"
+          # Fixed, version-less names so README links to releases/latest/download/<name>
+          # always fetch the newest file for that system. A .sig follows its bundle.
+          find dist-release -type f | while read -r f; do
+            case "$f" in
+              *.app.tar.gz|*.app.tar.gz.sig) new="KenShell-macOS.app.tar.gz" ;;
+              *.dmg) new="KenShell-macOS.dmg" ;;
+              *-setup.exe|*-setup.exe.sig) new="KenShell-Windows-setup.exe" ;;
+              *.msi|*.msi.sig) new="KenShell-Windows.msi" ;;
+              *_portable.zip) new="KenShell-Windows-portable.zip" ;;
+              *.AppImage|*.AppImage.sig) new="KenShell-Linux.AppImage" ;;
+              *.deb) new="KenShell-Linux.deb" ;;
+              *) continue ;;
+            esac
+            case "$f" in *.sig) new="$new.sig" ;; esac
+            mv "$f" "$(dirname "$f")/$new"
+          done
           files=$(find dist-release -type f \( -name '*.dmg' -o -name '*.msi' -o -name '*-setup.exe' -o -name '*.zip' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.app.tar.gz' -o -name '*.sig' \))
           if [ -n "$UPDATER_BASE_URL" ] && ls $files | grep -q '\.sig$'; then
             node tools/scripts/latest-json.mjs "$tag" "${UPDATER_BASE_URL%/}/$tag" dist-release > latest.json
