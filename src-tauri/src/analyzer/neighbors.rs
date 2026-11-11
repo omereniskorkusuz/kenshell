@@ -19,6 +19,10 @@ pub struct Neighbor {
     pub remote_interface: Option<String>,
     pub cdp: bool,
     pub lldp: bool,
+    /// LLDP chassis id when it is a MAC address.
+    pub chassis: Option<String>,
+    /// Manufacturer of the chassis MAC, from the IEEE OUI table.
+    pub vendor: Option<String>,
 }
 
 /// The read-only commands to run for a vendor family (Cisco-like devices speak CDP too).
@@ -41,6 +45,12 @@ fn parser_rows(id: &str, text: &str) -> Vec<Vec<String>> {
 fn opt(s: &str) -> Option<String> {
     let t = s.trim();
     (!t.is_empty()).then(|| t.to_owned())
+}
+
+/// The chassis id as a MAC (`aabb.ccdd.eeff`, `aa:bb:…`, `aa-bb-…`), if it is one.
+fn chassis_mac(s: &str) -> Option<String> {
+    let t = s.trim();
+    super::parsers::mac_address_table::is_mac(t).then(|| t.to_lowercase())
 }
 
 /// Matching key: the local port (normalised) + the neighbour's name without its domain.
@@ -74,6 +84,10 @@ pub fn neighbors(family: Option<&str>, outputs: &[(String, String)]) -> Vec<Neig
             if e.remote_interface.is_none() {
                 e.remote_interface = n.remote_interface;
             }
+            if e.chassis.is_none() {
+                e.chassis = n.chassis;
+                e.vendor = n.vendor;
+            }
         } else {
             list.push(n);
         }
@@ -93,6 +107,8 @@ pub fn neighbors(family: Option<&str>, outputs: &[(String, String)]) -> Vec<Neig
                         remote_interface: opt(&r[5]),
                         cdp: true,
                         lldp: false,
+                        chassis: None,
+                        vendor: None,
                     },
                     &mut list,
                 );
@@ -119,6 +135,10 @@ pub fn neighbors(family: Option<&str>, outputs: &[(String, String)]) -> Vec<Neig
                         remote_interface: opt(&r[3]),
                         cdp: false,
                         lldp: true,
+                        chassis: chassis_mac(&r[5]),
+                        vendor: chassis_mac(&r[5])
+                            .and_then(|m| crate::netscan::oui::vendor(&m))
+                            .map(str::to_owned),
                     },
                     &mut list,
                 );

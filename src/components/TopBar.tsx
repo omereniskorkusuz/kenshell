@@ -1,4 +1,4 @@
-import { PanelLeft, Radar, Settings } from 'lucide-react';
+import { PanelLeft, Radar, Settings, Workflow } from 'lucide-react';
 import { useT } from '../i18n';
 import { isMac } from '../lib/ipc';
 import { useShortcuts } from '../app/actions';
@@ -32,6 +32,15 @@ export function TopBar() {
       <Logo size={18} className="select-none" />
       <QuickConnect />
       <div className="ml-auto flex items-center gap-1">
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm text-secondary"
+          title={t('topoMap.open') + sc.hint('topology.open')}
+          onClick={() => useUi.getState().openTopology()}
+        >
+          <Workflow size={14} aria-hidden />{' '}
+          <span className="hidden lg:inline">{t('topoMap.title')}</span>
+        </button>
         <button
           type="button"
           className="btn btn-ghost btn-sm text-secondary"

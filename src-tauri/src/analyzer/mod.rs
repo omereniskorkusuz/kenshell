@@ -16,6 +16,7 @@ mod fuzz_tests;
 pub mod logfile;
 pub mod neighbors;
 pub mod parsers;
+pub mod topology;
 
 use serde::{Deserialize, Serialize};
 

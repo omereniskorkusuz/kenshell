@@ -31,6 +31,7 @@ import { applyPatch, type SessionPatch } from '../bulk';
 import { parseIface } from '../iface';
 import { framingLabel } from '../format';
 import { FakeCli } from './cli';
+import { mockDiscovery } from './topology';
 
 const mockHistory = new Map<string, string[]>();
 let mockScanCancel = false;
@@ -520,6 +521,10 @@ class MockNetLive {
     this.cli = new FakeCli(host.replace(/[^\w-]/g, '-') || 'device');
   }
 
+  get host(): string {
+    return this.request.target.type === 'network' ? this.request.target.host : '';
+  }
+
   private get net() {
     if (this.request.target.type !== 'network') throw new Error('network only');
     return this.request.target;
@@ -991,37 +996,48 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
               : 'invalid',
         };
       }
+      case 'topology_discover': {
+        const l = lives.get(a.id as RuntimeId);
+        const d = mockDiscovery(l instanceof MockNetLive ? l.host : 'core-sw1', a.hosts === true);
+        return new Promise((r) => setTimeout(() => r(d), 500));
+      }
       case 'neighbors_discover':
         return [
           {
             name: 'core-sw1.lab.example.com',
             ip: '10.0.0.1',
-            platform: 'cisco WS-C3850-48P',
+            platform: 'CS-3850-48P',
             capability: 'Router Switch IGMP',
             localInterface: 'GigabitEthernet1/0/24',
             remoteInterface: 'GigabitEthernet1/0/1',
             cdp: true,
             lldp: true,
+            chassis: null,
+            vendor: null,
           },
           {
             name: 'ap-floor2',
             ip: '10.20.0.15',
-            platform: 'cisco AIR-AP2802I',
+            platform: 'AP-2802I',
             capability: 'Trans-Bridge',
             localInterface: 'GigabitEthernet1/0/5',
             remoteInterface: 'GigabitEthernet0',
             cdp: true,
             lldp: false,
+            chassis: null,
+            vendor: null,
           },
           {
             name: 'access-sw3',
             ip: '10.0.0.20',
-            platform: 'Ruijie S5750-48GT4XS-E',
+            platform: 'S5750-48GT4XS',
             capability: 'Bridge',
             localInterface: 'GigabitEthernet1/0/47',
             remoteInterface: 'GigabitEthernet 0/49',
             cdp: false,
             lldp: true,
+            chassis: null,
+            vendor: null,
           },
           {
             name: 'printer-3f',
@@ -1032,6 +1048,8 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
             remoteInterface: '0011.2233.4455',
             cdp: false,
             lldp: true,
+            chassis: null,
+            vendor: null,
           },
         ];
       case 'logfile_analyze':

@@ -51,9 +51,10 @@ import { normalizeEnv } from '../lib/tree';
 import { getTerminal } from '../terminal/registry';
 import { createSink, disposeSink, getSink } from '../terminal/sink';
 import { useLibrary } from './library';
-import { useSettings } from './settings';
+import { getSetting, useSettings } from './settings';
 import { toast } from './toasts';
 import { useUi } from './ui';
+import { addHistory } from '../lib/history';
 
 export interface OpenMeta {
   sessionId?: number | null;
@@ -265,6 +266,17 @@ export const useTabs = create<TabsState>()((set, get) => {
         refreshRecent();
       }
       if (ev.type === 'state' && ev.state === 'connected' && before.state !== 'connected') {
+        // Every connection goes to the history, saved session or not.
+        useSettings.getState().set(
+          'history.connections',
+          addHistory(getSetting('history.connections'), {
+            name: after.name,
+            envTag: after.envTag,
+            sessionId: after.sessionId,
+            target: structuredClone(after.target),
+            at: Date.now(),
+          }),
+        );
         runAutoCommands(key, generation);
       }
     };
@@ -291,6 +303,7 @@ export const useTabs = create<TabsState>()((set, get) => {
   /** Activates `key`; in split view a tab not shown takes the focused pane's place. */
   const show = (key: string) => {
     if (!tab(key)) return;
+    useUi.getState().leaveTopology();
     set((s) => ({ activeKey: key, view: activateIn(s.view, s.activeKey, key) }));
   };
   const shownKeys = (): string[] => {

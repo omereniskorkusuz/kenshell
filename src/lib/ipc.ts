@@ -245,6 +245,20 @@ export interface Neighbor {
   remoteInterface: string | null;
   cdp: boolean;
   lldp: boolean;
+  /** LLDP chassis id when it is a MAC. */
+  chassis: string | null;
+  /** Manufacturer of the chassis MAC (IEEE OUI table). */
+  vendor: string | null;
+}
+
+/** What one live session contributes to the topology map. */
+export interface Discovery {
+  neighbors: Neighbor[];
+  /** Addresses learned on ports (12 hex digits). */
+  macs: { mac: string; vlan: string | null; interface: string; vendor: string | null }[];
+  arp: { ip: string; mac: string }[];
+  ownMac: string | null;
+  ownVendor: string | null;
 }
 
 export interface FileSummary {
@@ -744,6 +758,9 @@ export const api = {
   netscanCheck: (target: string) => call<ScanCheck>('netscan_check', { target }),
   neighborsDiscover: (id: number, family: string | null) =>
     call<Neighbor[]>('neighbors_discover', { id, family }),
+  /** Neighbours plus (with `hosts`) the MAC and ARP tables, read hidden. */
+  topologyDiscover: (id: number, family: string | null, hosts: boolean) =>
+    call<Discovery>('topology_discover', { id, family, hosts }),
   logfileAnalyze: (path: string) => call<FileSummary>('logfile_analyze', { path }),
   logfileLines: (path: string, start: number, end: number) =>
     call<string>('logfile_lines', { path, start, end }),

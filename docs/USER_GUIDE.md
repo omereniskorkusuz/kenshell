@@ -31,7 +31,7 @@ where the guide says `⌘`.
 
 | Area | What it does |
 | --- | --- |
-| **Top bar** | Sidebar toggle, the KenShell logo, **Quick connect**, **Scan my network**, the command palette and **Settings**. |
+| **Top bar** | Sidebar toggle, the KenShell logo, **Quick connect**, **Topology**, **Scan my network**, the command palette and **Settings**. |
 | **Sidebar** | **Search sessions**, your saved **Sessions** in folders, **Detected consoles** (USB cables plugged in right now) and **Recent** connections. |
 | **Tab bar** | One tab per open session. Drag to reorder, or drag a tab onto a pane to split. |
 | **Identity bar** | At the top of every session: CLI mode, environment tag (PROD / LAB / TEST), session name, protocol, target, connection state and uptime. Buttons on the right: notes bar, connection details, side panel. |
@@ -72,6 +72,10 @@ Type into the box in the top bar and press Enter:
 | `raw://10.0.0.5:4001`, `rlogin://host` | Raw TCP, Rlogin |
 | `COM4`, `com4 9600` or `/dev/cu.usbserial-A10K3XYZ 115200` | Serial port (optionally with a speed) |
 | `core-sw1` | A saved session by name |
+
+Every connection you make this way (and every console cable you connect) is remembered
+under **Recent** in the sidebar, whether you saved it as a session or not. Click an entry
+to connect again; hover it and press **×** to remove it. Passwords are never part of it.
 
 ### Saved sessions
 
@@ -223,8 +227,39 @@ Side panel → **Analyzer**.
   handy when looking for a free IP. Right-click an address to connect, ping or copy.
   Export to CSV.
 
-**Topology:** CDP/LLDP neighbours of the current device are drawn as a map. Click a
-neighbour to connect to it.
+### Topology map
+
+**Topology** in the top bar (⇧⌘M / Ctrl+Shift+M) opens the map in a tab of its own. It is
+built from the sessions you have open; the more devices you are connected to, the more
+complete it is.
+
+- **What it reads:** each connected device's LLDP / CDP neighbours and, with **End
+  devices** ticked, its MAC and ARP tables. The commands are read-only and run hidden:
+  nothing appears in your terminal. Reading starts when you open the map and when a new
+  session connects; **Read again** refreshes it.
+- **What you see:** every switch, router, firewall and access point as its own card, in a
+  hierarchy from the top device down. Each card shows the name, the manufacturer (looked
+  up from the device's MAC address), the model and the IP address. Devices you have a
+  session open to have a green dot.
+- **Links:** the label on each line is the port on the upper device, then the port on the
+  lower one (`Gi1/0/47 → Gi0/49`), so you can see exactly what is plugged in where. Dashed
+  lines are extra links between devices that are already connected another way
+  (redundant paths).
+- **End devices:** a port with up to four learned addresses shows each device (IP when an
+  ARP table knows it, otherwise the MAC); a port with more shows one "n devices" card,
+  usually a switch or access point that does not speak LLDP.
+- **Click a card** for its details and links. From there: **Go to session**, **Connect
+  (SSH)** / **Telnet** to a device you are not connected to yet, **Copy IP**, or **Put at
+  the top** to redraw the hierarchy from that device. Double-click an open device to jump
+  to its session.
+- **Moving around:** drag to pan, scroll to move, Ctrl/⌘ + scroll (or pinch) to zoom,
+  **Fit to window** to see everything.
+
+The map uses only what the devices themselves report over your open sessions. It does not
+use SNMP, sFlow or NetFlow. A device that has LLDP and CDP switched off appears only as an
+address on its neighbour's port.
+
+The side panel's **Analyze → Neighbours** view still shows the neighbours of one device.
 
 ---
 
@@ -356,6 +391,7 @@ Defaults (all can be changed in **Settings → Shortcuts**):
 | ⌘B | Toggle sidebar |
 | ⌘J | Toggle side panel |
 | ⌘⌥N | Toggle notes bar |
+| ⌘⇧M | Topology map |
 | ⌘, | Settings |
 
 ---
@@ -364,6 +400,7 @@ Defaults (all can be changed in **Settings → Shortcuts**):
 
 | Problem | What to do |
 | --- | --- |
+| The topology map shows only one device | Open sessions to more devices: the map is built from what each connected device reports. Check that LLDP (or CDP) is enabled on the devices; with **End devices** ticked you still see what is on each port. A device that sits in configuration mode cannot be read until it is back at its normal prompt. |
 | The console cable isn't listed | Check the sidebar for a driver hint and install the driver from the official page, then **Rescan**. On Linux, add your user to the `dialout` (or `uucp`) group and log in again; KenShell shows the exact command. |
 | Garbled characters on the console | The speed is wrong. Change it from the identity bar (9600 is typical for most switches and routers), or let autobaud try again. |
 | "Host key changed": connection blocked | The device's SSH key is different from last time. Confirm the change is expected, then use **Forget stored key** and reconnect. |

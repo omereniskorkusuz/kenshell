@@ -83,6 +83,7 @@ pub fn run() {
             commands::analyzer::logfile_analyze,
             commands::analyzer::logfile_lines,
             commands::analyzer::neighbors_discover,
+            commands::analyzer::topology_discover,
             commands::backups::backup_take,
             commands::backups::backup_import,
             commands::backups::backups_list,

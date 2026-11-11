@@ -537,3 +537,92 @@
 button.scan-cell:not(:disabled):hover {
   filter: brightness(1.2);
 }
+
+/* Topology map (own tab): cards over an SVG link layer, panned / zoomed as one block. */
+.topo-canvas {
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--border-subtle) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.topo-canvas:active {
+  cursor: grabbing;
+}
+.topo-card {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease-standard);
+}
+.topo-card:hover {
+  border-color: var(--text-muted);
+}
+.topo-card[data-session] {
+  border-color: color-mix(in srgb, var(--brand) 70%, var(--border-strong));
+}
+.topo-card[data-on] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.topo-card[data-kind='host'],
+.topo-card[data-kind='group'],
+.topo-card[data-kind='phone'] {
+  background: var(--bg-surface);
+  border-style: dashed;
+}
+.topo-card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.topo-icon {
+  color: var(--text-secondary);
+}
+.topo-card[data-session] .topo-icon {
+  color: var(--brand);
+}
+.topo-live {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.topo-link {
+  fill: none;
+  stroke: color-mix(in srgb, var(--brand) 55%, var(--border-strong));
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.topo-link-extra {
+  stroke: var(--border-strong);
+  stroke-dasharray: 5 5;
+}
+.topo-link[data-on] {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+.topo-port {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0 5px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--text-secondary);
+  font: 10px/16px var(--font-mono);
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.topo-port[data-on] {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  z-index: 1;
+}

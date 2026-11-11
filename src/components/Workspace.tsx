@@ -1,5 +1,6 @@
 /** Main area: tab bar + panes (or the empty state) + side panel (overlay or push). */
 import { Usb } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { useT } from '../i18n';
 import { isMac } from '../lib/ipc';
 import { useShortcuts } from '../app/actions';
@@ -7,22 +8,28 @@ import { newSerialSession } from '../app/actions';
 import { chipLabel, useConsoles } from '../stores/consoles';
 import { cellRect } from '../lib/split';
 import { useTabs } from '../stores/tabs';
+import { useUi } from '../stores/ui';
 import { LogoMark, Wordmark } from './Logo';
 import { Pane } from './Pane';
 import { SidePanel } from './SidePanel';
 import { TabBar } from './TabBar';
 
+/** The map loads only when its tab is first opened. */
+const TopologyMap = lazy(() => import('./TopologyMap'));
+
 export function Workspace() {
   const tabs = useTabs((s) => s.tabs);
   const activeKey = useTabs((s) => s.activeKey);
   const view = useTabs((s) => s.view);
+  const topologyOpen = useUi((s) => s.topologyOpen);
+  const topology = useUi((s) => s.topologyActive);
   const split = view.keys.length >= 2;
   const shown = split ? view.keys : activeKey ? [activeKey] : [];
 
   return (
     <div className="relative flex min-w-0 flex-1">
       <main className="flex min-w-0 flex-1 flex-col">
-        {tabs.length > 0 && <TabBar />}
+        {(tabs.length > 0 || topologyOpen) && <TabBar />}
         <div className="relative min-h-0 flex-1 bg-terminal">
           {tabs.map((tab) => {
             const i = shown.indexOf(tab.key);
@@ -30,13 +37,20 @@ export function Workspace() {
               <Pane
                 key={tab.key}
                 tab={tab}
-                visible={i >= 0}
-                focused={tab.key === activeKey}
+                visible={i >= 0 && !topology}
+                focused={tab.key === activeKey && !topology}
                 rect={split && i >= 0 ? cellRect(i, shown.length, view.dir) : null}
               />
             );
           })}
-          {tabs.length === 0 && <EmptyState />}
+          {tabs.length === 0 && !topology && <EmptyState />}
+          {topology && (
+            <div className="absolute inset-0" role="tabpanel" aria-labelledby="tab-topology">
+              <Suspense fallback={null}>
+                <TopologyMap />
+              </Suspense>
+            </div>
+          )}
         </div>
       </main>
       {/* Pushes (takes layout space) at ≥ 1600px or when pinned, else floats over the pane. */}

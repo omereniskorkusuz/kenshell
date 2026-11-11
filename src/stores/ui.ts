@@ -82,6 +82,13 @@ interface UiState {
   focusQuickConnect(): void;
   tabDrag: TabDrag | null;
   setTabDrag(drag: TabDrag | null): void;
+  /** The topology map has a tab of its own; `Active` = it is the one shown. */
+  topologyOpen: boolean;
+  topologyActive: boolean;
+  openTopology(): void;
+  closeTopology(): void;
+  /** A session tab was chosen: the map stays open but is no longer shown. */
+  leaveTopology(): void;
 }
 
 let seq = 1;
@@ -121,6 +128,14 @@ export const useUi = create<UiState>()((set, get) => ({
   findKey: null,
   openFind: (key) => set({ findKey: key }),
   closeFind: () => set({ findKey: null }),
+
+  topologyOpen: false,
+  topologyActive: false,
+  openTopology: () => set({ topologyOpen: true, topologyActive: true }),
+  closeTopology: () => set({ topologyOpen: false, topologyActive: false }),
+  leaveTopology: () => {
+    if (get().topologyActive) set({ topologyActive: false });
+  },
 
   openPalette: (query = '', scope = 'all') =>
     set({ paletteOpen: true, paletteQuery: query, paletteScope: scope }),

@@ -11,6 +11,7 @@ import {
   recentSessions,
   searchSessions,
 } from '../lib/tree';
+import { recentItems, removeHistory, type RecentItem } from '../lib/history';
 import { api, type SessionRecord } from '../lib/ipc';
 import { useUi } from '../stores/ui';
 import { useLibrary } from '../stores/library';
@@ -201,7 +202,8 @@ export function Sidebar() {
 
 function relativeTime(ms: number, now: number): string {
   const rtf = new Intl.RelativeTimeFormat(getLocale(), { numeric: 'auto', style: 'narrow' });
-  const diff = Math.round((ms - now) / 60_000);
+  // Never in the future: the clock behind `now` only ticks once a minute.
+  const diff = Math.min(0, Math.round((ms - now) / 60_000));
   if (Math.abs(diff) < 60) return rtf.format(diff, 'minute');
   const h = Math.round(diff / 60);
   if (Math.abs(h) < 24) return rtf.format(h, 'hour');
@@ -211,7 +213,25 @@ function relativeTime(ms: number, now: number): string {
 function RecentList() {
   const t = useT();
   const sessions = useLibrary((s) => s.sessions);
-  const recent = useMemo(() => recentSessions(sessions), [sessions]);
+  const history = useSettings((s) => s.values['history.connections']);
+  const recent = useMemo(() => {
+    // Saved sessions that connected before the history existed still show up.
+    const known = new Set(history.map((e) => e.key));
+    const legacy: RecentItem<SessionRecord>[] = recentSessions(sessions, 8)
+      .filter((s) => !known.has(`s:${s.id}`))
+      .map((s) => ({
+        key: `s:${s.id}`,
+        name: s.name,
+        envTag: s.envTag,
+        at: s.lastConnectedAt ?? 0,
+        session: s,
+        target: null,
+        removable: false,
+      }));
+    return [...recentItems(history, sessions, 8), ...legacy]
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 8);
+  }, [history, sessions]);
   const now = useNow(60_000);
   if (recent.length === 0) return null;
 
@@ -221,25 +241,47 @@ function RecentList() {
         {t('shell.recent')}
       </h2>
       <ul className="flex flex-col px-1">
-        {recent.map((s) => (
-          <li key={s.id}>
+        {recent.map((r) => (
+          <li key={r.key} className="group relative flex items-center">
             <button
               type="button"
-              className="tree-row pl-2"
-              data-env={envKind(s.envTag) ?? undefined}
-              onClick={() => useTabs.getState().openSession(s)}
-              title={t('library.connectTo', { name: s.name })}
+              className="tree-row min-w-0 flex-1 pl-2"
+              data-env={envKind(r.envTag) ?? undefined}
+              onClick={() => {
+                if (r.session) useTabs.getState().openSession(r.session);
+                else if (r.target)
+                  useTabs.getState().openTarget(r.target, { name: r.name, envTag: r.envTag });
+              }}
+              title={t('library.connectTo', { name: r.name })}
             >
-              <span className="mono flex-1 truncate">{s.name}</span>
-              {envKind(s.envTag) && (
-                <span className="env-letter" title={envLabel(s.envTag) ?? ''}>
-                  {envLetter(s.envTag)}
+              <span className="mono flex-1 truncate">{r.name}</span>
+              {envKind(r.envTag) && (
+                <span className="env-letter" title={envLabel(r.envTag) ?? ''}>
+                  {envLetter(r.envTag)}
                 </span>
               )}
-              <span className="text-xs text-muted tabular">
-                {relativeTime(s.lastConnectedAt ?? now, now)}
+              <span className="text-xs text-muted tabular group-hover:invisible group-focus-within:invisible">
+                {relativeTime(r.at, now)}
               </span>
             </button>
+            {r.removable && (
+              <button
+                type="button"
+                className="icon-btn icon-btn-sm absolute right-1 opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
+                aria-label={t('shell.recentRemove', { name: r.name })}
+                title={t('shell.recentRemove', { name: r.name })}
+                onClick={() =>
+                  useSettings
+                    .getState()
+                    .set(
+                      'history.connections',
+                      removeHistory(useSettings.getState().values['history.connections'], r.key),
+                    )
+                }
+              >
+                <X size={12} />
+              </button>
+            )}
           </li>
         ))}
       </ul>

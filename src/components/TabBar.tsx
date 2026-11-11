@@ -5,7 +5,7 @@
  * handling can swallow): along the strip → reorder; onto a pane → split view (edge) or
  * replace (center); out of the window → move to a new window (P2-T19).
  */
-import { Plus, Radio, X } from 'lucide-react';
+import { Plus, Radio, Workflow, X } from 'lucide-react';
 import {
   useEffect,
   useRef,
@@ -55,6 +55,8 @@ export function TabBar() {
   const activeKey = useTabs((s) => s.activeKey);
   const view = useTabs((s) => s.view);
   const broadcast = useTabs((s) => s.broadcast);
+  const topologyOpen = useUi((s) => s.topologyOpen);
+  const topology = useUi((s) => s.topologyActive);
   const mac = isMac();
   const listRef = useRef<HTMLDivElement>(null);
   const drag = useRef<DragState | null>(null);
@@ -236,8 +238,47 @@ export function TabBar() {
           if (drag.current?.active) endDrag();
         }}
       >
+        {topologyOpen && (
+          <div
+            role="tab"
+            id="tab-topology"
+            aria-selected={topology}
+            tabIndex={topology ? 0 : -1}
+            data-mode="unknown"
+            className="tab cursor-default"
+            title={t('topoMap.open')}
+            onClick={() => useUi.getState().openTopology()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') useUi.getState().openTopology();
+              if (e.key === 'Delete') {
+                // Not the session tab behind it.
+                e.stopPropagation();
+                useUi.getState().closeTopology();
+              }
+            }}
+            onAuxClick={(e) => {
+              if (e.button === 1) useUi.getState().closeTopology();
+            }}
+          >
+            <Workflow size={13} className="shrink-0 text-brand" aria-hidden />
+            <span className="tab-title min-w-0 flex-1 truncate">{t('topoMap.title')}</span>
+            <button
+              type="button"
+              tabIndex={-1}
+              className="icon-btn icon-btn-sm"
+              aria-label={t('topoMap.closeTab')}
+              title={t('topoMap.closeTab')}
+              onClick={(e) => {
+                e.stopPropagation();
+                useUi.getState().closeTopology();
+              }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
         {tabs.map((tab) => {
-          const selected = tab.key === activeKey;
+          const selected = tab.key === activeKey && !topology;
           const status = tabStatus(tab, t);
           const env = envKind(tab.envTag);
           const inView = view.keys.includes(tab.key);

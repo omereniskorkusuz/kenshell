@@ -146,8 +146,12 @@ const ALL_ACTIONS: readonly AppAction[] = [
     title: 'actions.closeTab',
     group: 'actions',
     shortcut: 'mod+w',
-    enabled: hasActiveTab,
-    run: () => useTabs.getState().close(),
+    enabled: () => hasActiveTab() || useUi.getState().topologyActive,
+    run: () => {
+      // The topology map is a tab too: closing it does not touch a session.
+      if (useUi.getState().topologyActive) useUi.getState().closeTopology();
+      else useTabs.getState().close();
+    },
   },
   {
     id: 'tab.reopen',
@@ -455,6 +459,14 @@ const ALL_ACTIONS: readonly AppAction[] = [
     run: () => {
       useSettings.getState().set('general.language', 'en');
     },
+  },
+  {
+    id: 'topology.open',
+    title: 'topoMap.open',
+    group: 'actions',
+    shortcut: 'mod+shift+m',
+    keywords: ['topology', 'topoloji', 'map', 'harita', 'lldp', 'cdp', 'neighbours', 'komşu'],
+    run: () => useUi.getState().openTopology(),
   },
   {
     id: 'netscan.open',

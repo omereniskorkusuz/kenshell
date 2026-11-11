@@ -7,6 +7,7 @@ import { api, type Settings } from '../lib/ipc';
 import { NO_COLORS, sanitizeColors, type ColorSettings } from '../lib/modeColors';
 import { sanitizeOverrides } from '../lib/shortcuts';
 import { HIGHLIGHT_CATEGORIES, type HighlightCategory } from '../terminal/highlight';
+import { sanitizeHistory, type HistoryEntry } from '../lib/history';
 
 export type ThemePref = 'dark' | 'light' | 'system';
 export type LanguagePref = 'system' | 'tr' | 'en';
@@ -73,6 +74,8 @@ export interface AppSettings {
   'console.groupHintShown': boolean;
   /** Model id for the AI assistant, typed by the user ('' = not set). */
   'ai.model': string;
+  /** Connection history, newest first (lib/history.ts). */
+  'history.connections': HistoryEntry[];
 }
 
 export type SettingKey = keyof AppSettings;
@@ -119,6 +122,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'updates.autoCheck': true,
   'console.groupHintShown': false,
   'ai.model': '',
+  'history.connections': [],
 };
 
 export const LIMITS = {
@@ -199,6 +203,8 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
         return bool(value, d[k]);
       case 'ai.model':
         return typeof value === 'string' ? value.trim().slice(0, 100) : d[k];
+      case 'history.connections':
+        return sanitizeHistory(value);
       case 'shortcuts.overrides':
         return sanitizeOverrides(value);
       case 'terminal.renderer':
