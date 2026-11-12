@@ -40,10 +40,30 @@ pub const TERM: &str = "xterm-256color";
 /// servers still negotiate modern algorithms.
 pub fn preferred(legacy: bool) -> Preferred {
     let mut p = Preferred::default();
+    // The NIST curves are not in russh's default list, but OpenSSH offers them by default
+    // and many switches offer nothing newer: without them a device that `ssh` reaches
+    // fine ended in "no common algorithm" here. Before the extension markers.
+    let mut kexes: Vec<kex::Name> = p.kex.to_vec();
+    let at = kexes
+        .iter()
+        .position(|k| *k == kex::EXTENSION_SUPPORT_AS_CLIENT)
+        .unwrap_or(kexes.len());
+    for (i, k) in [
+        kex::ECDH_SHA2_NISTP256,
+        kex::ECDH_SHA2_NISTP384,
+        kex::ECDH_SHA2_NISTP521,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if !kexes.contains(&k) {
+            kexes.insert(at + i, k);
+        }
+    }
     if !legacy {
+        p.kex = Cow::Owned(kexes);
         return p;
     }
-    let mut kexes = p.kex.to_vec();
     kexes.extend([kex::DH_G14_SHA1, kex::DH_GEX_SHA1, kex::DH_G1_SHA1]);
     let mut ciphers = p.cipher.to_vec();
     ciphers.extend([
@@ -832,10 +852,25 @@ impl Transport for SshTransport {
         }
         let target = self.target();
         let stream = self.open_stream().await?;
-        let (handle, info) = self
+        let first = self
             .login
             .login(stream, Arc::clone(&self.remote), Arc::clone(&self.x11))
-            .await?;
+            .await;
+        let (handle, info) = match first {
+            // An old device: try once more, also offering the legacy algorithms (they
+            // come last, so nothing is weakened for a device that knows better ones).
+            Err(e)
+                if e.code == ErrorCode::NoCommonAlgorithm && !self.login.opts.legacy_algorithms =>
+            {
+                tracing::info!("{target}: no common algorithm, retrying with legacy ones");
+                self.login.opts.legacy_algorithms = true;
+                let stream = self.open_stream().await?;
+                self.login
+                    .login(stream, Arc::clone(&self.remote), Arc::clone(&self.x11))
+                    .await?
+            }
+            other => other?,
+        };
         self.host_key = Some(info);
         let handle = Arc::new(handle);
 
@@ -968,6 +1003,9 @@ mod tests {
     fn legacy_adds_old_algorithms_at_the_end_only() {
         let modern = preferred(false);
         assert!(!modern.kex.contains(&kex::DH_G1_SHA1));
+        // What OpenSSH offers by default must be offered here too.
+        assert!(modern.kex.contains(&kex::ECDH_SHA2_NISTP256));
+        assert!(modern.kex.contains(&kex::DH_G14_SHA256));
         assert!(!modern.cipher.contains(&cipher::AES_128_CBC));
         let legacy = preferred(true);
         assert_eq!(

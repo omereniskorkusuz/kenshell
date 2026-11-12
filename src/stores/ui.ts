@@ -89,6 +89,14 @@ interface UiState {
   closeTopology(): void;
   /** A session tab was chosen: the map stays open but is no longer shown. */
   leaveTopology(): void;
+  /** "New session" tabs (the + in the tab strip) and the one on screen, if any. */
+  newTabs: number[];
+  activeNewTab: number | null;
+  openNewTab(): void;
+  showNewTab(id: number): void;
+  closeNewTab(id: number): void;
+  /** A session was opened from the new-session tab on screen: that tab becomes it. */
+  consumeNewTab(): void;
 }
 
 let seq = 1;
@@ -131,10 +139,28 @@ export const useUi = create<UiState>()((set, get) => ({
 
   topologyOpen: false,
   topologyActive: false,
-  openTopology: () => set({ topologyOpen: true, topologyActive: true }),
+  openTopology: () => set({ topologyOpen: true, topologyActive: true, activeNewTab: null }),
   closeTopology: () => set({ topologyOpen: false, topologyActive: false }),
   leaveTopology: () => {
-    if (get().topologyActive) set({ topologyActive: false });
+    if (get().topologyActive || get().activeNewTab !== null) {
+      set({ topologyActive: false, activeNewTab: null });
+    }
+  },
+  newTabs: [],
+  activeNewTab: null,
+  openNewTab: () => {
+    const id = seq++;
+    set((s) => ({ newTabs: [...s.newTabs, id], activeNewTab: id, topologyActive: false }));
+  },
+  showNewTab: (id) => set({ activeNewTab: id, topologyActive: false }),
+  closeNewTab: (id) =>
+    set((s) => ({
+      newTabs: s.newTabs.filter((x) => x !== id),
+      activeNewTab: s.activeNewTab === id ? null : s.activeNewTab,
+    })),
+  consumeNewTab: () => {
+    const id = get().activeNewTab;
+    if (id !== null) get().closeNewTab(id);
   },
 
   openPalette: (query = '', scope = 'all') =>

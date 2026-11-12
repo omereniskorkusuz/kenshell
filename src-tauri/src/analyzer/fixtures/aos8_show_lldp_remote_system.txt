@@ -26,3 +26,39 @@ Remote LLDP nearest-bridge Agents on Local Port 1/1/5:
       Capabilities Enabled        = Telephone,
       Management IP Address       = 10.30.0.41
 
+Remote LLDP nearest-bridge Agents on Local Port 1/1/2:
+
+    Chassis e8:40:f2:00:10:1d, Port e8:40:f2:00:10:1d:
+      Remote ID                   = 3,
+      Chassis Subtype             = 4 (MAC Address),
+      Port Subtype                = 3 (MAC address),
+      Port Description            = (null),
+      System Name                 = (null),
+      System Description          = (null),
+      Capabilities Supported      = none supported,
+      Capabilities Enabled        = none enabled,
+      MED Device Type             = Endpoint Class I,
+      MED Capabilities            = Capabilities(00:01),
+      Remote port MAC/PHY AutoNeg = Supported Enabled Capability 0x6c00,
+      Mau Type                    = Not set
+
+Remote LLDP nearest-bridge Agents on Local Port 1/1/30:
+
+    Chassis 10:5f:02:00:de:aa, Port Te0/32:
+      Remote ID                   = 1,
+      Chassis Subtype             = 4 (MAC Address),
+      Port Subtype                = 5 (Interface name),
+      Port Description            = TenGigabitEthernet 0/32,
+      System Name                 = core-b,
+      System Description          = Full 10G switch
+Running on RGOS Software CS85_RGOS 12.6(4)B0701,
+      Capabilities Supported      = Bridge Router,
+      Capabilities Enabled        = Bridge Router,
+      Management IP Address       = 10.0.100.12,
+      Remote port default vlan    = 1,
+      Vlan ID                     = 1,
+      Vlan Name                   = VLAN0001,
+      Protocol vlan Id            = 0 (Flags = 0),
+      Remote port MAC/PHY AutoNeg = Not supported,
+      Mau Type                    = 10GigBaseR
+

@@ -282,11 +282,20 @@ async fn net_e2e_ssh_legacy_algorithms_and_wrong_password() {
     let _sim = sim(&["--ssh", "--legacy-only", "--profile", "ruijie"], port);
     let (m, _db) = manager();
 
+    // Without the option: the first handshake finds no common algorithm, the transport
+    // retries by itself with the legacy ones and the login goes on.
     let out = Arc::new(Rec::default());
-    m.open(net(Protocol::Ssh, port, Some("admin"), false), out.clone())
+    let id = m
+        .open(net(Protocol::Ssh, port, Some("admin"), false), out.clone())
         .unwrap();
-    until("no common algorithm", || failed(&out).is_some()).await;
-    assert_eq!(failed(&out), Some(ErrorCode::NoCommonAlgorithm));
+    until("password prompt after the automatic retry", || {
+        out.prompts().len() == 1 || failed(&out).is_some()
+    })
+    .await;
+    assert_eq!(failed(&out), None);
+    m.answer(id, vec!["admin".into()]).unwrap();
+    until("connected without the option", || connected(&out)).await;
+    m.close(id).unwrap();
 
     let out = Arc::new(Rec::default());
     let id = m

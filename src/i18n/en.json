@@ -170,7 +170,9 @@
     "reloading": "Device restarting · {{time}}",
     "osVersion": "OS version",
     "serial": "Serial number",
-    "deviceUptime": "Device uptime"
+    "deviceUptime": "Device uptime",
+    "uptimeMinutes": "{{m}} min",
+    "uptimeHours": "{{h}} h {{m}} min"
   },
   "tabs": {
     "label": "Open sessions",
@@ -1206,5 +1208,13 @@
     "flowHint": "Shows which addresses enter which port of an exporting device. Point the device's flow export at this computer.",
     "flowListen": "Listen for flow exports",
     "flowStatus": "Listening: {{sflow}} sFlow and {{netflow}} NetFlow datagrams, {{hosts}} addresses seen"
+  },
+  "newTab": {
+    "title": "New session",
+    "open": "New session tab",
+    "close": "Close this tab",
+    "placeholder": "ssh admin@10.0.0.1 · 10.0.0.5 2001 · COM4 9600 · a saved session's name",
+    "connect": "Connect",
+    "hint": "The same as quick connect: a bare host is SSH. This tab becomes the session."
   }
 }

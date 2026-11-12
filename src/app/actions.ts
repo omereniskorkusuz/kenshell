@@ -146,10 +146,13 @@ const ALL_ACTIONS: readonly AppAction[] = [
     title: 'actions.closeTab',
     group: 'actions',
     shortcut: 'mod+w',
-    enabled: () => hasActiveTab() || useUi.getState().topologyActive,
+    enabled: () =>
+      hasActiveTab() || useUi.getState().topologyActive || useUi.getState().activeNewTab !== null,
     run: () => {
-      // The topology map is a tab too: closing it does not touch a session.
-      if (useUi.getState().topologyActive) useUi.getState().closeTopology();
+      // The map and a new-session tab are tabs too: closing them does not touch a session.
+      const blank = useUi.getState().activeNewTab;
+      if (blank !== null) useUi.getState().closeNewTab(blank);
+      else if (useUi.getState().topologyActive) useUi.getState().closeTopology();
       else useTabs.getState().close();
     },
   },
@@ -459,6 +462,14 @@ const ALL_ACTIONS: readonly AppAction[] = [
     run: () => {
       useSettings.getState().set('general.language', 'en');
     },
+  },
+  {
+    id: 'tab.new',
+    title: 'newTab.open',
+    group: 'actions',
+    shortcut: 'mod+t',
+    keywords: ['new', 'tab', 'yeni', 'sekme', 'oturum'],
+    run: () => useUi.getState().openNewTab(),
   },
   {
     id: 'topology.open',

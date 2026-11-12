@@ -129,7 +129,10 @@ export function buildGraph(
   const edges: TopoEdge[] = [];
 
   const index = (n: TopoNode, ...alsoIp: (string | null)[]) => {
-    if (n.name && n.kind !== 'host') byName.set(nameKey(n.name), n.id);
+    // Not an address standing in for a missing name.
+    if (n.name && n.kind !== 'host' && !IPV4.test(n.name) && macKey(n.name) === null) {
+      byName.set(nameKey(n.name), n.id);
+    }
     for (const ip of [n.ip, ...alsoIp]) if (ip) byIp.set(ip, n.id);
     if (n.mac) byMac.set(n.mac, n.id);
   };
@@ -225,19 +228,27 @@ export function buildGraph(
     const used = linkPorts.get(self) ?? new Set<string>();
     linkPorts.set(self, used);
     for (const nb of d.discovery?.neighbors ?? []) {
-      const ip = cleanIp(nb.ip);
       const mac = macKey(nb.chassis);
-      const key = nameKey(nb.name);
+      const ip = cleanIp(nb.ip) ?? (mac ? (arp.get(mac) ?? null) : null);
+      // A device that announces no name comes through named by its chassis id.
+      const named = macKey(nb.name) === null ? nb.name : '';
+      const key = nameKey(named);
+      // The same name is the same device only if the chassis MACs do not disagree:
+      // several devices often keep the factory name.
+      const fits = (id: string | undefined) => {
+        const other = id === undefined ? undefined : nodes.get(id);
+        return other !== undefined && (!mac || !other.mac || other.mac === mac) ? id : undefined;
+      };
       let id =
-        (key ? byName.get(key) : undefined) ??
         (mac ? byMac.get(mac) : undefined) ??
-        (ip ? byIp.get(ip) : undefined);
+        fits(key ? byName.get(key) : undefined) ??
+        fits(ip ? byIp.get(ip) : undefined);
       const kind = kindOf(nb.capability, nb.platform);
       if (!id) {
-        id = `n:${key || mac || ip || nodes.size}`;
+        id = `n:${mac || key || ip || nodes.size}`;
         nodes.set(id, {
           id,
-          name: nb.name.split('.')[0] ?? nb.name,
+          name: (named.split('.')[0] ?? named) || ip || (mac ? formatMac(mac) : ''),
           kind: kind ?? 'switch',
           ip,
           vendor: nb.vendor,
@@ -400,9 +411,18 @@ const naturalPort = (a: string | null, b: string | null): number =>
 /** The most central infrastructure device: routers first, then by number of links. */
 export function pickRoot(graph: TopoGraph, among?: ReadonlySet<string>): string | null {
   const degree = new Map<string, number>();
+  // Links to other switches / routers count most: the device that ties the
+  // infrastructure together belongs on top, not the one with the most stations.
+  const infra = new Map<string, number>();
+  const kinds = new Map(graph.nodes.map((n) => [n.id, n.kind]));
+  const isInfra = (id: string) => ['router', 'switch', 'firewall'].includes(kinds.get(id) ?? '');
   for (const e of graph.edges) {
     degree.set(e.a, (degree.get(e.a) ?? 0) + 1);
     degree.set(e.b, (degree.get(e.b) ?? 0) + 1);
+    if (isInfra(e.a) && isInfra(e.b)) {
+      infra.set(e.a, (infra.get(e.a) ?? 0) + 1);
+      infra.set(e.b, (infra.get(e.b) ?? 0) + 1);
+    }
   }
   const rank: Record<NodeKind, number> = {
     router: 3,
@@ -417,7 +437,11 @@ export function pickRoot(graph: TopoGraph, among?: ReadonlySet<string>): string 
   let bestScore = -1;
   for (const n of graph.nodes) {
     if (among && !among.has(n.id)) continue;
-    const score = rank[n.kind] * 1000 + (degree.get(n.id) ?? 0) * 2 + (n.source ? 1 : 0);
+    const score =
+      rank[n.kind] * 10_000 +
+      (infra.get(n.id) ?? 0) * 100 +
+      (degree.get(n.id) ?? 0) * 2 +
+      (n.source ? 1 : 0);
     if (score > bestScore) {
       best = n;
       bestScore = score;

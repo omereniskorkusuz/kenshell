@@ -29,15 +29,28 @@ Neighbor Entries               : 1
 Neighbor Entries Deleted       : 0
 Neighbor Entries Dropped       : 0
 Neighbor Entries Aged-Out      : 0
-Neighbor Chassis-Name          : ap-hall
-Neighbor Chassis-Description   : Indoor access point
+Neighbor System-Name           : ap-hall
+Neighbor System-Description    : Indoor access point
 Neighbor Chassis-ID            : 58:69:6c:00:22:22
 Neighbor Management-Address    : 10.20.0.31
 Chassis Capabilities Available : Bridge, WLAN
 Chassis Capabilities Enabled   : WLAN
 Neighbor Port-ID               : 58:69:6c:00:22:23
 Neighbor Port-Desc             : eth0
-TTL                            : 120
+Neighbor Port VLAN ID          : 1
+Neighbor Port VLAN Name        : ap#outside
+Neighbor Port MFS              : 1500
+Link aggregation supported     :
+Link aggregation enabled       :
+Aggregation port ID            :
+TTL                            : 121
+
+Neighbor PoE information       : MED
+Neighbor Power Type            : PD
+Neighbor Power Priority        : Unknown
+Neighbor Power Source          : Unknown
+PD Requested Power Value       : 0.00 W
+PSE Allocated Power Value      : 0.00 W
 
 --------------------------------------------------------------------------------
 Port                           : 1/1/7

@@ -347,4 +347,80 @@ describe('other sources', () => {
     expect(buildGraph([sess, other], { hosts: false }).nodes).toHaveLength(2);
     expect(buildGraph([sess, { ...other, name: '' }], { hosts: false }).nodes).toHaveLength(1);
   });
+
+  it('real-network shapes: factory names shared by several devices, stations without a name', () => {
+    const g = buildGraph(
+      [
+        dev(
+          'a',
+          'acc-sw16',
+          disc({
+            neighbors: [
+              nb({
+                name: 'Ruijie',
+                chassis: '58:b4:bb:00:f4:1b',
+                capability: 'Bridge, WLAN',
+                localInterface: '1/1/1',
+                remoteInterface: 'Gi0/1',
+                ip: '127.0.0.1',
+              }),
+              nb({
+                name: 'Ruijie',
+                chassis: '10:5f:02:00:de:aa',
+                capability: 'Bridge, Router',
+                localInterface: '1/1/27',
+                remoteInterface: 'Te0/29',
+                ip: '10.0.100.12',
+              }),
+              nb({
+                name: 'e8:40:f2:00:10:1d',
+                chassis: 'e8:40:f2:00:10:1d',
+                capability: 'Station',
+                localInterface: '1/1/2',
+              }),
+            ],
+            arp: [{ ip: '10.0.100.44', mac: 'e840f200101d' }],
+          }),
+          '10.0.100.16',
+        ),
+        dev(
+          'b',
+          'OS6360-15',
+          disc({
+            neighbors: [
+              nb({
+                name: 'Ruijie',
+                chassis: '10:5f:02:00:de:aa',
+                localInterface: '1/1/30',
+                remoteInterface: 'Te0/32',
+                ip: '10.0.100.12',
+              }),
+            ],
+          }),
+          '10.0.100.15',
+        ),
+      ],
+      { hosts: true },
+    );
+    // Two different devices called "Ruijie" stay two; the core is one, linked to both.
+    const named = g.nodes.filter((n) => n.name === 'Ruijie');
+    expect(named).toHaveLength(2);
+    const core = named.find((n) => n.mac === '105f0200deaa');
+    expect(core?.ip).toBe('10.0.100.12');
+    expect(
+      g.edges
+        .filter((e) => e.b === core?.id)
+        .map((e) => e.a)
+        .sort(),
+    ).toEqual(['d:a', 'd:b']);
+    expect(named.find((n) => n.kind === 'ap')?.ip).toBeNull();
+    // The station is named by its address from ARP, not by its MAC.
+    expect(g.nodes.find((n) => n.mac === 'e840f200101d')).toMatchObject({
+      name: '10.0.100.44',
+      kind: 'host',
+    });
+    // The core connects both switches: it ends up on top.
+    const l = layoutGraph(g);
+    expect(l.pos.get(core?.id ?? '')?.level).toBe(0);
+  });
 });

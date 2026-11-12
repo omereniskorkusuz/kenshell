@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { Info, KeyRound, NotebookPen, PanelRight, RotateCw } from 'lucide-react';
 import { useT, type TKey } from '../i18n';
 import { compactParts } from '../lib/compact';
-import { formatUptime, formatUptimeShort, msToNextMinute } from '../lib/format';
+import { formatUptime, msToNextMinute } from '../lib/format';
 import { isMac } from '../lib/ipc';
 import { protocolOf, serialOf, tabStatus, targetLabel, type LiveTab } from '../lib/sessionState';
 import { useShortcuts } from '../app/actions';
@@ -325,7 +325,13 @@ function Uptime({ since, live }: { since: number; live: boolean }) {
       className="mono tabular shrink-0 text-xs text-secondary"
       title={`${t('identity.uptime')} · ${formatUptime(now - since)}`}
     >
-      {formatUptimeShort(now - since)}
+      {(() => {
+        // With units: a bare 00:12 read as twelve seconds.
+        const min = Math.floor(Math.max(0, now - since) / 60_000);
+        return min < 60
+          ? t('identity.uptimeMinutes', { m: min })
+          : t('identity.uptimeHours', { h: Math.floor(min / 60), m: min % 60 });
+      })()}
     </span>
   );
 }

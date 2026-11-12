@@ -245,7 +245,7 @@ mod tests {
                 include_str!("fixtures/aos8_show_lldp_remote_system.txt").into(),
             )],
         );
-        assert_eq!(aos.len(), 2, "{aos:?}");
+        assert_eq!(aos.len(), 4, "{aos:?}");
         let dist = aos.iter().find(|n| n.name == "dist-sw1").unwrap();
         assert_eq!(dist.local_interface, "1/1/23");
         assert_eq!(dist.capability.as_deref(), Some("Bridge Router"));

@@ -57,6 +57,8 @@ export function TabBar() {
   const broadcast = useTabs((s) => s.broadcast);
   const topologyOpen = useUi((s) => s.topologyOpen);
   const topology = useUi((s) => s.topologyActive);
+  const newTabs = useUi((s) => s.newTabs);
+  const activeNew = useUi((s) => s.activeNewTab);
   const mac = isMac();
   const listRef = useRef<HTMLDivElement>(null);
   const drag = useRef<DragState | null>(null);
@@ -278,7 +280,7 @@ export function TabBar() {
           </div>
         )}
         {tabs.map((tab) => {
-          const selected = tab.key === activeKey && !topology;
+          const selected = tab.key === activeKey && !topology && activeNew === null;
           const status = tabStatus(tab, t);
           const env = envKind(tab.envTag);
           const inView = view.keys.includes(tab.key);
@@ -351,13 +353,51 @@ export function TabBar() {
             </div>
           );
         })}
+        {newTabs.map((id) => (
+          <div
+            key={`new-${id}`}
+            role="tab"
+            id={`tab-new-${id}`}
+            aria-selected={activeNew === id}
+            tabIndex={activeNew === id ? 0 : -1}
+            data-mode="unknown"
+            className="tab cursor-default"
+            onClick={() => useUi.getState().showNewTab(id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') useUi.getState().showNewTab(id);
+              if (e.key === 'Delete') {
+                e.stopPropagation();
+                useUi.getState().closeNewTab(id);
+              }
+            }}
+            onAuxClick={(e) => {
+              if (e.button === 1) useUi.getState().closeNewTab(id);
+            }}
+          >
+            <Plus size={12} className="shrink-0 text-muted" aria-hidden />
+            <span className="tab-title min-w-0 flex-1 truncate">{t('newTab.title')}</span>
+            <button
+              type="button"
+              tabIndex={-1}
+              className="icon-btn icon-btn-sm"
+              aria-label={t('newTab.close')}
+              title={t('newTab.close')}
+              onClick={(e) => {
+                e.stopPropagation();
+                useUi.getState().closeNewTab(id);
+              }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ))}
       </div>
       <button
         type="button"
         className="icon-btn m-0.5 self-center"
-        aria-label={t('quick.label')}
-        title={`${t('quick.label')} (${formatChord('mod+l', mac)})`}
-        onClick={() => useUi.getState().focusQuickConnect()}
+        aria-label={t('newTab.open')}
+        title={t('newTab.open')}
+        onClick={() => useUi.getState().openNewTab()}
       >
         <Plus size={14} />
       </button>

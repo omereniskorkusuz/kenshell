@@ -10,6 +10,7 @@ import { cellRect } from '../lib/split';
 import { useTabs } from '../stores/tabs';
 import { useUi } from '../stores/ui';
 import { LogoMark, Wordmark } from './Logo';
+import { NewTabPage } from './NewTabPage';
 import { Pane } from './Pane';
 import { SidePanel } from './SidePanel';
 import { TabBar } from './TabBar';
@@ -23,13 +24,17 @@ export function Workspace() {
   const view = useTabs((s) => s.view);
   const topologyOpen = useUi((s) => s.topologyOpen);
   const topology = useUi((s) => s.topologyActive);
+  const newTabs = useUi((s) => s.newTabs);
+  const newTab = useUi((s) => s.activeNewTab);
+  // Something other than a session is on screen.
+  const covered = topology || newTab !== null;
   const split = view.keys.length >= 2;
   const shown = split ? view.keys : activeKey ? [activeKey] : [];
 
   return (
     <div className="relative flex min-w-0 flex-1">
       <main className="flex min-w-0 flex-1 flex-col">
-        {(tabs.length > 0 || topologyOpen) && <TabBar />}
+        {(tabs.length > 0 || topologyOpen || newTabs.length > 0) && <TabBar />}
         <div className="relative min-h-0 flex-1 bg-terminal">
           {tabs.map((tab) => {
             const i = shown.indexOf(tab.key);
@@ -37,13 +42,18 @@ export function Workspace() {
               <Pane
                 key={tab.key}
                 tab={tab}
-                visible={i >= 0 && !topology}
-                focused={tab.key === activeKey && !topology}
+                visible={i >= 0 && !covered}
+                focused={tab.key === activeKey && !covered}
                 rect={split && i >= 0 ? cellRect(i, shown.length, view.dir) : null}
               />
             );
           })}
-          {tabs.length === 0 && !topology && <EmptyState />}
+          {tabs.length === 0 && !covered && <EmptyState />}
+          {newTab !== null && (
+            <div className="absolute inset-0" role="tabpanel" aria-labelledby={`tab-new-${newTab}`}>
+              <NewTabPage key={newTab} />
+            </div>
+          )}
           {topology && (
             <div className="absolute inset-0" role="tabpanel" aria-labelledby="tab-topology">
               <Suspense fallback={null}>

@@ -271,6 +271,44 @@
       "profile": "cisco-like",
       "line": "FGT60F # ",
       "mode": null
+    },
+    {
+      "profile": "cisco-like",
+      "line": "->",
+      "mode": null
+    },
+    {
+      "profile": "cisco-like",
+      "line": "-> ",
+      "mode": null
+    },
+    {
+      "profile": "cisco-like",
+      "line": "...>",
+      "mode": null
+    },
+    {
+      "profile": "cisco-like",
+      "line": "a>",
+      "mode": "user",
+      "host": "a"
+    },
+    {
+      "profile": "cisco-like",
+      "line": "acc-sw16#",
+      "mode": "privileged",
+      "host": "acc-sw16"
+    },
+    {
+      "profile": "alcatel-aos",
+      "line": "-> ",
+      "mode": "privileged"
+    },
+    {
+      "profile": "alcatel-aos",
+      "line": "OS6360-15 ->",
+      "mode": "privileged",
+      "host": "OS6360-15"
     }
   ],
   "identify": [

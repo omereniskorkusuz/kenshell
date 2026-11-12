@@ -3,8 +3,8 @@
 //! `show lldp remote-system`. Rows have the columns of the IOS-style detail parser:
 //! device, ip, local port, remote port, port description, chassis, capability, description.
 //!
-//! The formats are written from the vendors' published command references; they still
-//! need a capture from real hardware (see Known Issues).
+//! Both layouts follow real device output (two firmware
+//! families); the fixtures follow those layouts with made-up values.
 
 use super::field;
 
@@ -28,6 +28,10 @@ pub fn cx_lldp_detail(text: &str) -> Vec<Vec<String>> {
         }
         let Some(r) = rows.last_mut() else { continue };
         for (key, col) in [
+            // Real 10.16 output says System-Name / System-Description; older releases
+            // said Chassis-Name / Chassis-Description.
+            ("neighbor system-name", 0),
+            ("neighbor system-description", 7),
             ("neighbor chassis-name", 0),
             ("neighbor management-address", 1),
             ("neighbor port-id", 3),
@@ -88,7 +92,16 @@ pub fn aos_lldp_remote(text: &str) -> Vec<Vec<String>> {
                     r[3] = last.to_owned();
                 }
             }
-            "capabilities enabled" => r[6] = value.to_owned(),
+            // "none enabled" is no capability.
+            "capabilities enabled" if !value.to_ascii_lowercase().starts_with("none") => {
+                r[6] = value.to_owned();
+            }
+            // A phone or PC announcing itself over LLDP-MED.
+            "med device type"
+                if r[6].is_empty() && value.to_ascii_lowercase().contains("endpoint") =>
+            {
+                r[6] = "Station".to_owned();
+            }
             "system description" => r[7] = value.to_owned(),
             _ => {}
         }
@@ -121,6 +134,8 @@ mod tests {
             ]
         );
         assert_eq!(rows[1][6], "WLAN");
+        assert_eq!(rows[1][0], "ap-hall", "10.16 key names");
+        assert_eq!(rows[1][7], "Indoor access point");
         // An end station that only sends its MAC.
         assert_eq!(
             (rows[2][0].as_str(), rows[2][5].as_str()),
@@ -131,7 +146,14 @@ mod tests {
     #[test]
     fn omniswitch_blocks() {
         let rows = aos_lldp_remote(include_str!("../fixtures/aos8_show_lldp_remote_system.txt"));
-        assert_eq!(rows.len(), 2, "{rows:?}");
+        assert_eq!(rows.len(), 4, "{rows:?}");
+        // An endpoint that only announces LLDP-MED, and a neighbour whose description
+        // runs over two lines.
+        assert_eq!((rows[2][0].as_str(), rows[2][6].as_str()), ("", "Station"));
+        assert_eq!(rows[3][0], "core-b");
+        assert_eq!(rows[3][3], "Te0/32");
+        assert_eq!(rows[3][1], "10.0.100.12");
+        assert_eq!(rows[3][6], "Bridge Router");
         assert_eq!(rows[0][0], "dist-sw1");
         assert_eq!(rows[0][1], "10.1.1.2");
         assert_eq!(rows[0][2], "1/1/23");

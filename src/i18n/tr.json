@@ -170,7 +170,9 @@
     "reloading": "Cihaz açılıyor · {{time}}",
     "osVersion": "İşletim sistemi sürümü",
     "serial": "Seri numarası",
-    "deviceUptime": "Cihaz çalışma süresi"
+    "deviceUptime": "Cihaz çalışma süresi",
+    "uptimeMinutes": "{{m}} dk",
+    "uptimeHours": "{{h}} sa {{m}} dk"
   },
   "tabs": {
     "label": "Açık oturumlar",
@@ -1206,5 +1208,13 @@
     "flowHint": "Akış gönderen cihazın hangi portundan hangi adreslerin girdiğini gösterir. Cihazın akış hedefini bu bilgisayara yönlendirin.",
     "flowListen": "Akış verisini dinle",
     "flowStatus": "Dinleniyor: {{sflow}} sFlow ve {{netflow}} NetFlow paketi, {{hosts}} adres görüldü"
+  },
+  "newTab": {
+    "title": "Yeni oturum",
+    "open": "Yeni oturum sekmesi",
+    "close": "Bu sekmeyi kapat",
+    "placeholder": "ssh admin@10.0.0.1 · 10.0.0.5 2001 · COM4 9600 · kayıtlı oturum adı",
+    "connect": "Bağlan",
+    "hint": "Hızlı bağlantıyla aynı: yalnız adres yazarsanız SSH açılır. Bu sekme oturuma dönüşür."
   }
 }

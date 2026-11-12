@@ -481,6 +481,8 @@ export const useTabs = create<TabsState>()((set, get) => {
         reloadAt: null,
       };
       autoMeta.set(key, meta.autoCommands ?? []);
+      // Opened from a "new session" tab: that tab turns into this session.
+      useUi.getState().consumeNewTab();
       set((s) => ({ tabs: [...s.tabs, fresh] }));
       show(key);
       void start(key);
