@@ -1179,6 +1179,32 @@
       "firewall": "Firewall",
       "host": "End device",
       "group": "Several devices on one port"
-    }
+    },
+    "sources": "Sources",
+    "sourcesHint": "Open sessions are always used. These add devices you have no session to.",
+    "summarySnmp_one": "{{count}} over SNMP",
+    "summarySnmp_other": "{{count}} over SNMP",
+    "summaryFlow_one": "{{count}} address from flows",
+    "summaryFlow_other": "{{count}} addresses from flows",
+    "source": {
+      "session": "Open session",
+      "snmp": "Read over SNMP",
+      "flow": "Flow exporter"
+    },
+    "snmpTitle": "SNMP (v2c)",
+    "snmpHint": "Reads LLDP neighbours, the forwarding table and ARP of each host. Read-only requests.",
+    "community": "Community",
+    "communitySaved": "Community saved (type to replace)",
+    "save": "Save",
+    "forget": "Forget",
+    "snmpHost": "Host or host:port",
+    "add": "Add",
+    "removeHost": "Remove {{host}}",
+    "snmpReading": "Reading…",
+    "snmpNeedsCommunity": "Needs a community",
+    "flowTitle": "sFlow / NetFlow",
+    "flowHint": "Shows which addresses enter which port of an exporting device. Point the device's flow export at this computer.",
+    "flowListen": "Listen for flow exports",
+    "flowStatus": "Listening: {{sflow}} sFlow and {{netflow}} NetFlow datagrams, {{hosts}} addresses seen"
   }
 }

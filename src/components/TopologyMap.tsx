@@ -6,6 +6,7 @@
  */
 import {
   Boxes,
+  Database,
   Maximize2,
   Minus,
   Monitor,
@@ -41,7 +42,8 @@ import {
   type TopoNode,
 } from '../lib/topologyGraph';
 import { useTabs } from '../stores/tabs';
-import { useTopology, type TopoEntry } from '../stores/topology';
+import { useSettings } from '../stores/settings';
+import { useTopology, type SnmpEntry, type TopoEntry } from '../stores/topology';
 import { useUi } from '../stores/ui';
 
 const ICONS: Record<NodeKind, LucideIcon> = {
@@ -83,7 +85,10 @@ export default function TopologyMap() {
   const byTab = useTopology((s) => s.byTab);
   const hosts = useTopology((s) => s.hosts);
   const root = useTopology((s) => s.root);
+  const snmp = useTopology((s) => s.snmp);
+  const flow = useTopology((s) => s.flow);
   const [picked, setPicked] = useState<string | null>(null);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [view, setView] = useState<View>({ k: 1, x: PAD, y: PAD });
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; x: number; y: number } | null>(null);
@@ -92,9 +97,23 @@ export default function TopologyMap() {
   useEffect(() => {
     useTopology.getState().refresh();
   }, [identity]);
-  const devices = useMemo(() => deviceInputs(identity, byTab), [identity, byTab]);
-  const connected = devices;
-  const graph = useMemo(() => buildGraph(devices, { hosts }), [devices, hosts]);
+  // Stored community, SNMP hosts and the flow collector (if switched on), once per opening.
+  useEffect(() => {
+    void useTopology.getState().loadSources();
+  }, []);
+  // The collector only counts; the map asks it what it has seen while it is on screen.
+  const collecting = flow?.running === true;
+  useEffect(() => {
+    if (!collecting) return;
+    const timer = setInterval(() => void useTopology.getState().pollFlow(), 5000);
+    return () => clearInterval(timer);
+  }, [collecting]);
+
+  const connected = useMemo(() => deviceInputs(identity, byTab), [identity, byTab]);
+  const polled = useMemo(() => snmpInputs(snmp), [snmp]);
+  const devices = useMemo(() => [...connected, ...polled], [connected, polled]);
+  const flows = flow?.hosts;
+  const graph = useMemo(() => buildGraph(devices, { hosts, flows }), [devices, hosts, flows]);
   const layout = useMemo(() => layoutGraph(graph, root), [graph, root]);
   const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
 
@@ -145,8 +164,20 @@ export default function TopologyMap() {
     drag.current = null;
   };
 
-  const busy = connected.filter((x) => byTab[x.key]?.busy);
-  const failed = connected.filter((x) => byTab[x.key]?.error);
+  const snmpHosts = Object.keys(snmp);
+  const busy = [
+    ...connected.filter((x) => byTab[x.key]?.busy).map((x) => x.key),
+    ...snmpHosts.filter((h) => snmp[h]?.busy),
+  ];
+  const failed = [
+    ...connected
+      .filter((x) => byTab[x.key]?.error)
+      .map((x) => ({ key: x.key, name: x.name, error: byTab[x.key]?.error ?? '' })),
+    ...snmpHosts
+      .filter((h) => snmp[h]?.error)
+      .map((h) => ({ key: `snmp:${h}`, name: `SNMP ${h}`, error: snmp[h]?.error ?? '' })),
+  ];
+  const empty = devices.length === 0 && !flows?.length;
   const sel = picked ? nodeById.get(picked) : undefined;
   const center = (id: string) => {
     const p = layout.pos.get(id);
@@ -173,8 +204,18 @@ export default function TopologyMap() {
                 links: graph.edges.length,
                 sessions: connected.length,
               })}
+          {polled.length > 0 && ` · ${t('topoMap.summarySnmp', { count: polled.length })}`}
+          {collecting && ` · ${t('topoMap.summaryFlow', { count: flows?.length ?? 0 })}`}
         </span>
         <span className="flex-1" />
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          aria-pressed={sourcesOpen}
+          onClick={() => setSourcesOpen(!sourcesOpen)}
+        >
+          <Database size={12} aria-hidden /> {t('topoMap.sources')}
+        </button>
         <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-secondary">
           <input
             type="checkbox"
@@ -186,7 +227,9 @@ export default function TopologyMap() {
         <button
           type="button"
           className="btn btn-ghost btn-sm"
-          disabled={connected.length === 0 || busy.length > 0}
+          disabled={
+            (devices.length === 0 && snmpHosts.length === 0 && !collecting) || busy.length > 0
+          }
           onClick={() => useTopology.getState().refresh(true)}
         >
           <RotateCw size={12} aria-hidden /> {t('topoMap.refresh')}
@@ -228,9 +271,7 @@ export default function TopologyMap() {
       {failed.length > 0 && (
         <ul className="shrink-0 border-b border-subtle bg-surface px-3 py-1 text-xs text-warning">
           {failed.map((x) => (
-            <li key={x.key}>
-              {t('topoMap.failed', { name: x.name, error: byTab[x.key]?.error ?? '' })}
-            </li>
+            <li key={x.key}>{t('topoMap.failed', { name: x.name, error: x.error })}</li>
           ))}
         </ul>
       )}
@@ -252,7 +293,7 @@ export default function TopologyMap() {
             }
           }}
         >
-          {connected.length === 0 ? (
+          {empty ? (
             <p className="m-auto max-w-sm p-6 text-center text-sm text-muted">
               {t('topoMap.noSessions')}
             </p>
@@ -358,6 +399,7 @@ export default function TopologyMap() {
                     className="topo-card"
                     data-kind={n.kind}
                     data-session={n.tabKey !== null || undefined}
+                    data-source={n.source ?? undefined}
                     data-on={picked === n.id || undefined}
                     style={{ left: p.x, top: p.y, width: NODE_W, height: NODE_H }}
                     aria-pressed={picked === n.id}
@@ -388,6 +430,11 @@ export default function TopologyMap() {
                     {n.tabKey !== null && (
                       <span className="topo-live" title={t('topoMap.session')} aria-hidden />
                     )}
+                    {n.tabKey === null && n.source !== null && (
+                      <span className="topo-tag" title={t(`topoMap.source.${n.source}` as TKey)}>
+                        {n.source === 'snmp' ? 'SNMP' : 'FLOW'}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -395,6 +442,7 @@ export default function TopologyMap() {
           )}
         </div>
 
+        {sourcesOpen && <Sources onClose={() => setSourcesOpen(false)} />}
         {sel && (
           <aside
             className="absolute bottom-0 right-0 top-0 z-10 flex w-72 flex-col gap-3 overflow-y-auto border-l border-subtle bg-surface p-3 text-sm"
@@ -406,7 +454,7 @@ export default function TopologyMap() {
                 <h2 className="mono truncate text-sm font-medium">{nodeTitle(sel, t)}</h2>
                 <p className="text-xs text-muted">
                   {t(`topoMap.kind.${sel.kind}` as TKey)}
-                  {sel.tabKey !== null && ` · ${t('topoMap.session')}`}
+                  {sel.source !== null && ` · ${t(`topoMap.source.${sel.source}` as TKey)}`}
                 </p>
               </div>
               <button
@@ -550,6 +598,201 @@ function deviceInputs(identity: string, byTab: Record<string, TopoEntry>): Devic
       discovery: byTab[key]?.discovery ?? null,
     };
   });
+}
+
+function snmpInputs(snmp: Record<string, SnmpEntry>): DeviceInput[] {
+  return Object.entries(snmp).flatMap(([host, e]) =>
+    e.device
+      ? [
+          {
+            key: `snmp:${host}`,
+            name: e.device.name ?? host,
+            // `host:port` → the address alone.
+            host: host.replace(/:\d+$/, ''),
+            model: e.device.description?.slice(0, 80) ?? null,
+            discovery: e.device.discovery,
+            source: 'snmp' as const,
+            interfaces: e.device.interfaces,
+          },
+        ]
+      : [],
+  );
+}
+
+/**
+ * The other sources of the map: SNMP agents to read and the flow collector. The
+ * community is typed here once and goes straight to the keychain; it is never shown again.
+ */
+function Sources({ onClose }: { onClose: () => void }) {
+  const t = useT();
+  const community = useTopology((s) => s.community);
+  const snmp = useTopology((s) => s.snmp);
+  const flow = useTopology((s) => s.flow);
+  const flowError = useTopology((s) => s.flowError);
+  const hosts = useSettings((s) => s.values['topology.snmpHosts']);
+  const flowEnabled = useSettings((s) => s.values['topology.flowEnabled']);
+  const sflowPort = useSettings((s) => s.values['topology.sflowPort']);
+  const netflowPort = useSettings((s) => s.values['topology.netflowPort']);
+  const [secret, setSecret] = useState('');
+  const [host, setHost] = useState('');
+  const [failed, setFailed] = useState(false);
+  const st = useTopology.getState();
+  const running = flow?.running === true;
+
+  const save = () => {
+    if (secret === '') return;
+    setFailed(false);
+    st.setCommunity(secret).then(
+      () => setSecret(''),
+      () => setFailed(true),
+    );
+  };
+  const add = () => {
+    st.addSnmpHost(host);
+    setHost('');
+  };
+  const port = (
+    key: 'topology.sflowPort' | 'topology.netflowPort',
+    label: string,
+    value: number,
+  ) => (
+    <label className="flex items-center gap-1.5 text-xs text-secondary">
+      {label}
+      <input
+        type="number"
+        className="field h-7 w-20 text-xs"
+        min={0}
+        max={65535}
+        value={value}
+        disabled={running}
+        onChange={(e) => useSettings.getState().set(key, Number(e.target.value))}
+      />
+    </label>
+  );
+
+  return (
+    <aside
+      className="absolute bottom-0 left-0 top-0 z-10 flex w-80 flex-col gap-4 overflow-y-auto border-r border-subtle bg-surface p-3 text-sm"
+      style={{ boxShadow: 'var(--shadow-elevated)' }}
+      aria-label={t('topoMap.sources')}
+    >
+      <div className="flex items-center">
+        <h2 className="flex-1 text-sm font-medium">{t('topoMap.sources')}</h2>
+        <button
+          type="button"
+          className="icon-btn icon-btn-sm"
+          aria-label={t('common.close')}
+          onClick={onClose}
+        >
+          <X size={13} />
+        </button>
+      </div>
+      <p className="text-xs text-muted">{t('topoMap.sourcesHint')}</p>
+
+      <section className="flex flex-col gap-2">
+        <h3 className="label-caps">{t('topoMap.snmpTitle')}</h3>
+        <p className="text-xs text-muted">{t('topoMap.snmpHint')}</p>
+        <div className="flex flex-wrap items-center gap-1">
+          <input
+            type="password"
+            className="field h-7 min-w-0 flex-1 text-xs"
+            aria-label={t('topoMap.community')}
+            placeholder={community ? t('topoMap.communitySaved') : t('topoMap.community')}
+            autoComplete="off"
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && save()}
+          />
+          <button type="button" className="btn btn-sm" disabled={secret === ''} onClick={save}>
+            {t('topoMap.save')}
+          </button>
+          {community && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => void st.clearCommunity()}
+            >
+              {t('topoMap.forget')}
+            </button>
+          )}
+        </div>
+        {failed && <p className="text-xs text-danger">{t('credentials.saveFailed')}</p>}
+        <ul className="flex flex-col gap-0.5">
+          {hosts.map((h) => {
+            const e = snmp[h];
+            return (
+              <li key={h} className="flex items-center gap-2 text-xs">
+                <span className="mono min-w-0 flex-1 truncate" title={h}>
+                  {h}
+                </span>
+                <span
+                  className={`min-w-0 max-w-[50%] truncate ${e?.error ? 'text-warning' : 'text-muted'}`}
+                  title={e?.error ?? undefined}
+                >
+                  {e?.busy
+                    ? t('topoMap.snmpReading')
+                    : (e?.error ??
+                      e?.device?.name ??
+                      (community ? '' : t('topoMap.snmpNeedsCommunity')))}
+                </span>
+                <button
+                  type="button"
+                  className="icon-btn icon-btn-sm"
+                  aria-label={t('topoMap.removeHost', { host: h })}
+                  title={t('topoMap.removeHost', { host: h })}
+                  onClick={() => st.removeSnmpHost(h)}
+                >
+                  <X size={12} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="flex items-center gap-1">
+          <input
+            className="field mono h-7 min-w-0 flex-1 text-xs"
+            aria-label={t('topoMap.snmpHost')}
+            placeholder={t('topoMap.snmpHost')}
+            spellCheck={false}
+            autoComplete="off"
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+          />
+          <button type="button" className="btn btn-sm" disabled={host.trim() === ''} onClick={add}>
+            {t('topoMap.add')}
+          </button>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h3 className="label-caps">{t('topoMap.flowTitle')}</h3>
+        <p className="text-xs text-muted">{t('topoMap.flowHint')}</p>
+        <label className="flex items-center gap-1.5 text-xs">
+          <input
+            type="checkbox"
+            checked={flowEnabled}
+            onChange={(e) => void st.setFlow(e.target.checked)}
+          />
+          {t('topoMap.flowListen')}
+        </label>
+        <div className="flex flex-wrap gap-3">
+          {port('topology.sflowPort', 'sFlow UDP', sflowPort)}
+          {port('topology.netflowPort', 'NetFlow / IPFIX UDP', netflowPort)}
+        </div>
+        {flowError && <p className="text-xs text-danger">{flowError}</p>}
+        {running && (
+          <p className="text-xs text-secondary" role="status">
+            {t('topoMap.flowStatus', {
+              sflow: flow.sflowDatagrams,
+              netflow: flow.netflowDatagrams,
+              hosts: flow.hosts.length,
+            })}
+          </p>
+        )}
+      </section>
+    </aside>
+  );
 }
 
 function nodeTitle(n: TopoNode, t: ReturnType<typeof useT>): string {

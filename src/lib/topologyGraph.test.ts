@@ -212,3 +212,88 @@ describe('topology layout', () => {
     expect(layoutGraph({ nodes: [], edges: [] }).pos.size).toBe(0);
   });
 });
+
+describe('other sources', () => {
+  const session = dev(
+    'a',
+    'core-sw1',
+    disc({
+      ownMac: '001a2b0000c1',
+      neighbors: [
+        nb({
+          name: 'dist-sw2.lab',
+          ip: '10.0.0.2',
+          localInterface: 'Gi1/0/2',
+          remoteInterface: 'Te1/0/1',
+        }),
+        nb({ name: 'access-sw3', ip: '10.0.0.20', localInterface: 'Gi1/0/47' }),
+      ],
+    }),
+    '192.168.50.1',
+  );
+  const snmp: DeviceInput = {
+    key: 'snmp:10.0.0.2',
+    name: 'dist-sw2',
+    host: '10.0.0.2',
+    model: null,
+    source: 'snmp',
+    interfaces: [[10, 'Gi1/0/10']],
+    discovery: disc({
+      neighbors: [
+        nb({ name: 'core-sw1', localInterface: 'Te1/0/1', remoteInterface: 'Gi1/0/2' }),
+        nb({ name: 'ap-roof', localInterface: 'Te1/0/2' }),
+      ],
+      macs: [{ mac: '3c5a000000d5', vlan: '10', interface: 'Gi1/0/10', vendor: 'Acme' }],
+    }),
+  };
+
+  it('an SNMP device joins the neighbour another source reported, with one link', () => {
+    const g = buildGraph([snmp, session], { hosts: true });
+    const dist = g.nodes.filter((n) => n.name.startsWith('dist-sw2'));
+    expect(dist).toHaveLength(1);
+    expect(dist[0]).toMatchObject({ source: 'snmp', tabKey: null, ip: '10.0.0.2' });
+    expect(
+      g.edges.filter((e) => [e.a, e.b].includes(dist[0]?.id ?? '') && [e.a, e.b].includes('d:a')),
+    ).toHaveLength(1);
+    expect(g.nodes.find((n) => n.name === 'ap-roof')).toBeTruthy();
+    expect(g.nodes.find((n) => n.mac === '3c5a000000d5')?.kind).toBe('host');
+  });
+
+  it('a device with both a session and an SNMP poll is one node', () => {
+    const same: DeviceInput = { ...snmp, key: 'snmp:x', name: 'CORE-SW1', discovery: disc({}) };
+    const g = buildGraph([same, session], { hosts: false });
+    expect(g.nodes.filter((n) => n.name.toLowerCase() === 'core-sw1')).toHaveLength(1);
+    expect(g.nodes.find((n) => n.id === 'd:a')?.source).toBe('session');
+  });
+
+  it('flow sightings hang off the exporter port: by advertised address, named by ifIndex', () => {
+    const flows = [
+      { agent: '10.0.0.2', ifIndex: 10, mac: '3c5a000000d5', ip: '10.10.0.77', vendor: null },
+      { agent: '10.0.0.2', ifIndex: 11, mac: 'aabbcc000011', ip: null, vendor: 'Acme' },
+      { agent: '10.0.0.20', ifIndex: 7, mac: null, ip: '10.20.0.107', vendor: null },
+      // The exporter's own neighbour and an unknown exporter.
+      { agent: '10.0.0.2', ifIndex: 12, mac: '001a2b0000c1', ip: null, vendor: null },
+      { agent: '10.99.0.1', ifIndex: 3, mac: null, ip: '10.30.0.9', vendor: null },
+    ];
+    const g = buildGraph([session, snmp], { hosts: true, flows });
+    const edgeTo = (id: string) => g.edges.find((e) => e.b === id);
+    // Seen in the MAC table and in a flow: one host, now with its address.
+    const pc = g.nodes.filter((n) => n.mac === '3c5a000000d5');
+    expect(pc).toHaveLength(1);
+    expect(pc[0]?.ip).toBe('10.10.0.77');
+    expect(edgeTo('h:3c5a000000d5')?.aPort).toBe('Gi1/0/10');
+    // No interface name known: the ifIndex.
+    expect(edgeTo('h:aabbcc000011')?.aPort).toBe('if11');
+    // access-sw3 is known only through its advertised address.
+    const access = g.nodes.find((n) => n.name === 'access-sw3');
+    expect(edgeTo('hi:10.20.0.107')).toMatchObject({ a: access?.id, aPort: 'if7' });
+    expect(g.nodes.some((n) => n.id === 'h:001a2b0000c1')).toBe(false);
+    expect(g.nodes.find((n) => n.id === 'f:10.99.0.1')).toMatchObject({
+      source: 'flow',
+      kind: 'router',
+    });
+    expect(
+      buildGraph([session, snmp], { hosts: false, flows }).nodes.some((n) => n.kind === 'host'),
+    ).toBe(false);
+  });
+});

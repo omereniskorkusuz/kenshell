@@ -31,7 +31,7 @@ import { applyPatch, type SessionPatch } from '../bulk';
 import { parseIface } from '../iface';
 import { framingLabel } from '../format';
 import { FakeCli } from './cli';
-import { mockDiscovery } from './topology';
+import { mockDiscovery, mockFlow, mockSnmp } from './topology';
 
 const mockHistory = new Map<string, string[]>();
 let mockScanCancel = false;
@@ -616,6 +616,8 @@ class MockNetLive {
 }
 
 const lives = new Map<RuntimeId, MockLive | MockNetLive>();
+let mockSnmpCommunity = false;
+let mockFlowState = { running: false, sflow: 0, netflow: 0 };
 
 // Credential profiles + "keychain" (mock: only whether a password exists).
 let profiles: { id: number; name: string; username: string | null; hasPassword: boolean }[] = [
@@ -996,6 +998,38 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
               : 'invalid',
         };
       }
+      case 'snmp_community_status':
+        return mockSnmpCommunity;
+      case 'snmp_community_set':
+        mockSnmpCommunity = true;
+        return undefined;
+      case 'snmp_community_clear':
+        mockSnmpCommunity = false;
+        return undefined;
+      case 'topology_snmp': {
+        const d = mockSnmp(String(a.host));
+        return new Promise((r, reject) =>
+          setTimeout(
+            () =>
+              String(a.host).includes('down')
+                ? reject(Object.assign(new Error('timeout'), { code: 'timeout', detail: null }))
+                : r(d),
+            400,
+          ),
+        );
+      }
+      case 'flow_start':
+        mockFlowState = {
+          running: true,
+          sflow: Number(a.sflowPort),
+          netflow: Number(a.netflowPort),
+        };
+        return mockFlow(true, mockFlowState.sflow, mockFlowState.netflow);
+      case 'flow_stop':
+        mockFlowState = { ...mockFlowState, running: false };
+        return mockFlow(false, 0, 0);
+      case 'flow_snapshot':
+        return mockFlow(mockFlowState.running, mockFlowState.sflow, mockFlowState.netflow);
       case 'topology_discover': {
         const l = lives.get(a.id as RuntimeId);
         const d = mockDiscovery(l instanceof MockNetLive ? l.host : 'core-sw1', a.hosts === true);

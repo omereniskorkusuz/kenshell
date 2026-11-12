@@ -14,4 +14,6 @@ pub struct AppState {
     pub sessions: Arc<SessionManager>,
     pub secrets: Arc<dyn SecretStore>,
     pub handoffs: Handoffs,
+    /// sFlow / NetFlow collector for the topology map (idle until switched on).
+    pub flow: Arc<crate::flow::FlowCollector>,
 }

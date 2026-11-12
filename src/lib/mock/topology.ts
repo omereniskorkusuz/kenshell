@@ -1,5 +1,5 @@
 /** Browser-demo data for the topology map: a small campus seen from each of its devices. */
-import type { Discovery, Neighbor } from '../ipc';
+import type { Discovery, FlowSnapshot, Neighbor, SnmpDevice } from '../ipc';
 
 const nb = (
   name: string,
@@ -160,4 +160,75 @@ export function mockDiscovery(host: string, hosts: boolean): Discovery {
   const h = host.toLowerCase();
   const d = h.includes('access-sw3') ? ACCESS3 : h.includes('core') ? CORE : OTHER;
   return hosts ? d : { ...d, macs: [], arp: d.arp };
+}
+
+/** Demo SNMP agent: a distribution switch behind core-sw1 that no session is open to. */
+export function mockSnmp(host: string): SnmpDevice {
+  return {
+    name: host.includes('edge') ? 'edge-rtr' : 'dist-sw2',
+    description: 'L3 switch software',
+    discovery: {
+      neighbors: [
+        nb(
+          'core-sw1',
+          '10.0.0.1',
+          'CS-3850-48P',
+          'Bridge, Router',
+          'Te1/0/1',
+          'GigabitEthernet1/0/2',
+          '001a2b0000c1',
+          'Example Systems',
+        ),
+        nb(
+          'ap-roof',
+          '10.20.0.40',
+          'Outdoor AP',
+          'WLAN Access Point',
+          'Te1/0/2',
+          'eth0',
+          '5869aa004444',
+          'Example Networks Co.',
+        ),
+      ],
+      macs: [mac('3c5a000000d5', '10', 'Gi1/0/10', 'Example Computers')],
+      arp: [{ ip: '10.10.0.77', mac: '3c5a000000d5' }],
+      ownMac: '001a2b0000d2',
+      ownVendor: 'Example Systems',
+    },
+    interfaces: [
+      [1, 'Te1/0/1'],
+      [2, 'Te1/0/2'],
+      [10, 'Gi1/0/10'],
+    ],
+  };
+}
+
+/** Demo flow collector: access-sw3 samples two stations, an unknown router exports one. */
+export function mockFlow(running: boolean, sflowPort: number, netflowPort: number): FlowSnapshot {
+  return {
+    running,
+    sflowPort: running && sflowPort ? sflowPort : null,
+    netflowPort: running && netflowPort ? netflowPort : null,
+    sflowDatagrams: running ? 42 : 0,
+    netflowDatagrams: running ? 7 : 0,
+    hosts: running
+      ? [
+          {
+            agent: '10.0.0.20',
+            ifIndex: 8,
+            mac: '3c5a000000f8',
+            ip: '10.20.0.108',
+            vendor: 'Example Computers',
+          },
+          {
+            agent: '10.0.0.20',
+            ifIndex: 9,
+            mac: '0011223344f9',
+            ip: '10.20.0.109',
+            vendor: 'Example Printers Ltd.',
+          },
+          { agent: '10.99.0.1', ifIndex: 3, mac: null, ip: '10.30.0.9', vendor: null },
+        ]
+      : [],
+  };
 }

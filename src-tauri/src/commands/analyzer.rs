@@ -118,30 +118,5 @@ pub async fn topology_discover(
     family: Option<String>,
     hosts: bool,
 ) -> Result<crate::analyzer::topology::Discovery> {
-    use crate::analyzer::{neighbors, topology};
-    let fam = family.as_deref();
-    let capture = |commands: &'static [&'static str]| {
-        let sessions = &state.sessions;
-        async move {
-            let mut outputs = Vec::new();
-            for c in commands {
-                match sessions
-                    .capture(id, c, std::time::Duration::from_secs(60))
-                    .await
-                {
-                    Ok(text) => outputs.push(((*c).to_owned(), text)),
-                    Err(e) if e.code == crate::error::ErrorCode::ConnectionClosed => return Err(e),
-                    Err(_) => {}
-                }
-            }
-            Ok(outputs)
-        }
-    };
-    let near = neighbors::neighbors(fam, &capture(neighbors::commands(fam)).await?);
-    let tables = if hosts {
-        capture(topology::host_commands(fam)).await?
-    } else {
-        Vec::new()
-    };
-    Ok(topology::discovery(fam, near, &tables))
+    crate::analyzer::topology::discover(&state.sessions, id, family.as_deref(), hosts).await
 }

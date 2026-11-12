@@ -261,6 +261,33 @@ export interface Discovery {
   ownVendor: string | null;
 }
 
+/** A device read over SNMP for the topology map. */
+export interface SnmpDevice {
+  name: string | null;
+  description: string | null;
+  discovery: Discovery;
+  /** ifIndex → interface name. */
+  interfaces: [number, string][];
+}
+
+/** An address a flow exporter saw entering one of its ports. */
+export interface FlowHost {
+  agent: string;
+  ifIndex: number;
+  mac: string | null;
+  ip: string | null;
+  vendor: string | null;
+}
+
+export interface FlowSnapshot {
+  running: boolean;
+  sflowPort: number | null;
+  netflowPort: number | null;
+  sflowDatagrams: number;
+  netflowDatagrams: number;
+  hosts: FlowHost[];
+}
+
 export interface FileSummary {
   kind: 'showTech' | 'crashinfo' | 'log' | 'text';
   lines: number;
@@ -761,6 +788,17 @@ export const api = {
   /** Neighbours plus (with `hosts`) the MAC and ARP tables, read hidden. */
   topologyDiscover: (id: number, family: string | null, hosts: boolean) =>
     call<Discovery>('topology_discover', { id, family, hosts }),
+  /** SNMP community for the topology map: stored in the keychain, never read back. */
+  snmpCommunityStatus: () => call<boolean>('snmp_community_status'),
+  snmpCommunitySet: (community: string) => call<undefined>('snmp_community_set', { community }),
+  snmpCommunityClear: () => call<undefined>('snmp_community_clear'),
+  /** Reads `host` (or `host:port`) over SNMPv2c with the stored community. */
+  topologySnmp: (host: string) => call<SnmpDevice>('topology_snmp', { host }),
+  /** sFlow / NetFlow listeners (a port of 0 leaves that protocol off). */
+  flowStart: (sflowPort: number, netflowPort: number) =>
+    call<FlowSnapshot>('flow_start', { sflowPort, netflowPort }),
+  flowStop: () => call<FlowSnapshot>('flow_stop'),
+  flowSnapshot: () => call<FlowSnapshot>('flow_snapshot'),
   logfileAnalyze: (path: string) => call<FileSummary>('logfile_analyze', { path }),
   logfileLines: (path: string, start: number, end: number) =>
     call<string>('logfile_lines', { path, start, end }),

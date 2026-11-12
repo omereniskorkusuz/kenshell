@@ -957,3 +957,211 @@ async fn net_e2e_sftp_browse_upload_download_rename_delete() {
     assert!(connected(&out), "the terminal stays connected");
     m.close(id).unwrap();
 }
+
+/// Topology map sources over real sessions: two simulated devices that are each other's
+/// neighbours. Everything is read hidden; nothing reaches the terminal.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs target/debug/device-simulator"]
+async fn net_e2e_topology_discovery_reads_neighbours_mac_and_arp_hidden() {
+    use crate::analyzer::topology;
+    let (core_port, access_port) = (free_port(), free_port());
+    let _core = sim(&["--profile", "cisco"], core_port);
+    let _access = sim(&["--profile", "ruijie"], access_port);
+    let (m, _db) = manager();
+
+    let mut ids = Vec::new();
+    for (port, prompt) in [(core_port, "core-sw-01>"), (access_port, "access-sw-02>")] {
+        let out = Arc::new(Rec::default());
+        let id = m
+            .open(net(Protocol::Telnet, port, None, false), out.clone())
+            .unwrap();
+        until("username", || out.text().contains("Username:")).await;
+        for (send, want) in [("admin\r", "Password:"), ("admin\r", prompt)] {
+            m.write(id, send.as_bytes()).unwrap();
+            until(want, || out.text().contains(want)).await;
+        }
+        ids.push((id, out));
+    }
+
+    let core = topology::discover(&m, ids[0].0, Some("cisco"), true)
+        .await
+        .unwrap();
+    // CDP + LLDP merged per port: dist-sw-01 once, both uplinks to access-sw-02, the AP.
+    let on = |port: &str| {
+        core.neighbors
+            .iter()
+            .find(|n| n.local_interface.ends_with(port))
+            .unwrap_or_else(|| panic!("neighbour on {port}: {:?}", core.neighbors))
+    };
+    assert_eq!(core.neighbors.len(), 4, "{:?}", core.neighbors);
+    assert_eq!(on("1/0/5").name, "access-sw-02");
+    assert_eq!(
+        on("1/0/5").remote_interface.as_deref(),
+        Some("TenGigabitEthernet 0/49")
+    );
+    assert_eq!(on("1/0/5").chassis.as_deref(), Some("5869.6c00.1111"));
+    assert_eq!(on("1/0/6").name, "access-sw-02");
+    assert!(on("1/1/1").cdp && on("1/1/1").lldp);
+    assert_eq!(on("1/0/1").ip.as_deref(), Some("10.20.0.11"));
+    assert_eq!(core.macs.len(), 6, "{:?}", core.macs);
+    assert_eq!(core.own_mac.as_deref(), Some("001122334400"));
+    assert!(
+        core.arp
+            .iter()
+            .any(|a| a.ip == "10.10.0.31" && a.mac == "00159a000a01")
+    );
+
+    let access = topology::discover(&m, ids[1].0, Some("ruijie"), true)
+        .await
+        .unwrap();
+    assert_eq!(access.neighbors.len(), 3, "{:?}", access.neighbors);
+    assert!(
+        access
+            .neighbors
+            .iter()
+            .filter(|n| n.name == "core-sw-01")
+            .all(|n| n.ip.as_deref() == Some("10.0.0.1") && n.chassis.is_some())
+    );
+    assert_eq!(access.macs.len(), 10);
+    assert_eq!(access.own_mac.as_deref(), Some("58696c001111"));
+
+    // Without `hosts` the tables are not read at all.
+    let lean = topology::discover(&m, ids[1].0, Some("ruijie"), false)
+        .await
+        .unwrap();
+    assert!(lean.macs.is_empty() && lean.arp.is_empty() && lean.neighbors.len() == 3);
+
+    for (id, out) in ids {
+        let text = out.text();
+        for hidden in ["lldp", "mac-address", "address-table", "Chassis", "arp"] {
+            assert!(!text.contains(hidden), "{hidden} leaked into the terminal");
+        }
+        m.close(id).unwrap();
+    }
+}
+
+fn sim_bin() -> PathBuf {
+    let bin = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!(
+        "../target/debug/device-simulator{}",
+        std::env::consts::EXE_SUFFIX
+    ));
+    assert!(
+        bin.exists(),
+        "build it first: cargo build -p device-simulator"
+    );
+    bin
+}
+
+/// SNMP source against the simulator's agent running as its own process: the device the
+/// CLI profiles only mention as a neighbour (`dist-sw-01`) is read like a session would be.
+#[test]
+#[ignore = "needs target/debug/device-simulator"]
+fn net_e2e_topology_snmp_agent_process_is_read_and_a_wrong_community_times_out() {
+    let port = std::net::UdpSocket::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let port_s = port.to_string();
+    let _agent = Sim(Proc::new(sim_bin())
+        .args(["--snmp", &port_s, "--community", "lab-ro"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn agent"));
+    let addr = crate::snmp::resolve(&format!("127.0.0.1:{port}")).unwrap();
+
+    // The agent needs a moment to bind; the client retries on silence anyway.
+    let start = Instant::now();
+    let device = loop {
+        let mut client = crate::snmp::Client::connect(addr, "lab-ro").unwrap();
+        match crate::snmp::discover::discover(&mut client) {
+            Ok(d) => break d,
+            Err(e) => assert!(
+                start.elapsed() < Duration::from_secs(20),
+                "agent never answered: {e:?}"
+            ),
+        }
+    };
+    assert_eq!(device.name.as_deref(), Some("dist-sw-01"));
+    let d = &device.discovery;
+    assert_eq!(d.own_mac.as_deref(), Some("001122339500"));
+    let core = d.neighbors.iter().find(|n| n.name == "core-sw-01").unwrap();
+    assert_eq!(core.local_interface, "Te1/0/1");
+    assert_eq!(core.remote_interface.as_deref(), Some("Te1/1/1"));
+    assert_eq!(core.ip.as_deref(), Some("10.0.0.1"));
+    assert!(
+        d.neighbors
+            .iter()
+            .any(|n| n.name == "ap-roof" && n.capability.as_deref() == Some("WLAN Access Point"))
+    );
+    assert!(
+        d.macs
+            .iter()
+            .any(|m| m.mac == "3c5282000d05" && m.interface == "Gi1/0/10")
+    );
+    assert!(d.arp.iter().any(|a| a.ip == "10.10.0.77"));
+    assert_eq!(device.interfaces.len(), 4);
+
+    let mut wrong = crate::snmp::Client::connect(addr, "not-the-community").unwrap();
+    let e = crate::snmp::discover::discover(&mut wrong).unwrap_err();
+    assert_eq!(e.code, ErrorCode::Timeout);
+    assert!(!format!("{e:?}").contains("not-the-community"));
+}
+
+/// Flow source: the simulator exports sFlow and NetFlow v9 from its own process to the
+/// collector's two ports; the sightings carry exporter, port, MAC and address.
+#[test]
+#[ignore = "needs target/debug/device-simulator"]
+fn net_e2e_topology_flow_exports_from_another_process_are_collected() {
+    let free = || {
+        std::net::UdpSocket::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port()
+    };
+    let (sflow, netflow) = (free(), free());
+    let collector = crate::flow::FlowCollector::default();
+    collector.start(sflow, netflow).unwrap();
+    let _sender = Sim(Proc::new(sim_bin())
+        .args([
+            "--sflow-to",
+            &format!("127.0.0.1:{sflow}"),
+            "--netflow-to",
+            &format!("127.0.0.1:{netflow}"),
+            "--flow-rounds",
+            "5",
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn sender"));
+
+    let start = Instant::now();
+    let snap = loop {
+        let s = collector.snapshot();
+        if s.hosts.len() >= 3 {
+            break s;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(20),
+            "exports never arrived: {s:?}"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert!(snap.running && snap.sflow_datagrams >= 1 && snap.netflow_datagrams >= 1);
+    let on = |agent: &str, port: u32| {
+        snap.hosts
+            .iter()
+            .find(|h| h.agent == agent && h.if_index == port)
+            .unwrap_or_else(|| panic!("{agent} port {port}: {:?}", snap.hosts))
+    };
+    assert_eq!(on("10.0.0.12", 7).mac.as_deref(), Some("3c5282000f07"));
+    assert_eq!(on("10.0.0.12", 7).ip.as_deref(), Some("10.20.0.107"));
+    assert_eq!(on("10.0.0.12", 8).ip.as_deref(), Some("10.20.0.108"));
+    // NetFlow has no agent field: the exporter is the sender's address.
+    assert_eq!(on("127.0.0.1", 3).ip.as_deref(), Some("10.30.0.9"));
+    collector.stop();
+    assert!(!collector.snapshot().running);
+}

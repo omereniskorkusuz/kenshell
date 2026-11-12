@@ -183,6 +183,44 @@ pub fn discovery(
     d
 }
 
+/// Reads one live session (hidden, read-only): its neighbours and, with `hosts`, its MAC
+/// and ARP tables. Commands the device does not know are skipped; a closed session is an
+/// error.
+pub async fn discover(
+    sessions: &crate::session::SessionManager,
+    id: crate::model::RuntimeId,
+    family: Option<&str>,
+    hosts: bool,
+) -> crate::error::Result<Discovery> {
+    let mut near = Vec::new();
+    let mut tables = Vec::new();
+    let wanted = super::neighbors::commands(family)
+        .iter()
+        .map(|c| (c, true))
+        .chain(
+            host_commands(family)
+                .iter()
+                .filter(|_| hosts)
+                .map(|c| (c, false)),
+        );
+    for (command, neighbour) in wanted {
+        match sessions
+            .capture(id, command, std::time::Duration::from_secs(60))
+            .await
+        {
+            Ok(text) if neighbour => near.push(((*command).to_owned(), text)),
+            Ok(text) => tables.push(((*command).to_owned(), text)),
+            Err(e) if e.code == crate::error::ErrorCode::ConnectionClosed => return Err(e),
+            Err(_) => {}
+        }
+    }
+    Ok(discovery(
+        family,
+        super::neighbors::neighbors(family, &near),
+        &tables,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -10,15 +10,31 @@ import type { Discovery } from './ipc';
 
 export type NodeKind = 'router' | 'switch' | 'ap' | 'phone' | 'firewall' | 'host' | 'group';
 
-/** One open session's contribution. */
+/** Where a device's data comes from. */
+export type NodeSource = 'session' | 'snmp' | 'flow';
+
+/** One device we can ask directly: an open session or an SNMP agent. */
 export interface DeviceInput {
-  /** Tab key. */
+  /** Tab key, or `snmp:<host>`. */
   key: string;
   name: string;
-  /** Address the session connects to (null for serial). */
+  /** Address the session / the poll goes to (null for serial). */
   host: string | null;
   model: string | null;
   discovery: Discovery | null;
+  /** Default: `session`. */
+  source?: 'session' | 'snmp';
+  /** ifIndex → port name, when known (names the ports flow records refer to). */
+  interfaces?: readonly (readonly [number, string])[];
+}
+
+/** An address a flow exporter saw entering one of its ports. */
+export interface FlowSighting {
+  agent: string;
+  ifIndex: number;
+  mac: string | null;
+  ip: string | null;
+  vendor: string | null;
 }
 
 export interface TopoNode {
@@ -34,7 +50,9 @@ export interface TopoNode {
   mac: string | null;
   /** Tab key when one of the open sessions is this device. */
   tabKey: string | null;
-  /** `group` only: how many addresses were learned on the port. */
+  /** How we know the device first-hand (null: only reported by others). */
+  source: NodeSource | null;
+  /** `group` only: how many addresses were seen on the port. */
   count: number;
 }
 
@@ -93,38 +111,73 @@ export function kindOf(capability: string | null, platform: string | null): Node
   return null;
 }
 
-export function buildGraph(devices: readonly DeviceInput[], opts: { hosts: boolean }): TopoGraph {
+interface Candidate {
+  mac: string | null;
+  ip: string | null;
+  vendor: string | null;
+}
+
+export function buildGraph(
+  devices: readonly DeviceInput[],
+  opts: { hosts: boolean; flows?: readonly FlowSighting[] | undefined },
+): TopoGraph {
   const nodes = new Map<string, TopoNode>();
   const byName = new Map<string, string>();
   const byIp = new Map<string, string>();
   const byMac = new Map<string, string>();
   const edges: TopoEdge[] = [];
 
-  const index = (n: TopoNode) => {
-    if (n.name) byName.set(nameKey(n.name), n.id);
-    if (n.ip) byIp.set(n.ip, n.id);
+  const index = (n: TopoNode, ...alsoIp: (string | null)[]) => {
+    if (n.name && n.kind !== 'host') byName.set(nameKey(n.name), n.id);
+    for (const ip of [n.ip, ...alsoIp]) if (ip) byIp.set(ip, n.id);
     if (n.mac) byMac.set(n.mac, n.id);
   };
 
-  // 1. The devices we are connected to.
-  for (const d of devices) {
-    const id = `d:${d.key}`;
-    const n: TopoNode = {
+  // 1. The devices we can ask directly. A device reachable both ways (a session and an
+  //    SNMP poll) is one node; sessions come first.
+  const nodeOf = new Map<string, string>();
+  const ifNames = new Map<string, Map<number, string>>();
+  const ordered = [...devices].sort(
+    (a, b) => Number(a.source === 'snmp') - Number(b.source === 'snmp'),
+  );
+  for (const d of ordered) {
+    const source = d.source ?? 'session';
+    const ip = cleanIp(d.host);
+    const mac = macKey(d.discovery?.ownMac);
+    const known =
+      source === 'snmp'
+        ? ((d.name ? byName.get(nameKey(d.name)) : undefined) ??
+          (mac ? byMac.get(mac) : undefined) ??
+          (ip ? byIp.get(ip) : undefined))
+        : undefined;
+    const id = known ?? `d:${d.key}`;
+    const n: TopoNode = nodes.get(id) ?? {
       id,
-      name: d.name,
+      name: d.name || ip || d.key,
       kind: 'switch',
-      ip: cleanIp(d.host),
-      vendor: d.discovery?.ownVendor ?? null,
-      model: d.model,
-      mac: macKey(d.discovery?.ownMac),
-      tabKey: d.key,
+      ip,
+      vendor: null,
+      model: null,
+      mac: null,
+      tabKey: source === 'session' ? d.key : null,
+      source,
       count: 0,
     };
+    n.vendor ??= d.discovery?.ownVendor ?? null;
+    n.model ??= d.model;
+    n.mac ??= mac;
+    n.ip ??= ip;
     nodes.set(id, n);
-    index(n);
+    nodeOf.set(d.key, id);
+    index(n, ip);
+    if (d.interfaces?.length) {
+      const names = ifNames.get(id) ?? new Map<number, string>();
+      for (const [i, name] of d.interfaces) names.set(i, name);
+      ifNames.set(id, names);
+    }
   }
 
-  // Every MAC → IP any session knows.
+  // Every MAC → IP anyone knows.
   const arp = new Map<string, string>();
   for (const d of devices) for (const e of d.discovery?.arp ?? []) arp.set(e.mac, e.ip);
 
@@ -138,7 +191,8 @@ export function buildGraph(devices: readonly DeviceInput[], opts: { hosts: boole
       if (!same && !flipped) continue;
       const [ea, eb] = same ? [e.aPort, e.bPort] : [e.bPort, e.aPort];
       if (!fits(portKey(ea), ak) || !fits(portKey(eb), bk)) continue;
-      // The same link seen again (other protocol or other end): fill in what was missing.
+      // The same link seen again (other protocol, other end or other source): fill in
+      // what was missing.
       if (same) {
         e.aPort ??= portShort(aPort);
         e.bPort ??= portShort(bPort);
@@ -157,11 +211,11 @@ export function buildGraph(devices: readonly DeviceInput[], opts: { hosts: boole
     });
   };
 
-  // 2. Neighbours: an existing node (another session, or seen before) or a new one.
+  // 2. Neighbours: an existing node (another source, or seen before) or a new one.
   const linkPorts = new Map<string, Set<string>>();
-  for (const d of devices) {
-    const self = `d:${d.key}`;
-    const used = new Set<string>();
+  for (const d of ordered) {
+    const self = nodeOf.get(d.key) as string;
+    const used = linkPorts.get(self) ?? new Set<string>();
     linkPorts.set(self, used);
     for (const nb of d.discovery?.neighbors ?? []) {
       const ip = cleanIp(nb.ip);
@@ -183,6 +237,7 @@ export function buildGraph(devices: readonly DeviceInput[], opts: { hosts: boole
           model: nb.platform,
           mac,
           tabKey: null,
+          source: null,
           count: 0,
         });
       }
@@ -192,36 +247,81 @@ export function buildGraph(devices: readonly DeviceInput[], opts: { hosts: boole
       n.vendor ??= nb.vendor;
       n.model ??= nb.platform;
       n.mac ??= mac;
-      if (kind && (n.tabKey === null || kind !== 'host')) n.kind = kind;
-      index(n);
+      if (kind && (n.source === null || kind !== 'host')) n.kind = kind;
+      // The advertised management address also identifies it (a session may go to
+      // another of its addresses).
+      index(n, ip);
       const pk = portKey(nb.localInterface);
       if (pk) used.add(pk);
       link(self, nb.localInterface, id, nb.remoteInterface);
     }
   }
 
-  // 3. End devices: addresses learned on ports that are not links to a known device.
+  // 3. End devices: addresses on ports that are not links to a known device, from MAC
+  //    tables and from flow exports.
   if (opts.hosts) {
-    for (const d of devices) {
-      const self = `d:${d.key}`;
-      const used = linkPorts.get(self) ?? new Set<string>();
-      const hasLinks = used.size > 0;
-      const perPort = new Map<string, { port: string; macs: Discovery['macs'] }>();
-      for (const m of d.discovery?.macs ?? []) {
-        const pk = portKey(m.interface) ?? m.interface;
-        if (used.has(pk)) continue;
-        // An aggregate without a neighbour entry on a device that has links is an uplink
-        // whose members carry the neighbour: its addresses belong to the other side.
-        if (hasLinks && /^(port-?channel|aggregateport|bundle|ae|po|ag)\d/i.test(pk)) continue;
-        // A MAC that is one of the known devices is not an end device.
-        if (byMac.has(m.mac)) continue;
-        const g = perPort.get(pk) ?? { port: m.interface, macs: [] };
-        g.macs.push(m);
-        perPort.set(pk, g);
+    const perPort = new Map<string, Map<string, { port: string; seen: Candidate[] }>>();
+    const add = (node: string, port: string, c: Candidate) => {
+      const pk = portKey(port) ?? port;
+      const used = linkPorts.get(node);
+      if (used?.has(pk)) return;
+      // An aggregate without a neighbour entry on a device that has links is an uplink
+      // whose members carry the neighbour: its addresses belong to the other side.
+      if (used?.size && /^(port-?channel|aggregateport|bundle|ae|po|ag)\d/i.test(pk)) return;
+      // An address of one of the known devices is not an end device.
+      if ((c.mac && byMac.has(c.mac)) || (c.ip && byIp.has(c.ip))) return;
+      const ports = perPort.get(node) ?? new Map<string, { port: string; seen: Candidate[] }>();
+      perPort.set(node, ports);
+      const g = ports.get(pk) ?? { port, seen: [] };
+      ports.set(pk, g);
+      const again = g.seen.find((x) => (c.mac ? x.mac === c.mac : x.mac === null && x.ip === c.ip));
+      if (again) {
+        again.ip ??= c.ip;
+        again.vendor ??= c.vendor;
+      } else {
+        g.seen.push({ ...c });
       }
-      for (const [pk, g] of perPort) {
-        if (g.macs.length > GROUP_OVER) {
-          const id = `g:${d.key}:${pk}`;
+    };
+
+    for (const d of ordered) {
+      const self = nodeOf.get(d.key) as string;
+      for (const m of d.discovery?.macs ?? []) {
+        add(self, m.interface, { mac: m.mac, ip: arp.get(m.mac) ?? null, vendor: m.vendor });
+      }
+    }
+    for (const f of opts.flows ?? []) {
+      const agent = cleanIp(f.agent) ?? f.agent;
+      let id = byIp.get(agent);
+      if (!id) {
+        // An exporter nobody else told us about: it gets a node of its own.
+        id = `f:${agent}`;
+        const n: TopoNode = {
+          id,
+          name: agent,
+          kind: 'router',
+          ip: cleanIp(agent),
+          vendor: null,
+          model: null,
+          mac: null,
+          tabKey: null,
+          source: 'flow',
+          count: 0,
+        };
+        nodes.set(id, n);
+        index(n);
+      }
+      const mac = macKey(f.mac);
+      add(id, ifNames.get(id)?.get(f.ifIndex) ?? `if${f.ifIndex}`, {
+        mac,
+        ip: cleanIp(f.ip) ?? (mac ? (arp.get(mac) ?? null) : null),
+        vendor: f.vendor,
+      });
+    }
+
+    for (const [self, ports] of perPort) {
+      for (const [pk, g] of ports) {
+        if (g.seen.length > GROUP_OVER) {
+          const id = `g:${self}:${pk}`;
           nodes.set(id, {
             id,
             name: '',
@@ -231,25 +331,26 @@ export function buildGraph(devices: readonly DeviceInput[], opts: { hosts: boole
             model: null,
             mac: null,
             tabKey: null,
-            count: g.macs.length,
+            source: null,
+            count: g.seen.length,
           });
           link(self, g.port, id, null);
           continue;
         }
-        for (const m of g.macs) {
-          const id = `h:${m.mac}`;
+        for (const c of g.seen) {
+          const id = c.mac ? `h:${c.mac}` : `hi:${c.ip}`;
           // Already placed on another device's port (the first, most specific port wins).
           if (nodes.has(id)) continue;
-          const ip = arp.get(m.mac) ?? null;
           nodes.set(id, {
             id,
-            name: ip ?? formatMac(m.mac),
+            name: c.ip ?? (c.mac ? formatMac(c.mac) : ''),
             kind: 'host',
-            ip,
-            vendor: m.vendor,
+            ip: c.ip,
+            vendor: c.vendor,
             model: null,
-            mac: m.mac,
+            mac: c.mac,
             tabKey: null,
+            source: null,
             count: 0,
           });
           link(self, g.port, id, null);
@@ -309,7 +410,7 @@ export function pickRoot(graph: TopoGraph, among?: ReadonlySet<string>): string 
   let bestScore = -1;
   for (const n of graph.nodes) {
     if (among && !among.has(n.id)) continue;
-    const score = rank[n.kind] * 1000 + (degree.get(n.id) ?? 0) * 2 + (n.tabKey ? 1 : 0);
+    const score = rank[n.kind] * 1000 + (degree.get(n.id) ?? 0) * 2 + (n.source ? 1 : 0);
     if (score > bestScore) {
       best = n;
       bestScore = score;

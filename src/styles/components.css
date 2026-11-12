@@ -626,3 +626,18 @@ button.scan-cell:not(:disabled):hover {
   color: var(--text-primary);
   z-index: 1;
 }
+.topo-card[data-source='snmp'],
+.topo-card[data-source='flow'] {
+  border-color: color-mix(in srgb, var(--info) 60%, var(--border-strong));
+}
+.topo-tag {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--info) 18%, transparent);
+  color: var(--info);
+  font: 9px/13px var(--font-ui);
+  letter-spacing: var(--tracking-label);
+}

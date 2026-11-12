@@ -17,6 +17,7 @@ mod engine;
 mod profile;
 mod ssh;
 mod telnet;
+mod topo;
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -42,6 +43,13 @@ struct Options {
     flood_lines: u32,
     port_set: bool,
     list: bool,
+    /// Serve the SNMPv2c agent on this UDP port instead of a CLI.
+    snmp: Option<u16>,
+    community: String,
+    /// Send sFlow / NetFlow exports to these `host:port` addresses instead of a CLI.
+    sflow_to: Option<String>,
+    netflow_to: Option<String>,
+    flow_rounds: u32,
 }
 
 fn parse_args() -> Result<Options, String> {
@@ -60,6 +68,11 @@ fn parse_args() -> Result<Options, String> {
         flood_lines: 0,
         port_set: false,
         list: false,
+        snmp: None,
+        community: "public".into(),
+        sflow_to: None,
+        netflow_to: None,
+        flow_rounds: 30,
     };
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
@@ -87,6 +100,13 @@ fn parse_args() -> Result<Options, String> {
             "--pty" => o.pty = true,
             "--baud" => o.baud = Some(val()?.parse().map_err(|e| format!("--baud: {e}"))?),
             "--list" => o.list = true,
+            "--snmp" => o.snmp = Some(val()?.parse().map_err(|e| format!("--snmp: {e}"))?),
+            "--community" => o.community = val()?,
+            "--sflow-to" => o.sflow_to = Some(val()?),
+            "--netflow-to" => o.netflow_to = Some(val()?),
+            "--flow-rounds" => {
+                o.flow_rounds = val()?.parse().map_err(|e| format!("--flow-rounds: {e}"))?;
+            }
             "--help" | "-h" => return Err(String::new()),
             other => return Err(format!("unknown argument '{other}'")),
         }
@@ -111,7 +131,7 @@ fn main() {
                 eprintln!("error: {e}");
             }
             eprintln!(
-                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--ssh [--host-key-seed N] [--legacy-only] [--authorized-key 'ssh-ed25519 AAAA…']] [--flood-lines N] [--stdio] [--pty [--baud N]] [--list]"
+                "usage: device-simulator [--profile NAME|FILE.toml] [--port N] [--bind ADDR] [--raw] [--ssh [--host-key-seed N] [--legacy-only] [--authorized-key 'ssh-ed25519 AAAA…']] [--flood-lines N] [--stdio] [--pty [--baud N]] [--list] | --snmp PORT [--community NAME] | [--sflow-to HOST:PORT] [--netflow-to HOST:PORT] [--flow-rounds N]"
             );
             std::process::exit(2);
         }
@@ -119,6 +139,24 @@ fn main() {
     if opts.list {
         for (name, _) in profile::BUILTIN {
             println!("{name}");
+        }
+        return;
+    }
+    if let Some(port) = opts.snmp {
+        if let Err(e) = topo::run_snmp(&opts.bind, port, &opts.community) {
+            eprintln!("error: snmp: {e}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    if opts.sflow_to.is_some() || opts.netflow_to.is_some() {
+        if let Err(e) = topo::send_flows(
+            opts.sflow_to.as_deref(),
+            opts.netflow_to.as_deref(),
+            opts.flow_rounds,
+        ) {
+            eprintln!("error: flows: {e}");
+            std::process::exit(1);
         }
         return;
     }

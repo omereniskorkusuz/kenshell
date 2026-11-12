@@ -255,9 +255,35 @@ complete it is.
 - **Moving around:** drag to pan, scroll to move, Ctrl/⌘ + scroll (or pinch) to zoom,
   **Fit to window** to see everything.
 
-The map uses only what the devices themselves report over your open sessions. It does not
-use SNMP, sFlow or NetFlow. A device that has LLDP and CDP switched off appears only as an
-address on its neighbour's port.
+A device that has LLDP and CDP switched off appears only as an address on its neighbour's
+port.
+
+#### Other sources: SNMP, sFlow and NetFlow
+
+Open sessions are always used. **Sources** in the map's toolbar adds devices you have no
+session to:
+
+- **SNMP (v2c):** type the read-only community once and press **Save**. It goes straight
+  into your system keychain and is never shown again, written to a file, a log or an
+  export. Then add each device's address (`10.0.0.2`, or `10.0.0.2:1161` for another
+  port). KenShell asks the device for its name, interface names, LLDP neighbours,
+  forwarding (MAC) table and ARP table, with read requests only, and draws it like a
+  device you are logged in to. Such cards carry an **SNMP** tag. A device that does not
+  answer (unreachable, SNMP off or a wrong community: they look the same) is listed above
+  the map. SNMPv3 is not supported.
+- **sFlow / NetFlow:** tick **Listen for flow exports** and point your devices' flow export
+  at this computer (sFlow on UDP 6343, NetFlow v5 / v9 / IPFIX on UDP 2055; both ports can
+  be changed before you tick the box, and 0 switches one off). Flow records say which
+  addresses entered which port of the exporting device, so they add end devices to the
+  map, also on devices that keep no MAC table you can read. The port is named when the
+  exporter is also read over SNMP, otherwise it shows as `if7` (its interface index). An
+  exporter nobody else reported gets a card with a **FLOW** tag. Only packet headers are
+  looked at; nothing is saved to disk, and an address not seen for 30 minutes is dropped.
+  KenShell listens only while the box is ticked. Your operating system's firewall may ask
+  to allow incoming connections the first time.
+
+All three sources are merged: a switch seen by a session, by SNMP and as a neighbour of
+another device is one card, and a link reported from both ends is one line.
 
 The side panel's **Analyze → Neighbours** view still shows the neighbours of one device.
 

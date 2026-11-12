@@ -88,7 +88,8 @@ to network gear:
 - **Config backups:** compressed backups compared in a side-by-side diff.
 - **Log analysis:** analyse `show tech`, crashinfo and log files.
 - **Topology map:** a tab that draws every device your open sessions can see, as a
-  hierarchy with the port on both ends of each link, manufacturer, model and IP.
+  hierarchy with the port on both ends of each link, manufacturer, model and IP. SNMP
+  polling and an sFlow / NetFlow collector add the devices you are not logged in to.
 - **Multi-device:** run read-only commands on many devices at once.
 - **Network scanner:** ICMP, the ARP table, TCP 22/23/80/443/3389 and reverse DNS, with
   vendor names from the built-in IEEE OUI table.

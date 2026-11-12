@@ -74,6 +74,12 @@ export interface AppSettings {
   'console.groupHintShown': boolean;
   /** Model id for the AI assistant, typed by the user ('' = not set). */
   'ai.model': string;
+  /** Devices the topology map reads over SNMP (`host` or `host:port`). */
+  'topology.snmpHosts': string[];
+  /** Listen for sFlow / NetFlow exports while the app runs. */
+  'topology.flowEnabled': boolean;
+  'topology.sflowPort': number;
+  'topology.netflowPort': number;
   /** Connection history, newest first (lib/history.ts). */
   'history.connections': HistoryEntry[];
 }
@@ -123,6 +129,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'console.groupHintShown': false,
   'ai.model': '',
   'history.connections': [],
+  'topology.snmpHosts': [],
+  'topology.flowEnabled': false,
+  'topology.sflowPort': 6343,
+  'topology.netflowPort': 2055,
 };
 
 export const LIMITS = {
@@ -203,6 +213,22 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
         return bool(value, d[k]);
       case 'ai.model':
         return typeof value === 'string' ? value.trim().slice(0, 100) : d[k];
+      case 'topology.snmpHosts':
+        return Array.isArray(value)
+          ? [
+              ...new Set(
+                (value as unknown[])
+                  .filter((v): v is string => typeof v === 'string')
+                  .map((v) => v.trim())
+                  .filter((v) => v !== '' && v.length <= 255 && !/\s/.test(v)),
+              ),
+            ].slice(0, 64)
+          : d[k];
+      case 'topology.flowEnabled':
+        return bool(value, d[k]);
+      case 'topology.sflowPort':
+      case 'topology.netflowPort':
+        return clampInt(value, 0, 65535, d[k]);
       case 'history.connections':
         return sanitizeHistory(value);
       case 'shortcuts.overrides':

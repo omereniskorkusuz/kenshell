@@ -1179,6 +1179,32 @@
       "firewall": "Güvenlik duvarı",
       "host": "Uç cihaz",
       "group": "Tek portta birden fazla cihaz"
-    }
+    },
+    "sources": "Kaynaklar",
+    "sourcesHint": "Açık oturumlar her zaman kullanılır. Bunlar, oturumunuz olmayan cihazları ekler.",
+    "summarySnmp_one": "{{count}} SNMP ile",
+    "summarySnmp_other": "{{count}} SNMP ile",
+    "summaryFlow_one": "akışlardan {{count}} adres",
+    "summaryFlow_other": "akışlardan {{count}} adres",
+    "source": {
+      "session": "Açık oturum",
+      "snmp": "SNMP ile okundu",
+      "flow": "Akış gönderen cihaz"
+    },
+    "snmpTitle": "SNMP (v2c)",
+    "snmpHint": "Her cihazın LLDP komşularını, MAC tablosunu ve ARP tablosunu okur. Yalnızca okuma istekleri gönderir.",
+    "community": "Community",
+    "communitySaved": "Community kayıtlı (değiştirmek için yazın)",
+    "save": "Kaydet",
+    "forget": "Unut",
+    "snmpHost": "Cihaz adresi ya da adres:port",
+    "add": "Ekle",
+    "removeHost": "{{host}} kaydını kaldır",
+    "snmpReading": "Okunuyor…",
+    "snmpNeedsCommunity": "Community gerekli",
+    "flowTitle": "sFlow / NetFlow",
+    "flowHint": "Akış gönderen cihazın hangi portundan hangi adreslerin girdiğini gösterir. Cihazın akış hedefini bu bilgisayara yönlendirin.",
+    "flowListen": "Akış verisini dinle",
+    "flowStatus": "Dinleniyor: {{sflow}} sFlow ve {{netflow}} NetFlow paketi, {{hosts}} adres görüldü"
   }
 }

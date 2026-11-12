@@ -7,6 +7,7 @@ mod device;
 mod diag;
 mod error;
 mod events;
+mod flow;
 mod handoff;
 mod import;
 mod keys;
@@ -16,6 +17,7 @@ mod netscan;
 mod platform;
 mod secrets;
 mod session;
+mod snmp;
 mod state;
 mod storage;
 mod transfer;
@@ -98,6 +100,13 @@ pub fn run() {
             commands::update::update_status,
             commands::update::update_check,
             commands::update::update_install,
+            commands::topology::snmp_community_status,
+            commands::topology::snmp_community_set,
+            commands::topology::snmp_community_clear,
+            commands::topology::topology_snmp,
+            commands::topology::flow_start,
+            commands::topology::flow_stop,
+            commands::topology::flow_snapshot,
             commands::ai::ai_key_status,
             commands::ai::ai_key_set,
             commands::ai::ai_key_clear,
@@ -234,6 +243,7 @@ pub fn run() {
                 sessions,
                 secrets,
                 handoffs: handoff::Handoffs::default(),
+                flow: std::sync::Arc::default(),
             });
 
             show_later(app.handle().clone(), MAIN_WINDOW.to_owned());
