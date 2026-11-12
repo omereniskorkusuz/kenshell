@@ -234,7 +234,9 @@ built from the sessions you have open; the more devices you are connected to, th
 complete it is.
 
 - **What it reads:** each connected device's LLDP / CDP neighbours and, with **End
-  devices** ticked, its MAC and ARP tables. The commands are read-only and run hidden:
+  devices** ticked, its MAC and ARP tables. KenShell uses the commands of the device's
+  own type (for example `show lldp neighbor-info detail` or `show lldp remote-system`
+  where the device has no `show lldp neighbors detail`). The commands are read-only and run hidden:
   nothing appears in your terminal. Reading starts when you open the map and when a new
   session connects; **Read again** refreshes it.
 - **What you see:** every switch, router, firewall and access point as its own card, in a

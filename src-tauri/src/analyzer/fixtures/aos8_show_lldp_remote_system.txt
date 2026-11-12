@@ -1,0 +1,28 @@
+Remote LLDP nearest-bridge Agents on Local Port 1/1/23:
+
+    Chassis 94:24:e1:aa:bb:cc, Port 1023:
+      Remote ID                   = 1,
+      Chassis Subtype             = 4 (MAC Address),
+      Port Subtype                = 7 (Locally assigned),
+      Port Description            = Uplink XNI 1/1/23,
+      System Name                 = dist-sw1,
+      System Description          = Enterprise switch OS6860E-24 8.9.221.R03 GA, July 14, 2023.,
+      Capabilities Supported      = Bridge Router,
+      Capabilities Enabled        = Bridge Router,
+      Management IP Address       = 10.1.1.2,
+      Remote port MAC/PHY AutoNeg = Supported Enabled Capability 0x0000,
+      Mau Type                    = 1000BaseTFD - Four-pair Category 5 UTP full duplex mode
+
+Remote LLDP nearest-bridge Agents on Local Port 1/1/5:
+
+    Chassis 00:80:9f:11:22:33, Port 00:80:9f:11:22:33:
+      Remote ID                   = 2,
+      Chassis Subtype             = 4 (MAC Address),
+      Port Subtype                = 3 (MAC address),
+      Port Description            = (null),
+      System Name                 = phone-2041,
+      System Description          = IP desk phone,
+      Capabilities Supported      = Bridge Telephone,
+      Capabilities Enabled        = Telephone,
+      Management IP Address       = 10.30.0.41
+

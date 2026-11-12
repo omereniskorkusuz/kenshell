@@ -12,6 +12,7 @@ mod ip_route;
 mod juniper;
 mod lldp;
 pub(crate) mod mac_address_table;
+pub(crate) mod others;
 mod ruijie;
 mod spanning_tree;
 mod version;

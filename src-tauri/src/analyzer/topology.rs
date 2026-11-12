@@ -50,7 +50,10 @@ pub fn host_commands(family: Option<&str>) -> &'static [&'static str] {
     match family {
         Some("ruijie") => &["show mac-address-table", "show arp"],
         Some("cisco") | None | Some("generic") => &["show mac address-table", "show ip arp"],
-        // Other families: their tables are not parsed yet.
+        Some("aruba") => &["show mac-address-table", "show arp"],
+        Some("alcatel") => &["show mac-learning", "show arp"],
+        Some("juniper") => &["show ethernet-switching table", "show arp no-resolve"],
+        // Other families: their tables are not read yet.
         _ => &[],
     }
 }
@@ -84,18 +87,54 @@ fn internal_port(port: &str) -> bool {
     .any(|k| p.starts_with(k))
 }
 
+/// MAC table rows of any layout that has the address, a type word and the port last on
+/// one line (`<mac> <vlan> dynamic <port>`, `VLAN <vlan> <mac> dynamic bridging <port>`,
+/// `<vlan-name> <mac> D - <port>`), as `[vlan, mac, type, port]`.
+fn generic_mac_rows(text: &str) -> Vec<Vec<String>> {
+    let mut rows = Vec::new();
+    for line in text.lines() {
+        let w: Vec<&str> = line.split_whitespace().collect();
+        let Some(m) = w.iter().position(|t| is_mac(t)) else {
+            continue;
+        };
+        // The port is the last word and not the address itself.
+        if w.len() < 3 || m == w.len() - 1 {
+            continue;
+        }
+        let learned = w.iter().enumerate().any(|(i, t)| {
+            let t = t.to_ascii_lowercase();
+            i != m && (t.starts_with("dyn") || t.starts_with("learn") || t == "d")
+        });
+        let vlan = w
+            .iter()
+            .enumerate()
+            .find(|(i, t)| *i != m && *i != w.len() - 1 && t.chars().all(|c| c.is_ascii_digit()))
+            .map_or("", |(_, t)| *t);
+        rows.push(vec![
+            vlan.to_owned(),
+            w[m].to_owned(),
+            if learned { "dynamic" } else { "static" }.to_owned(),
+            w[w.len() - 1].to_owned(),
+        ]);
+    }
+    rows
+}
+
 /// MAC table rows: learned (dynamic) addresses on real ports, deduplicated per port.
 pub fn mac_entries(family: Option<&str>, text: &str) -> Vec<MacEntry> {
-    let id = if family == Some("ruijie") {
-        "ruijie.show_mac_address_table"
-    } else {
-        "cisco.show_mac_address_table"
+    let parser = match family {
+        Some("ruijie") => Some("ruijie.show_mac_address_table"),
+        Some("cisco" | "generic") | None => Some("cisco.show_mac_address_table"),
+        _ => None,
     };
-    let rows = ALL
-        .iter()
-        .find(|p| p.id == id)
-        .map(|p| (p.parse)(text))
-        .unwrap_or_default();
+    let rows = match parser {
+        Some(id) => ALL
+            .iter()
+            .find(|p| p.id == id)
+            .map(|p| (p.parse)(text))
+            .unwrap_or_default(),
+        None => generic_mac_rows(text),
+    };
     let mut out: Vec<MacEntry> = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for r in rows {
@@ -280,7 +319,55 @@ Internet  10.0.0.99               0   Incomplete      ARPA
                 .is_empty()
         );
         assert!(mac_entries(None, "garbage\n\n---").is_empty());
-        assert!(host_commands(Some("juniper")).is_empty());
+        assert!(host_commands(Some("fortinet")).is_empty());
+        assert_eq!(host_commands(Some("alcatel"))[0], "show mac-learning");
+    }
+
+    #[test]
+    fn other_families_mac_tables() {
+        // Address first.
+        let cx = mac_entries(
+            Some("aruba"),
+            "MAC age-time            : 300 seconds\nNumber of MAC addresses : 3\n\n\
+             MAC Address          VLAN     Type                      Port\n\
+             --------------------------------------------------------------\n\
+             00:50:56:96:d8:6d    10       dynamic                   1/1/3\n\
+             3c:52:82:00:0b:02    20       dynamic                   lag1\n\
+             88:3a:30:aa:bb:00    1        static                    1/1/9\n",
+        );
+        assert_eq!(cx.len(), 2, "{cx:?}");
+        assert_eq!(
+            (
+                cx[0].mac.as_str(),
+                cx[0].vlan.as_deref(),
+                cx[0].interface.as_str()
+            ),
+            ("00505696d86d", Some("10"), "1/1/3")
+        );
+        assert_eq!(cx[1].interface, "lag1");
+        // Domain and VLAN first, an operation word before the port.
+        let aos = mac_entries(
+            Some("alcatel"),
+            "   Domain    Vlan/SrvcId[ISId/vnId]            Mac Address         Type         Operation          Interface\n\
+             ------------+----------------------+-------------------+------------------+-------------+-------------------------\n\
+                   VLAN                    1   00:e0:b1:aa:bb:cc             dynamic      bridging                    1/1/5\n\
+                   VLAN                   30   00:80:9f:11:22:33             dynamic      bridging                    1/1/7\n\n\
+             Total number of Valid MAC addresses above = 2\n",
+        );
+        assert_eq!(aos.len(), 2, "{aos:?}");
+        assert_eq!(
+            (aos[1].vlan.as_deref(), aos[1].interface.as_str()),
+            (Some("30"), "1/1/7")
+        );
+        // VLAN by name, a one-letter flag.
+        let ex = mac_entries(
+            Some("juniper"),
+            "default             00:11:22:33:44:55   D        -   ge-0/0/1.0\n\
+             default             00:11:22:33:44:66   S        -   ge-0/0/2.0\n",
+        );
+        assert_eq!(ex.len(), 1);
+        assert_eq!(ex[0].interface, "ge-0/0/1.0");
+        assert!(mac_entries(Some("aruba"), "00:50:56:96:d8:6d\n% Invalid\n\0").is_empty());
     }
 
     #[test]

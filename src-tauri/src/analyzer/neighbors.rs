@@ -31,6 +31,10 @@ pub fn commands(family: Option<&str>) -> &'static [&'static str] {
         Some("cisco") | None | Some("generic") => {
             &["show cdp neighbors detail", "show lldp neighbors detail"]
         }
+        Some("aruba") => &["show lldp neighbor-info detail"],
+        Some("alcatel") => &["show lldp remote-system"],
+        // Their brief table already names both ports.
+        Some("juniper") => &["show lldp neighbors"],
         _ => &["show lldp neighbors detail"],
     }
 }
@@ -92,7 +96,6 @@ pub fn neighbors(family: Option<&str>, outputs: &[(String, String)]) -> Vec<Neig
             list.push(n);
         }
     };
-    let ruijie = family == Some("ruijie");
     for (command, text) in outputs {
         if command.contains("cdp") {
             // device, ip, platform, capability, local, remote, version
@@ -114,13 +117,30 @@ pub fn neighbors(family: Option<&str>, outputs: &[(String, String)]) -> Vec<Neig
                 );
             }
         } else if command.contains("lldp") {
-            let id = if ruijie {
-                "ruijie.show_lldp_neighbors_detail"
-            } else {
-                "cisco.show_lldp_neighbors_detail"
-            };
             // device, ip, local, remote, port description, chassis, capability, description
-            for r in parser_rows(id, text) {
+            let rows = match family {
+                Some("ruijie") => parser_rows("ruijie.show_lldp_neighbors_detail", text),
+                Some("aruba") => super::parsers::others::cx_lldp_detail(text),
+                Some("alcatel") => super::parsers::others::aos_lldp_remote(text),
+                // local, parent, chassis, remote, device
+                Some("juniper") => parser_rows("juniper.show_lldp_neighbors", text)
+                    .into_iter()
+                    .map(|r| {
+                        vec![
+                            r[4].clone(),
+                            String::new(),
+                            r[0].clone(),
+                            r[3].clone(),
+                            String::new(),
+                            r[2].clone(),
+                            String::new(),
+                            String::new(),
+                        ]
+                    })
+                    .collect(),
+                _ => parser_rows("cisco.show_lldp_neighbors_detail", text),
+            };
+            for r in rows {
                 add(
                     Neighbor {
                         name: if r[0].is_empty() {
@@ -198,5 +218,52 @@ mod tests {
             )
             .is_empty()
         );
+    }
+
+    #[test]
+    fn other_families_use_their_own_commands_and_layouts() {
+        let cx = neighbors(
+            Some("aruba"),
+            &[(
+                commands(Some("aruba"))[0].to_owned(),
+                include_str!("fixtures/aoscx_show_lldp_neighbor_info_detail.txt").into(),
+            )],
+        );
+        assert_eq!(cx.len(), 3, "{cx:?}");
+        let core = cx.iter().find(|n| n.name == "core-sw1").unwrap();
+        assert_eq!(core.local_interface, "1/1/24");
+        assert_eq!(core.remote_interface.as_deref(), Some("Gi1/0/12"));
+        assert_eq!(core.ip.as_deref(), Some("10.0.0.1"));
+        assert_eq!(core.chassis.as_deref(), Some("00:11:22:33:44:00"));
+        // A station without a name is named by its chassis id.
+        assert!(cx.iter().any(|n| n.name == "3c:52:82:00:0b:02"));
+
+        let aos = neighbors(
+            Some("alcatel"),
+            &[(
+                commands(Some("alcatel"))[0].to_owned(),
+                include_str!("fixtures/aos8_show_lldp_remote_system.txt").into(),
+            )],
+        );
+        assert_eq!(aos.len(), 2, "{aos:?}");
+        let dist = aos.iter().find(|n| n.name == "dist-sw1").unwrap();
+        assert_eq!(dist.local_interface, "1/1/23");
+        assert_eq!(dist.capability.as_deref(), Some("Bridge Router"));
+        assert!(
+            aos.iter()
+                .any(|n| n.name == "phone-2041" && n.ip.as_deref() == Some("10.30.0.41"))
+        );
+
+        let jn = neighbors(
+            Some("juniper"),
+            &[(
+                commands(Some("juniper"))[0].to_owned(),
+                include_str!("fixtures/junos_show_lldp_neighbors.txt").into(),
+            )],
+        );
+        assert_eq!(jn.len(), 2, "{jn:?}");
+        assert_eq!(jn[0].name, "core-sw1");
+        assert_eq!(jn[0].remote_interface.as_deref(), Some("Gi1/0/1"));
+        assert!(jn[0].chassis.is_some());
     }
 }
