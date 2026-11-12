@@ -645,6 +645,13 @@ export interface BenchOpen {
   count: number;
   /** Show each tab once so its terminal renders the output. */
   visit: boolean;
+  /** Self-check scenario (JSON) to play instead (see bench/check-topology.mjs). */
+  check: string | null;
+}
+
+/** Self-check runs only: hands the result to the script that started the app. */
+export async function checkReport(report: string): Promise<void> {
+  if (inTauri()) await invoke('check_report', { report });
 }
 
 /** Shows the window; resolves with benchmark tabs to open (null outside bench runs). */

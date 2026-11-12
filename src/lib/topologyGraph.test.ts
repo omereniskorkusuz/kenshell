@@ -296,4 +296,55 @@ describe('other sources', () => {
       buildGraph([session, snmp], { hosts: false, flows }).nodes.some((n) => n.kind === 'host'),
     ).toBe(false);
   });
+
+  it('devices behind one address (a lab, a port forward) stay separate', () => {
+    const a = dev(
+      'a',
+      'core-sw-01',
+      disc({
+        neighbors: [
+          nb({ name: 'dist-sw-01.lab', localInterface: 'Te1/1/1', remoteInterface: 'Te1/0/1' }),
+        ],
+      }),
+      '127.0.0.1',
+    );
+    const b = dev('b', 'access-sw-02', disc({}), '127.0.0.1');
+    const polled: DeviceInput = {
+      key: 'snmp:127.0.0.1:16161',
+      name: 'dist-sw-01',
+      host: '127.0.0.1',
+      model: null,
+      source: 'snmp',
+      discovery: disc({
+        neighbors: [
+          nb({ name: 'core-sw-01', localInterface: 'Te1/0/1', remoteInterface: 'Te1/1/1' }),
+        ],
+      }),
+    };
+    const g = buildGraph([a, b, polled], {
+      hosts: true,
+      flows: [{ agent: '127.0.0.1', ifIndex: 3, mac: null, ip: '10.30.0.9', vendor: null }],
+    });
+    expect(
+      g.nodes
+        .filter((n) => n.kind !== 'host')
+        .map((n) => n.name)
+        .sort(),
+    ).toEqual(['127.0.0.1', 'access-sw-02', 'core-sw-01', 'dist-sw-01']);
+    const dist = g.nodes.find((n) => n.name === 'dist-sw-01');
+    expect(dist).toMatchObject({ source: 'snmp', ip: null });
+    // One link core ↔ dist, though the session and the poll both report it.
+    expect(g.edges.filter((e) => [e.a, e.b].includes(dist?.id ?? ''))).toHaveLength(1);
+    // Same address, different name: not merged; same address, no name: merged.
+    const other: DeviceInput = {
+      ...polled,
+      key: 'snmp:x',
+      name: 'edge-9',
+      host: '10.0.0.1',
+      discovery: disc({}),
+    };
+    const sess = dev('s', 'core', disc({}), '10.0.0.1');
+    expect(buildGraph([sess, other], { hosts: false }).nodes).toHaveLength(2);
+    expect(buildGraph([sess, { ...other, name: '' }], { hosts: false }).nodes).toHaveLength(1);
+  });
 });

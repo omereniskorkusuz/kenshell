@@ -75,9 +75,10 @@ export const GROUP_OVER = 4;
 
 const IPV4 = /^\d{1,3}(?:\.\d{1,3}){3}$/;
 const nameKey = (name: string): string => (name.split('.')[0] ?? name).trim().toLowerCase();
+/** An address that identifies a device: IPv4, not loopback (many sessions can go to it). */
 const cleanIp = (ip: string | null | undefined): string | null => {
   const v = ip?.split('/')[0]?.trim() ?? '';
-  return IPV4.test(v) ? v : null;
+  return IPV4.test(v) && !v.startsWith('127.') && v !== '0.0.0.0' ? v : null;
 };
 const macKey = (mac: string | null | undefined): string | null => {
   const hex = (mac ?? '').replace(/[^0-9a-f]/gi, '').toLowerCase();
@@ -144,11 +145,17 @@ export function buildGraph(
     const source = d.source ?? 'session';
     const ip = cleanIp(d.host);
     const mac = macKey(d.discovery?.ownMac);
+    // Same name or same chassis MAC: the same device. The same address alone only when
+    // the names do not disagree (two devices can sit behind one address).
+    const sameIp = ip ? byIp.get(ip) : undefined;
+    const agrees = (id: string | undefined) =>
+      id !== undefined &&
+      (!d.name || !nodes.get(id)?.name || nameKey(nodes.get(id)?.name ?? '') === nameKey(d.name));
     const known =
       source === 'snmp'
         ? ((d.name ? byName.get(nameKey(d.name)) : undefined) ??
           (mac ? byMac.get(mac) : undefined) ??
-          (ip ? byIp.get(ip) : undefined))
+          (agrees(sameIp) ? sameIp : undefined))
         : undefined;
     const id = known ?? `d:${d.key}`;
     const n: TopoNode = nodes.get(id) ?? {

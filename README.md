@@ -215,6 +215,7 @@ handy for UI work.
 | Bundle-size budget         | `npx vite build && npm run bench:bundle`                     |
 | App budget (start/RAM/CPU) | `npm run app:build && npm run bench:app`                     |
 | Device simulator           | `npm run sim -- --list` · `npm run sim -- --profile <name> --port 2323`                |
+| Topology check in the real app | `cargo build -p device-simulator && npm run app:build && npm run check:topology` |
 
 The **device simulator** (`tools/device-simulator`) emulates network-device CLIs over
 Telnet, SSH, raw TCP or stdio, including `--More--` paging and mode changes. It drives the

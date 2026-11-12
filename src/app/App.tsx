@@ -61,7 +61,8 @@ export function App() {
     // First commit done → show the (initially hidden) window. rAF does not fire while a
     // WKWebView window is hidden, so this must not wait for an animation frame.
     void appReady().then((bench) => {
-      if (bench) void import('./bench').then((m) => m.openBenchTabs(bench));
+      if (bench?.check) void import('./check').then((m) => m.runCheck(bench.check ?? ''));
+      else if (bench) void import('./bench').then((m) => m.openBenchTabs(bench));
     });
 
     setPersistErrorHandler((e) => {

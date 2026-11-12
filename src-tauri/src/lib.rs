@@ -54,6 +54,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::app::app_ready,
+            commands::app::check_report,
             commands::app::app_info,
             commands::app::open_external,
             commands::clipboard::clipboard_read,
@@ -217,11 +218,20 @@ pub fn run() {
         })
         .setup(|app| {
             commands::update::install_plugin(app)?;
-            let dir = app.path().app_data_dir()?;
+            // A self-check run works in a throw-away directory with in-memory secrets.
+            let check_dir = commands::app::check_data_dir();
+            let dir = match &check_dir {
+                Some(d) => d.clone(),
+                None => app.path().app_data_dir()?,
+            };
             std::fs::create_dir_all(&dir)?;
             let db = Arc::new(Db::open(&dir.join(DB_FILE))?);
             let consoles = Arc::new(ConsoleRegistry::new(Arc::clone(&db)));
-            let secrets: Arc<dyn secrets::SecretStore> = Arc::new(secrets::Keychain);
+            let secrets: Arc<dyn secrets::SecretStore> = if check_dir.is_some() {
+                Arc::new(secrets::MemoryStore::default())
+            } else {
+                Arc::new(secrets::Keychain)
+            };
             let sessions = Arc::new(SessionManager::new(
                 Arc::clone(&db),
                 Arc::clone(&consoles),

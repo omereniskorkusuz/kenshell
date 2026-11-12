@@ -77,12 +77,11 @@ impl SecretStore for Keychain {
     }
 }
 
-/// In-memory store for tests.
-#[cfg(test)]
+/// In-memory store: tests, and self-check runs (`bench/check-topology.mjs`), which must
+/// never touch the user's keychain.
 #[derive(Default)]
 pub struct MemoryStore(std::sync::Mutex<std::collections::HashMap<String, String>>);
 
-#[cfg(test)]
 impl SecretStore for MemoryStore {
     fn get(&self, account: &str) -> Result<Option<Secret>> {
         Ok(self

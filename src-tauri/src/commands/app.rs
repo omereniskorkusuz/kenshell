@@ -14,6 +14,37 @@ const BENCH_ENV: &str = "KENSHELL_BENCH";
 /// `bench/measure-app.mjs --sessions N` can measure RAM with live sessions.
 const BENCH_OPEN_ENV: &str = "KENSHELL_BENCH_OPEN";
 const BENCH_MAX_TABS: u32 = 50;
+/// Self-check runs only (with `KENSHELL_BENCH`): the scenario, as JSON, that the frontend
+/// plays against the device simulator (`bench/check-topology.mjs`).
+const CHECK_ENV: &str = "KENSHELL_CHECK";
+/// Self-check runs only: a throw-away data directory. With it the app also keeps secrets
+/// in memory, so a check never reads or writes the user's database or keychain.
+const CHECK_DATA_DIR_ENV: &str = "KENSHELL_CHECK_DATA_DIR";
+const CHECK_REPORT_MAX: usize = 512 * 1024;
+
+/// The throw-away data directory of a self-check run, if this is one.
+pub fn check_data_dir() -> Option<std::path::PathBuf> {
+    std::env::var_os(BENCH_ENV)?;
+    std::env::var_os(CHECK_DATA_DIR_ENV)
+        .filter(|d| !d.is_empty())
+        .map(Into::into)
+}
+
+/// Self-check runs only: the frontend hands back what it saw, printed as one line
+/// (`KENSHELL_CHECK_RESULT=<json>`) for the script that started the app. Outside a
+/// bench run this does nothing.
+#[tauri::command]
+pub fn check_report(report: String) {
+    if std::env::var_os(BENCH_ENV).is_none() || std::env::var_os(CHECK_ENV).is_none() {
+        return;
+    }
+    let line: String = report
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(CHECK_REPORT_MAX)
+        .collect();
+    println!("KENSHELL_CHECK_RESULT={line}");
+}
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -22,6 +53,8 @@ pub struct BenchOpen {
     count: u32,
     /// Show each tab once (default); `KENSHELL_BENCH_VISIT=0` leaves them unrendered.
     visit: bool,
+    /// Self-check scenario (JSON) to play instead, see `KENSHELL_CHECK`.
+    check: Option<String>,
 }
 
 fn parse_bench_open(raw: &str) -> Option<BenchOpen> {
@@ -32,6 +65,7 @@ fn parse_bench_open(raw: &str) -> Option<BenchOpen> {
         target: target.to_owned(),
         count: count.min(BENCH_MAX_TABS),
         visit: std::env::var("KENSHELL_BENCH_VISIT").map_or(true, |v| v != "0"),
+        check: None,
     })
 }
 
@@ -49,6 +83,14 @@ pub fn app_ready(window: WebviewWindow) -> Option<BenchOpen> {
         .map(|t| t.elapsed().as_millis())
         .unwrap_or_default();
     println!("KENSHELL_READY_MS={ms}");
+    if let Ok(check) = std::env::var(CHECK_ENV) {
+        return Some(BenchOpen {
+            target: String::new(),
+            count: 0,
+            visit: false,
+            check: Some(check),
+        });
+    }
     std::env::var(BENCH_OPEN_ENV)
         .ok()
         .and_then(|raw| parse_bench_open(&raw))
@@ -103,6 +145,7 @@ mod tests {
                 target: "telnet 127.0.0.1 2323".into(),
                 count: 10,
                 visit: true,
+                check: None,
             })
         );
         assert_eq!(parse_bench_open("ssh x|999").map(|b| b.count), Some(50));
