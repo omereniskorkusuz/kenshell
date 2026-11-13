@@ -616,7 +616,7 @@ class MockNetLive {
 }
 
 const lives = new Map<RuntimeId, MockLive | MockNetLive>();
-let mockSnmpCommunity = false;
+let mockSnmpCommunity = 0;
 let mockV3: { user: string; auth: string | null; privacy: string | null } | null = null;
 let mockFlowState = { running: false, sflow: 0, netflow: 0 };
 
@@ -1000,9 +1000,9 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         };
       }
       case 'snmp_community_status':
-        return mockSnmpCommunity;
+        return mockSnmpCommunity > 0;
       case 'snmp_credentials':
-        return { community: mockSnmpCommunity, v3: mockV3 };
+        return { community: mockSnmpCommunity > 0, communities: mockSnmpCommunity, v3: mockV3 };
       case 'snmp_v3_set': {
         const u = a.user as { user: string; auth: string | null; privacy: string | null };
         mockV3 = { user: u.user, auth: u.auth, privacy: u.privacy };
@@ -1012,10 +1012,10 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         mockV3 = null;
         return undefined;
       case 'snmp_community_set':
-        mockSnmpCommunity = true;
+        mockSnmpCommunity = Math.min(8, mockSnmpCommunity + 1);
         return undefined;
       case 'snmp_community_clear':
-        mockSnmpCommunity = false;
+        mockSnmpCommunity = 0;
         return undefined;
       case 'topology_snmp': {
         const d = mockSnmp(String(a.host));

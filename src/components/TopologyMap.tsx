@@ -956,14 +956,18 @@ function Sources({ onClose }: { onClose: () => void }) {
             type="password"
             className="field h-7 min-w-0 flex-1 text-xs"
             aria-label={t('topoMap.community')}
-            placeholder={creds?.community ? t('topoMap.communitySaved') : t('topoMap.community')}
+            placeholder={
+              creds?.communities
+                ? t('topoMap.communitiesSaved', { n: creds.communities })
+                : t('topoMap.community')
+            }
             autoComplete="off"
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && save()}
           />
           <button type="button" className="btn btn-sm" disabled={secret === ''} onClick={save}>
-            {t('topoMap.save')}
+            {creds?.communities ? t('topoMap.addCommunity') : t('topoMap.save')}
           </button>
           {creds?.community && (
             <button
@@ -975,6 +979,7 @@ function Sources({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </div>
+        <p className="text-xs text-muted">{t('topoMap.communitiesHint')}</p>
         {failed && <p className="text-xs text-danger">{t('credentials.saveFailed')}</p>}
         <V3Form />
         <ul className="flex flex-col gap-0.5">

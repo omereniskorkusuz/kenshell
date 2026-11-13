@@ -122,6 +122,61 @@ impl Client {
         })
     }
 
+    /// SNMPv2c with the first of `communities` the agent answers. All of them are tried at
+    /// once (one Get of sysName each, distinct request ids), so several communities cost no
+    /// more time than one; a wrong one is silence. The timeout names none of them.
+    pub fn connect_any(
+        addr: SocketAddr,
+        communities: &[zeroize::Zeroizing<String>],
+    ) -> Result<Self> {
+        let mut c = Self::connect(addr, "")?;
+        if communities.is_empty() {
+            return Err(AppError::with(ErrorCode::NotFound, "no community"));
+        }
+        let base = c.request_id;
+        let probes: Vec<Vec<u8>> = communities
+            .iter()
+            .zip(1..)
+            .map(|(community, i)| {
+                encode(&Message {
+                    community: community.as_bytes().to_vec(),
+                    kind: PduKind::Get,
+                    request_id: base + i,
+                    a: 0,
+                    b: 0,
+                    bindings: vec![(vec![1, 3, 6, 1, 2, 1, 1, 5, 0], Value::Null)],
+                })
+            })
+            .collect();
+        let count = i32::try_from(probes.len()).unwrap_or(i32::MAX);
+        let mut buf = vec![0u8; 65_535];
+        for _ in 0..TRIES {
+            for p in &probes {
+                c.socket
+                    .send(p)
+                    .map_err(|e| AppError::with(ErrorCode::Io, e.to_string()))?;
+            }
+            for _ in 0..8 + probes.len() {
+                let Ok(n) = c.socket.recv(&mut buf) else {
+                    break;
+                };
+                let Some(m) = decode(&buf[..n]) else {
+                    continue;
+                };
+                let i = m.request_id - base;
+                if m.kind == PduKind::Response && (1..=count).contains(&i) {
+                    let community = &communities[(i - 1) as usize];
+                    c.security =
+                        Security::V2c(zeroize::Zeroizing::new(community.as_bytes().to_vec()));
+                    // Past every probe id, so a late probe answer is never taken for a reply.
+                    c.request_id = base + count;
+                    return Ok(c);
+                }
+            }
+        }
+        Err(AppError::with(ErrorCode::Timeout, "no SNMP answer"))
+    }
+
     /// SNMPv3 with the given user (authentication / privacy as configured).
     pub fn connect_v3(addr: SocketAddr, user: v3::V3User) -> Result<Self> {
         let mut c = Self::connect(addr, "")?;
@@ -459,6 +514,22 @@ mod tests {
         let e = bad.get(&[vec![1, 3, 6, 1, 2, 1, 1, 5, 0]]).unwrap_err();
         assert_eq!(e.code, ErrorCode::Timeout);
         assert!(!format!("{e:?}").contains("wr0ng"));
+
+        // Several communities: the one the agent knows is picked, wherever it is listed.
+        let z = |s: &str| zeroize::Zeroizing::new(s.to_owned());
+        let list = [z("first-wrong"), z("s3cret"), z("third-wrong")];
+        let mut any = Client::connect_any(a.addr, &list).unwrap();
+        let got = any.get(&[vec![1, 3, 6, 1, 2, 1, 1, 5, 0]]).unwrap();
+        assert_eq!(got[0].1.text().as_deref(), Some("sw1"));
+        assert_eq!(
+            any.walk(&[1, 3, 6, 1, 2, 1, 31, 1, 1, 1, 1]).unwrap().len(),
+            120
+        );
+        let none = [z("nope-1"), z("nope-2")];
+        let e = Client::connect_any(a.addr, &none).err().unwrap();
+        assert_eq!(e.code, ErrorCode::Timeout);
+        assert!(!format!("{e:?}").contains("nope"));
+        assert!(Client::connect_any(a.addr, &[]).is_err());
     }
 
     #[test]

@@ -316,7 +316,10 @@ on the device first, and save the configuration afterwards.
 Open sessions are always used. **Sources** in the map's toolbar adds devices you have no
 session to:
 
-- **SNMP (v2c):** type the read-only community once and press **Save**. The devices of your
+- **SNMP (v2c):** type the read-only community once and press **Save**. If your devices use
+  different communities, type the next one and press **Add** (up to 8). All of them are
+  tried at once and each device answers the one it knows, so this is no slower; **Forget**
+  removes them all. The devices of your
   open sessions are then read over SNMP too (LLDP-MIB, BRIDGE-MIB, the route table), unless
   you untick **Also read the open sessions' devices over SNMP**. It goes straight
   into your system keychain and is never shown again, written to a file, a log or an
@@ -325,7 +328,7 @@ session to:
   forwarding (MAC) table and ARP table, with read requests only, and draws it like a
   device you are logged in to. Such cards carry an **SNMP** tag. A device that does not
   answer (unreachable, SNMP off or a wrong community: they look the same) is listed above
-  the map. SNMPv3 is not supported.
+  the map. An SNMPv3 user (below) is tried before the communities.
 - **sFlow / NetFlow:** tick **Listen for flow exports** and point your devices' flow export
   at this computer (sFlow on UDP 6343, NetFlow v5 / v9 / IPFIX on UDP 2055; both ports can
   be changed before you tick the box, and 0 switches one off). Flow records say which

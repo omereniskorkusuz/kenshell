@@ -313,7 +313,7 @@ export const useTopology = create<TopologyState>()((set, get) => {
       const creds = await api.snmpCredentials();
       set({ creds, community: creds.community || creds.v3 !== null });
     } catch {
-      set({ creds: { community: false, v3: null }, community: false });
+      set({ creds: { community: false, communities: 0, v3: null }, community: false });
     }
   };
 

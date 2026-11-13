@@ -279,6 +279,8 @@ export interface SnmpV3User {
 
 export interface SnmpCredentials {
   community: boolean;
+  /** How many v2c communities are stored (never which); devices answer the one they know. */
+  communities: number;
   v3: { user: string; auth: SnmpAuthProto | null; privacy: SnmpPrivProto | null } | null;
 }
 
