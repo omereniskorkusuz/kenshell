@@ -1174,3 +1174,45 @@ fn net_e2e_topology_flow_exports_from_another_process_are_collected() {
     collector.stop();
     assert!(!collector.snapshot().running);
 }
+
+/// Real hardware, opt-in: `KENSHELL_REAL_SSH=host[,host…] cargo test -p kenshell
+/// real_ssh_handshake -- --ignored`. Connects with default options and stops at the
+/// password prompt: proves the key exchange works (no credentials needed or sent).
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs a real SSH device in KENSHELL_REAL_SSH"]
+async fn real_ssh_handshake_reaches_the_password_prompt() {
+    let Ok(hosts) = std::env::var("KENSHELL_REAL_SSH") else {
+        return;
+    };
+    let (m, _db) = manager();
+    for host in hosts.split(',').map(str::trim).filter(|h| !h.is_empty()) {
+        let out = Arc::new(Rec::default());
+        let mut req = net(Protocol::Ssh, 22, Some("admin"), false);
+        if let OpenTarget::Network { host: h, .. } = &mut req.target {
+            *h = host.to_owned();
+        }
+        let id = m.open(req, out.clone()).unwrap();
+        until(&format!("{host}: password prompt or failure"), || {
+            !out.prompts().is_empty() || failed(&out).is_some()
+        })
+        .await;
+        let link = out.link();
+        println!(
+            "{host}: failure={:?} prompts={} kex={:?} cipher={:?} mac={:?}",
+            failed(&out),
+            out.prompts().len(),
+            link.as_ref()
+                .and_then(|l| l.host_key.as_ref())
+                .and_then(|k| k.kex.clone()),
+            link.as_ref()
+                .and_then(|l| l.host_key.as_ref())
+                .and_then(|k| k.cipher.clone()),
+            link.as_ref()
+                .and_then(|l| l.host_key.as_ref())
+                .and_then(|k| k.mac.clone()),
+        );
+        assert_eq!(failed(&out), None, "{host}");
+        assert_eq!(out.prompts().len(), 1, "{host}");
+        m.close(id).unwrap();
+    }
+}
