@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -60,6 +61,7 @@ const ICONS: Record<NodeKind, LucideIcon> = {
   firewall: Shield,
   host: Monitor,
   group: Boxes,
+  hub: Network,
 };
 
 const PAD = 40;
@@ -73,9 +75,19 @@ interface View {
   y: number;
 }
 
+/** Where the port labels sit: the parent's just under the card, the child's just above it;
+ *  the horizontal run of the line is between them. */
+const PORT_UP = 13;
+/** Height of a port label row; crowded labels under a card take up to three rows. */
+const PORT_ROW = 20;
+/** Rough width of a port label (monospace 10px). */
+const labelWidth = (text: string) => text.length * 6.2 + 12;
+const PORT_DOWN = 14;
+
 /** Rounded elbow from the bottom of the parent to the top of the child. */
 function elbow(x1: number, y1: number, x2: number, y2: number): string {
-  const mid = y1 + (y2 - y1) * 0.4;
+  // Below the parent's port labels (up to three rows), above the child's.
+  const mid = y1 + Math.min(PORT_UP + 3 * PORT_ROW, (y2 - y1) * 0.62);
   const dx = x2 - x1;
   const r = Math.min(12, Math.abs(dx) / 2, (y2 - y1) / 4);
   if (r < 1) return `M${x1},${y1}V${y2}`;
@@ -220,14 +232,40 @@ export default function TopologyMap() {
     const p = layout.pos.get(id);
     return p ? { x: p.x + NODE_W / 2, y: p.y + NODE_H / 2, top: p.y, bottom: p.y + NODE_H } : null;
   };
+  /** Each child leaves its parent at its own point along the card's bottom edge (ordered
+   *  like the children), so every port label sits where its cable comes out. */
+  /** Ports of an edge as seen from `from`. */
+  const ports = (e: TopoEdge, from: string): [string | null, string | null] =>
+    e.a === from ? [e.aPort, e.bPort] : [e.bPort, e.aPort];
+  const rows = new Map<string, number>();
+  const exits = (() => {
+    const byParent = new Map<string, string[]>();
+    for (const { edge, parent } of layout.tree) {
+      byParent.set(parent, [...(byParent.get(parent) ?? []), edge.id]);
+    }
+    const out = new Map<string, number>();
+    rows.clear();
+    for (const [parent, ids] of byParent) {
+      const p = layout.pos.get(parent);
+      if (!p) continue;
+      const kids = layout.tree.filter((t) => t.parent === parent);
+      // Left to right as the children are placed.
+      kids.sort((a, b) => (layout.pos.get(a.child)?.x ?? 0) - (layout.pos.get(b.child)?.x ?? 0));
+      const n = ids.length;
+      kids.forEach((k, i) => out.set(k.edge.id, p.x + (NODE_W * (i + 1)) / (n + 1)));
+      // Labels that would touch go to alternating rows.
+      const gap = NODE_W / (n + 1);
+      const widest = Math.max(0, ...kids.map((k) => labelWidth(ports(k.edge, parent)[0] ?? '')));
+      const count = Math.min(3, Math.max(1, Math.ceil(widest / gap)));
+      kids.forEach((k, i) => rows.set(k.edge.id, i % count));
+    }
+    return out;
+  })();
   const touches = (e: TopoEdge) => picked !== null && (e.a === picked || e.b === picked);
   const nameOf = (id: string) => {
     const n = nodeById.get(id);
     return n ? nodeTitle(n, t) : '';
   };
-  /** Ports of an edge as seen from `from`. */
-  const ports = (e: TopoEdge, from: string): [string | null, string | null] =>
-    e.a === from ? [e.aPort, e.bPort] : [e.bPort, e.aPort];
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-app" data-testid="topology-map">
@@ -370,7 +408,7 @@ export default function TopologyMap() {
                       key={edge.id}
                       className="topo-link"
                       data-on={touches(edge) || undefined}
-                      d={elbow(p.x, p.bottom, c.x, c.top)}
+                      d={elbow(exits.get(edge.id) ?? p.x, p.bottom, c.x, c.top)}
                     />
                   );
                 })}
@@ -381,23 +419,41 @@ export default function TopologyMap() {
                 if (!p || !c) return null;
                 const [up, down] = ports(edge, parent);
                 if (!up && !down) return null;
-                const mid = p.bottom + (c.top - p.bottom) * 0.4;
+                const x = exits.get(edge.id) ?? p.x;
+                const title = t('topoMap.linkTitle', {
+                  a: nameOf(parent),
+                  aPort: up ?? '?',
+                  b: nameOf(child),
+                  bPort: down ?? '?',
+                });
                 return (
-                  <span
-                    key={edge.id}
-                    className="topo-port"
-                    data-on={touches(edge) || undefined}
-                    style={{ left: c.x, top: mid + (c.top - mid) / 2 }}
-                    title={t('topoMap.linkTitle', {
-                      a: nameOf(parent),
-                      aPort: up ?? '?',
-                      b: nameOf(child),
-                      bPort: down ?? '?',
-                    })}
-                  >
-                    {/* Only the known side when the other is not (a gateway's port). */}
-                    {up && down ? `${up} → ${down}` : (up ?? down)}
-                  </span>
+                  <Fragment key={edge.id}>
+                    {up && (
+                      <span
+                        className="topo-port"
+                        data-side="up"
+                        data-on={touches(edge) || undefined}
+                        style={{
+                          left: x,
+                          top: p.bottom + PORT_UP + (rows.get(edge.id) ?? 0) * PORT_ROW,
+                        }}
+                        title={title}
+                      >
+                        {up}
+                      </span>
+                    )}
+                    {down && (
+                      <span
+                        className="topo-port"
+                        data-side="down"
+                        data-on={touches(edge) || undefined}
+                        style={{ left: c.x, top: c.top - PORT_DOWN }}
+                        title={title}
+                      >
+                        {down}
+                      </span>
+                    )}
+                  </Fragment>
                 );
               })}
               {layout.extra.map((e) => {
@@ -938,7 +994,9 @@ function Sources({ onClose }: { onClose: () => void }) {
 }
 
 function nodeTitle(n: TopoNode, t: ReturnType<typeof useT>): string {
-  return n.kind === 'group' ? t('topoMap.group', { count: n.count }) : n.name;
+  if (n.kind === 'group') return t('topoMap.group', { count: n.count });
+  if (n.kind === 'hub') return t('topoMap.hub');
+  return n.name;
 }
 
 /** Opens a session to a device found on the map (the map tab steps aside). */

@@ -557,4 +557,37 @@ describe('other sources', () => {
     expect(g2.edges[0]?.via[0]?.how).toBe('route');
     expect(pickRoot(g2)).toBe('gw:192.0.2.1');
   });
+
+  it('one port is one cable: virtual machines under their server, otherwise an unknown device', () => {
+    const core = dev(
+      'c',
+      'core',
+      disc({
+        macs: [
+          // The user's Gi0/16: a server and a VirtualBox guest.
+          { mac: '0010e05c8e4a', vlan: '1', interface: 'Gi0/16', vendor: 'Oracle' },
+          { mac: '08002739c00b', vlan: '1', interface: 'Gi0/16', vendor: 'PCS Systemtechnik' },
+          // Two physical machines on one port: something unmanaged in between.
+          { mac: '001122334401', vlan: '1', interface: 'Gi0/20', vendor: null },
+          { mac: '001122334402', vlan: '1', interface: 'Gi0/20', vendor: null },
+        ],
+        arp: [{ ip: '10.0.100.17', mac: '0010e05c8e4a' }],
+      }),
+      '10.0.100.12',
+    );
+    const g = buildGraph([core], { hosts: true });
+    const edge = (b: string) => g.edges.find((e) => e.b === b);
+    expect(edge('h:0010e05c8e4a')).toMatchObject({ a: 'd:c', aPort: 'Gi0/16' });
+    expect(edge('h:08002739c00b')).toMatchObject({ a: 'h:0010e05c8e4a', aPort: null });
+    expect(g.edges.filter((e) => e.a === 'd:c' && e.aPort === 'Gi0/16')).toHaveLength(1);
+    const hub = g.nodes.find((n) => n.kind === 'hub');
+    expect(hub?.count).toBe(2);
+    expect(edge(hub?.id ?? '')).toMatchObject({ a: 'd:c', aPort: 'Gi0/20' });
+    expect(edge('h:001122334401')?.a).toBe(hub?.id);
+    // Layout: the guest sits a level below its server.
+    const l = layoutGraph(g);
+    expect(
+      (l.pos.get('h:08002739c00b')?.level ?? 0) - (l.pos.get('h:0010e05c8e4a')?.level ?? 0),
+    ).toBe(1);
+  });
 });

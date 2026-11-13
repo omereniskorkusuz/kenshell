@@ -571,6 +571,7 @@ button.scan-cell:not(:disabled):hover {
   box-shadow: 0 0 0 1px var(--accent);
 }
 .topo-card[data-kind='host'],
+.topo-card[data-kind='hub'],
 .topo-card[data-kind='group'],
 .topo-card[data-kind='phone'] {
   background: var(--bg-surface);

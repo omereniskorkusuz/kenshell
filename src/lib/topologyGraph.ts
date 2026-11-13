@@ -8,7 +8,17 @@
 import { parseIface } from './iface';
 import type { Discovery } from './ipc';
 
-export type NodeKind = 'router' | 'switch' | 'ap' | 'phone' | 'firewall' | 'host' | 'group';
+export type NodeKind =
+  | 'router'
+  | 'switch'
+  | 'ap'
+  | 'phone'
+  | 'firewall'
+  | 'host'
+  | 'group'
+  /** Something between a port and several devices that is not reported itself (an
+   *  unmanaged switch, a hub, a virtualisation host's bridge). */
+  | 'hub';
 
 /** Where a device's data comes from. */
 export type NodeSource = 'session' | 'snmp' | 'flow';
@@ -115,6 +125,28 @@ const better = (have: string | null, other: string | null): string | null =>
     : have;
 export const portShort = (port: string | null): string | null =>
   port === null ? null : (iface(port)?.short ?? port.trim());
+
+/** MAC prefixes of virtual network cards (VirtualBox, VMware, Hyper-V, KVM/QEMU, Xen,
+ *  Parallels, Docker). */
+const VM_PREFIXES = [
+  '080027',
+  '000c29',
+  '005056',
+  '000569',
+  '001c14',
+  '00155d',
+  '525400',
+  '00163e',
+  '001c42',
+  '0242ac',
+];
+
+/** A virtual machine's NIC: a known hypervisor prefix, or a locally administered address. */
+export function isVirtualMac(mac: string | null): boolean {
+  if (!mac) return false;
+  if (VM_PREFIXES.some((p) => mac.startsWith(p))) return true;
+  return (Number.parseInt(mac.slice(1, 2), 16) & 0b10) !== 0;
+}
 
 /** `aabbccddeeff` → `aa:bb:cc:dd:ee:ff`. */
 export const formatMac = (mac: string): string => mac.replace(/(..)(?=.)/g, '$1:');
@@ -411,10 +443,12 @@ export function buildGraph(
           link(self, g.port, id, null, g.seen[0]?.via ?? { how: 'mac', by: '' });
           continue;
         }
-        for (const c of g.seen) {
+        // One port is one cable. Several addresses behind it are one device with
+        // virtual machines, or something unmanaged that fans out (a small switch, a hub).
+        const put = (c: Candidate, parent: string, port: string | null): string | null => {
           const id = c.mac ? `h:${c.mac}` : `hi:${c.ip}`;
           // Already placed on another device's port (the first, most specific port wins).
-          if (nodes.has(id)) continue;
+          if (nodes.has(id)) return null;
           nodes.set(id, {
             id,
             name: c.ip ?? (c.mac ? formatMac(c.mac) : ''),
@@ -428,8 +462,36 @@ export function buildGraph(
             count: 0,
             seenAt: c.at,
           });
-          link(self, g.port, id, null, c.via);
+          link(parent, port, id, null, c.via);
+          return id;
+        };
+        const fresh = g.seen.filter((c) => !nodes.has(c.mac ? `h:${c.mac}` : `hi:${c.ip}`));
+        if (fresh.length <= 1) {
+          for (const c of fresh) put(c, self, g.port);
+          continue;
         }
+        const physical = fresh.filter((c) => !isVirtualMac(c.mac));
+        if (physical.length === 1) {
+          // The server and the virtual machines it runs: the VMs hang under it.
+          const host = put(physical[0] as Candidate, self, g.port);
+          for (const c of fresh) if (c !== physical[0] && host) put(c, host, null);
+          continue;
+        }
+        const hub = `x:${self}:${pk}`;
+        nodes.set(hub, {
+          id: hub,
+          name: '',
+          kind: 'hub',
+          ip: null,
+          vendor: null,
+          model: null,
+          mac: null,
+          tabKey: null,
+          source: null,
+          count: fresh.length,
+        });
+        link(self, g.port, hub, null, fresh[0]?.via ?? { how: 'mac', by: '' });
+        for (const c of fresh) put(c, hub, null);
       }
     }
   }
@@ -497,7 +559,7 @@ export interface TopoLayout {
 export const NODE_W = 184;
 export const NODE_H = 84;
 export const GAP_X = 24;
-export const GAP_Y = 96;
+export const GAP_Y = 124;
 
 const naturalPort = (a: string | null, b: string | null): number =>
   (a ?? '').localeCompare(b ?? '', undefined, { numeric: true });
@@ -526,6 +588,7 @@ export function pickRoot(graph: TopoGraph, among?: ReadonlySet<string>): string 
     phone: 0,
     host: 0,
     group: 0,
+    hub: 1,
   };
   let best: TopoNode | null = null;
   let bestScore = -1;

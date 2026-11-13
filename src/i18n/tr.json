@@ -1181,7 +1181,8 @@
       "phone": "IP telefon",
       "firewall": "Güvenlik duvarı",
       "host": "Uç cihaz",
-      "group": "Tek portta birden fazla cihaz"
+      "group": "Tek portta birden fazla cihaz",
+      "hub": "Kendini bildirmeyen cihaz (yönetilmeyen switch, hub ya da sanal makine sunucusu): tek porttan birden çok adres geliyor"
     },
     "sources": "Kaynaklar",
     "sourcesHint": "Açık oturumlar her zaman kullanılır. Bunlar, oturumunuz olmayan cihazları ekler.",
@@ -1231,7 +1232,8 @@
     "refreshEvery": "Yeniden oku",
     "refreshOff": "Kapalı",
     "refreshMinutes": "{{m}} dk'da bir",
-    "snmpSessions": "Açık oturumların cihazlarını SNMP ile de oku"
+    "snmpSessions": "Açık oturumların cihazlarını SNMP ile de oku",
+    "hub": "Bilinmeyen ara cihaz"
   },
   "newTab": {
     "title": "Yeni oturum",

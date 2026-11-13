@@ -1181,7 +1181,8 @@
       "phone": "IP phone",
       "firewall": "Firewall",
       "host": "End device",
-      "group": "Several devices on one port"
+      "group": "Several devices on one port",
+      "hub": "Device not reporting itself (unmanaged switch, hub or VM host): several addresses arrive on one port"
     },
     "sources": "Sources",
     "sourcesHint": "Open sessions are always used. These add devices you have no session to.",
@@ -1231,7 +1232,8 @@
     "refreshEvery": "Read again",
     "refreshOff": "Off",
     "refreshMinutes": "every {{m}} min",
-    "snmpSessions": "Also read the open sessions' devices over SNMP"
+    "snmpSessions": "Also read the open sessions' devices over SNMP",
+    "hub": "Unknown device"
   },
   "newTab": {
     "title": "New session",

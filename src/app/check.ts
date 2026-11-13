@@ -61,17 +61,24 @@ export async function runCheck(raw: string): Promise<void> {
     }
     for (const [i, key] of keys.entries()) {
       await until(`session ${i + 1} connected`, () => tab(key)?.state === 'connected', timeout);
-      await sleep(600);
-      for (const line of spec.sessions[i]?.login ?? []) {
-        useTabs.getState().write(key, `${line}\r`);
-        await sleep(600);
+      // The mode stripe follows the prompt: a known mode means we are logged in. Typing
+      // ahead of a slow login prompt can lose a line, so a login that does not take is
+      // started over (Enter brings the prompt back).
+      const atPrompt = () => (tab(key)?.mode ?? 'unknown') !== 'unknown';
+      for (let attempt = 0; attempt < 4 && !atPrompt(); attempt++) {
+        await sleep(800);
+        if (attempt > 0) {
+          useTabs.getState().write(key, '\r');
+          await sleep(800);
+        }
+        for (const line of spec.sessions[i]?.login ?? []) {
+          useTabs.getState().write(key, `${line}\r`);
+          await sleep(700);
+        }
+        const start = Date.now();
+        while (!atPrompt() && Date.now() - start < 8000) await sleep(150);
       }
-      // The mode stripe follows the prompt: a known mode means we are logged in.
-      await until(
-        `session ${i + 1} at a prompt`,
-        () => (tab(key)?.mode ?? 'unknown') !== 'unknown',
-        timeout,
-      );
+      await until(`session ${i + 1} at a prompt`, atPrompt, timeout);
     }
 
     // 2. Other sources.
