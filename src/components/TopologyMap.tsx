@@ -395,8 +395,8 @@ export default function TopologyMap() {
                       bPort: down ?? '?',
                     })}
                   >
-                    {up ?? '?'}
-                    {down ? ` → ${down}` : ''}
+                    {/* Only the known side when the other is not (a gateway's port). */}
+                    {up && down ? `${up} → ${down}` : (up ?? down)}
                   </span>
                 );
               })}
