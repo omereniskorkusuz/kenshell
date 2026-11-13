@@ -89,7 +89,8 @@ to network gear:
 - **Log analysis:** analyse `show tech`, crashinfo and log files.
 - **Topology map:** a tab that draws every device your open sessions can see, as a
   hierarchy with the port on both ends of each link, manufacturer, model and IP. SNMP
-  polling and an sFlow / NetFlow collector add the devices you are not logged in to.
+  (v2c and v3) with automatic discovery follows the neighbours from one device to the
+  whole network; an sFlow / NetFlow collector adds the end devices.
 - **Multi-device:** run read-only commands on many devices at once.
 - **Network scanner:** ICMP, the ARP table, TCP 22/23/80/443/3389 and reverse DNS, with
   vendor names from the built-in IEEE OUI table.

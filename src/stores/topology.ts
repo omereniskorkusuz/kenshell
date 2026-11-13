@@ -6,7 +6,15 @@
 import { create } from 'zustand';
 import { t } from '../i18n';
 import { describeError } from '../lib/errors';
-import { api, type Discovery, type FlowSnapshot, type SnmpDevice } from '../lib/ipc';
+import { CRAWL_MAX, CRAWL_PARALLEL, nextCandidates, type Known } from '../lib/crawl';
+import {
+  api,
+  type Discovery,
+  type FlowSnapshot,
+  type SnmpCredentials,
+  type SnmpDevice,
+  type SnmpV3User,
+} from '../lib/ipc';
 import { getSetting, useSettings } from './settings';
 import { useTabs } from './tabs';
 
@@ -69,6 +77,16 @@ export function withSightings(
   };
 }
 
+export interface CrawlEntry {
+  device: SnmpDevice | null;
+  busy: boolean;
+  error: string | null;
+  /** Name the device was announced with, and who announced it. */
+  name: string;
+  from: string;
+  depth: number;
+}
+
 export interface SnmpEntry {
   device: SnmpDevice | null;
   busy: boolean;
@@ -83,8 +101,18 @@ interface TopologyState {
   sessionSnmp: Record<string, SnmpEntry>;
   /** SNMP hosts (as typed) → what they answered. */
   snmp: Record<string, SnmpEntry>;
-  /** A community is stored in the keychain (null = not asked yet). */
+  /** Some SNMP credential (community or v3 user) is stored (null = not asked yet). */
   community: boolean | null;
+  /** What is stored, for the Sources panel (never a password). */
+  creds: SnmpCredentials | null;
+  /** Devices found by automatic discovery, by address. */
+  crawled: Record<string, CrawlEntry>;
+  /** Discovery is following neighbours right now. */
+  crawling: boolean;
+  startCrawl(): void;
+  stopCrawl(): void;
+  setV3(user: SnmpV3User): Promise<void>;
+  clearV3(): Promise<void>;
   flow: FlowSnapshot | null;
   flowError: string | null;
   /** Also read MAC / ARP tables and show end devices. */
@@ -137,6 +165,7 @@ export const useTopology = create<TopologyState>()((set, get) => {
       const discovery = await api.topologyDiscover(runtimeId, family, hosts);
       const now = Date.now();
       patch(key, { discovery, busy: false, readAt: now });
+      queueMicrotask(pump);
       set((s) => ({
         sightings: { ...s.sightings, [key]: remember(s.sightings[key], discovery, now) },
       }));
@@ -152,6 +181,7 @@ export const useTopology = create<TopologyState>()((set, get) => {
       // Removed while it was being read?
       if (getSetting('topology.snmpHosts').includes(host)) {
         patchSnmp(host, { device, busy: false });
+        queueMicrotask(pump);
         const now = Date.now();
         set((s) => ({
           sightings: {
@@ -178,11 +208,13 @@ export const useTopology = create<TopologyState>()((set, get) => {
       const now = Date.now();
       set((s) => ({
         sessionSnmp: { ...s.sessionSnmp, [key]: { device, busy: false, error: null } },
+        // (the crawl continues from what this device reported)
         sightings: {
           ...s.sightings,
           [`ss:${key}`]: remember(s.sightings[`ss:${key}`], device.discovery, now),
         },
       }));
+      queueMicrotask(pump);
     } catch (e) {
       set((s) => ({
         sessionSnmp: {
@@ -190,6 +222,98 @@ export const useTopology = create<TopologyState>()((set, get) => {
           [key]: { device: null, busy: false, error: describeError(e, t).message },
         },
       }));
+    }
+  };
+
+  /** Everything already read, as the crawl planner sees it. */
+  const knownDevices = (): { known: Known[]; seen: Set<string> } => {
+    const known: Known[] = [];
+    const seen = new Set<string>();
+    for (const tab of useTabs.getState().tabs) {
+      if (tab.target.type === 'network') seen.add(tab.target.host);
+      known.push({ name: tab.name, depth: 0, discovery: get().byTab[tab.key]?.discovery ?? null });
+      const s = get().sessionSnmp[tab.key]?.device;
+      if (s) known.push({ name: tab.name, depth: 0, discovery: s.discovery });
+    }
+    for (const [host, e] of Object.entries(get().snmp)) {
+      seen.add(host.replace(/:\d+$/, ''));
+      known.push({
+        name: e.device?.name ?? host,
+        depth: 0,
+        discovery: e.device?.discovery ?? null,
+      });
+    }
+    for (const [ip, e] of Object.entries(get().crawled)) {
+      seen.add(ip);
+      known.push({
+        name: e.device?.name ?? e.name,
+        depth: e.depth,
+        discovery: e.device?.discovery ?? null,
+      });
+    }
+    return { known, seen };
+  };
+
+  let stoppedByUser = false;
+
+  /** Starts as many reads as there is room for; ends the crawl when nothing is left. */
+  const pump = () => {
+    // Running when started by hand, or always while automatic discovery is on (unless
+    // the user stopped it).
+    const wanted = get().crawling || (getSetting('topology.autoCrawl') && !stoppedByUser);
+    if (!wanted || !get().community) return;
+    const crawled = Object.values(get().crawled);
+    const inFlight = crawled.filter((e) => e.busy).length;
+    const room = Math.min(CRAWL_PARALLEL - inFlight, CRAWL_MAX - crawled.length);
+    const { known, seen } = knownDevices();
+    const next = room > 0 ? nextCandidates(known, seen, room) : [];
+    if (next.length === 0) {
+      if (inFlight === 0 && get().crawling) set({ crawling: false });
+      return;
+    }
+    set((s) => ({
+      crawling: true,
+      crawled: {
+        ...s.crawled,
+        ...Object.fromEntries(
+          next.map((c) => [
+            c.ip,
+            { device: null, busy: true, error: null, name: c.name, from: c.from, depth: c.depth },
+          ]),
+        ),
+      },
+    }));
+    for (const c of next) void readCrawled(c.ip);
+  };
+
+  const readCrawled = async (ip: string) => {
+    const patchCrawl = (next: Partial<CrawlEntry>) =>
+      set((s) => {
+        const cur = s.crawled[ip];
+        return cur ? { crawled: { ...s.crawled, [ip]: { ...cur, ...next } } } : {};
+      });
+    try {
+      const device = await api.topologySnmp(ip);
+      const now = Date.now();
+      patchCrawl({ device, busy: false, error: null });
+      set((s) => ({
+        sightings: {
+          ...s.sightings,
+          [`crawl:${ip}`]: remember(s.sightings[`crawl:${ip}`], device.discovery, now),
+        },
+      }));
+    } catch (e) {
+      patchCrawl({ busy: false, error: describeError(e, t).message });
+    }
+    pump();
+  };
+
+  const loadCreds = async () => {
+    try {
+      const creds = await api.snmpCredentials();
+      set({ creds, community: creds.community || creds.v3 !== null });
+    } catch {
+      set({ creds: { community: false, v3: null }, community: false });
     }
   };
 
@@ -212,6 +336,29 @@ export const useTopology = create<TopologyState>()((set, get) => {
     sessionSnmp: {},
     snmp: {},
     community: null,
+    creds: null,
+    crawled: {},
+    crawling: false,
+    startCrawl() {
+      stoppedByUser = false;
+      set({ crawling: true });
+      pump();
+    },
+    stopCrawl() {
+      stoppedByUser = true;
+      set({ crawling: false });
+    },
+    async setV3(user) {
+      await api.snmpV3Set(user);
+      await loadCreds();
+      // Hosts that refused before may answer now.
+      set({ snmp: {}, sessionSnmp: {}, crawled: {} });
+      get().refresh(true);
+    },
+    async clearV3() {
+      await api.snmpV3Clear();
+      await loadCreds();
+    },
     flow: null,
     flowError: null,
     hosts: true,
@@ -262,15 +409,21 @@ export const useTopology = create<TopologyState>()((set, get) => {
           void readSnmp(host);
         }
       }
-      if (force) void get().pollFlow();
+      if (force) {
+        void get().pollFlow();
+        // Read the devices found by discovery again too (their tables age out as well).
+        for (const [ip, e] of Object.entries(get().crawled)) {
+          if (e.device && !e.busy) {
+            set((s) => ({ crawled: { ...s.crawled, [ip]: { ...e, busy: true } } }));
+            void readCrawled(ip);
+          }
+        }
+      }
+      queueMicrotask(pump);
     },
 
     async loadSources() {
-      try {
-        set({ community: await api.snmpCommunityStatus() });
-      } catch {
-        set({ community: false });
-      }
+      await loadCreds();
       if (getSetting('topology.flowEnabled')) {
         const snap = await api.flowSnapshot().catch(() => null);
         if (snap?.running) set({ flow: snap, flowError: null });
@@ -281,12 +434,13 @@ export const useTopology = create<TopologyState>()((set, get) => {
 
     async setCommunity(value) {
       await api.snmpCommunitySet(value);
-      set({ community: true });
+      await loadCreds();
+      set({ snmp: {}, sessionSnmp: {}, crawled: {} });
       get().refresh(true);
     },
     async clearCommunity() {
       await api.snmpCommunityClear();
-      set({ community: false, snmp: {} });
+      await loadCreds();
     },
 
     addSnmpHost(host) {

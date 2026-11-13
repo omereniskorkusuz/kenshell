@@ -2632,15 +2632,18 @@ dependencies = [
 name = "kenshell"
 version = "0.1.0"
 dependencies = [
+ "aes",
  "arboard",
  "argon2",
  "async-trait",
  "chrono",
+ "des",
  "flate2",
  "futures-lite",
  "if-addrs",
  "keyring",
  "libc",
+ "md5",
  "nusb",
  "regex",
  "ring",

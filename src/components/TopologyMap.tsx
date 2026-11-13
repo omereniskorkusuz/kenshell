@@ -7,6 +7,9 @@
 import {
   Boxes,
   Database,
+  ListChecks,
+  Radar,
+  Copy,
   Maximize2,
   Minus,
   Monitor,
@@ -44,9 +47,13 @@ import {
 } from '../lib/topologyGraph';
 import { useTabs } from '../stores/tabs';
 import { useSettings } from '../stores/settings';
+import { describeError } from '../lib/errors';
+import type { SnmpAuthProto, SnmpPrivProto } from '../lib/ipc';
+import { deviceGuide } from '../lib/deviceGuide';
 import {
   useTopology,
   withSightings,
+  type CrawlEntry,
   type Sightings,
   type SnmpEntry,
   type TopoEntry,
@@ -110,6 +117,7 @@ export default function TopologyMap() {
   const refreshSecs = useSettings((s) => s.values['topology.refreshSecs']);
   const [picked, setPicked] = useState<string | null>(null);
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [view, setView] = useState<View>({ k: 1, x: PAD, y: PAD });
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; x: number; y: number } | null>(null);
@@ -142,7 +150,10 @@ export default function TopologyMap() {
     [identity, byTab, sightings, sessionSnmp],
   );
   const polled = useMemo(() => snmpInputs(snmp, sightings), [snmp, sightings]);
-  const devices = useMemo(() => [...connected, ...polled], [connected, polled]);
+  const crawled = useTopology((s) => s.crawled);
+  const crawling = useTopology((s) => s.crawling);
+  const found = useMemo(() => crawlInputs(crawled, sightings), [crawled, sightings]);
+  const devices = useMemo(() => [...connected, ...polled, ...found], [connected, polled, found]);
   const flows = flow?.hosts;
   const graph = useMemo(() => buildGraph(devices, { hosts, flows }), [devices, hosts, flows]);
   const layout = useMemo(() => layoutGraph(graph, root), [graph, root]);
@@ -280,6 +291,8 @@ export default function TopologyMap() {
                 sessions: connected.length,
               })}
           {polled.length > 0 && ` · ${t('topoMap.summarySnmp', { count: polled.length })}`}
+          {found.length > 0 && ` · ${t('topoMap.summaryCrawl', { count: found.length })}`}
+          {crawling && ` · ${t('topoMap.crawling')}`}
           {collecting && ` · ${t('topoMap.summaryFlow', { count: flows?.length ?? 0 })}`}
         </span>
         <span className="flex-1" />
@@ -290,6 +303,25 @@ export default function TopologyMap() {
           onClick={() => setSourcesOpen(!sourcesOpen)}
         >
           <Database size={12} aria-hidden /> {t('topoMap.sources')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          aria-pressed={guideOpen}
+          onClick={() => setGuideOpen(!guideOpen)}
+        >
+          <ListChecks size={12} aria-hidden /> {t('guide.open')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() =>
+            crawling ? useTopology.getState().stopCrawl() : useTopology.getState().startCrawl()
+          }
+          title={t('topoMap.crawlHint')}
+        >
+          <Radar size={12} aria-hidden />{' '}
+          {crawling ? t('topoMap.crawlStop') : t('topoMap.crawlStart')}
         </button>
         <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-secondary">
           <input
@@ -544,6 +576,7 @@ export default function TopologyMap() {
         </div>
 
         {sourcesOpen && <Sources onClose={() => setSourcesOpen(false)} />}
+        {guideOpen && <DeviceGuide onClose={() => setGuideOpen(false)} />}
         {sel && (
           <aside
             className="absolute bottom-0 right-0 top-0 z-10 flex w-72 flex-col gap-3 overflow-y-auto border-l border-subtle bg-surface p-3 text-sm"
@@ -740,6 +773,7 @@ function deviceInputs(
       const m = withSightings(polled.discovery, sightings[`ss:${key}`]);
       out.push({
         key: `ss:${key}`,
+        sameAs: key,
         name: polled.name ?? name,
         host: host || null,
         model: polled.description?.slice(0, 80) ?? null,
@@ -750,6 +784,28 @@ function deviceInputs(
       });
     }
     return out;
+  });
+}
+
+function crawlInputs(
+  crawled: Record<string, CrawlEntry>,
+  sightings: Record<string, Sightings>,
+): DeviceInput[] {
+  return Object.entries(crawled).flatMap(([ip, e]) => {
+    if (!e.device) return [];
+    const m = withSightings(e.device.discovery, sightings[`crawl:${ip}`]);
+    return [
+      {
+        key: `crawl:${ip}`,
+        name: e.device.name ?? e.name ?? ip,
+        host: ip,
+        model: e.device.description?.slice(0, 80) ?? null,
+        discovery: m.discovery,
+        seen: m.seen,
+        source: 'snmp' as const,
+        interfaces: e.device.interfaces,
+      },
+    ];
   });
 }
 
@@ -783,9 +839,13 @@ function snmpInputs(
 function Sources({ onClose }: { onClose: () => void }) {
   const t = useT();
   const community = useTopology((s) => s.community);
+  const creds = useTopology((s) => s.creds);
   const snmp = useTopology((s) => s.snmp);
   const flow = useTopology((s) => s.flow);
   const flowError = useTopology((s) => s.flowError);
+  const crawled = useTopology((s) => s.crawled);
+  const crawling = useTopology((s) => s.crawling);
+  const autoCrawl = useSettings((s) => s.values['topology.autoCrawl']);
   const hosts = useSettings((s) => s.values['topology.snmpHosts']);
   const flowEnabled = useSettings((s) => s.values['topology.flowEnabled']);
   const sflowPort = useSettings((s) => s.values['topology.sflowPort']);
@@ -890,12 +950,13 @@ function Sources({ onClose }: { onClose: () => void }) {
           />
           {t('topoMap.snmpSessions')}
         </label>
+        <h4 className="text-xs font-medium text-primary">{t('topoMap.v2cTitle')}</h4>
         <div className="flex flex-wrap items-center gap-1">
           <input
             type="password"
             className="field h-7 min-w-0 flex-1 text-xs"
             aria-label={t('topoMap.community')}
-            placeholder={community ? t('topoMap.communitySaved') : t('topoMap.community')}
+            placeholder={creds?.community ? t('topoMap.communitySaved') : t('topoMap.community')}
             autoComplete="off"
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
@@ -904,7 +965,7 @@ function Sources({ onClose }: { onClose: () => void }) {
           <button type="button" className="btn btn-sm" disabled={secret === ''} onClick={save}>
             {t('topoMap.save')}
           </button>
-          {community && (
+          {creds?.community && (
             <button
               type="button"
               className="btn btn-ghost btn-sm"
@@ -915,6 +976,7 @@ function Sources({ onClose }: { onClose: () => void }) {
           )}
         </div>
         {failed && <p className="text-xs text-danger">{t('credentials.saveFailed')}</p>}
+        <V3Form />
         <ul className="flex flex-col gap-0.5">
           {hosts.map((h) => {
             const e = snmp[h];
@@ -964,6 +1026,25 @@ function Sources({ onClose }: { onClose: () => void }) {
       </section>
 
       <section className="flex flex-col gap-2">
+        <h3 className="label-caps">{t('topoMap.crawlTitle')}</h3>
+        <p className="text-xs text-muted">{t('topoMap.crawlHint')}</p>
+        <label className="flex items-center gap-1.5 text-xs">
+          <input
+            type="checkbox"
+            checked={autoCrawl}
+            onChange={(e) => {
+              useSettings.getState().set('topology.autoCrawl', e.target.checked);
+              if (e.target.checked) st.startCrawl();
+              else st.stopCrawl();
+            }}
+          />
+          {t('topoMap.crawlAuto')}
+        </label>
+        {!community && <p className="text-xs text-warning">{t('topoMap.crawlNeedsSnmp')}</p>}
+        <CrawlStatus crawled={crawled} crawling={crawling} />
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h3 className="label-caps">{t('topoMap.flowTitle')}</h3>
         <p className="text-xs text-muted">{t('topoMap.flowHint')}</p>
         <label className="flex items-center gap-1.5 text-xs">
@@ -990,6 +1071,277 @@ function Sources({ onClose }: { onClose: () => void }) {
         )}
       </section>
     </aside>
+  );
+}
+
+/** What to switch on in the devices, per CLI family, with this computer's address. */
+function DeviceGuide({ onClose }: { onClose: () => void }) {
+  const t = useT();
+  const v3 = useTopology((s) => s.creds?.v3 ?? null);
+  const [collector, setCollector] = useState('');
+  const [community, setCommunity] = useState('');
+  useEffect(() => {
+    let alive = true;
+    void api
+      .netscanNetworks()
+      .then((n) => alive && setCollector((c) => c || (n.networks[0]?.ip ?? '')))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const guide = deviceGuide({ collector, community, v3User: v3?.user ?? '' });
+  const copy = (text: string) => {
+    void api.clipboardWrite(text).catch(() => {});
+    useUi.getState().flash(t('guide.copied'));
+  };
+  return (
+    <aside
+      className="absolute bottom-0 right-0 top-0 z-20 flex w-[30rem] max-w-full flex-col gap-3 overflow-y-auto border-l border-subtle bg-surface p-3 text-sm"
+      style={{ boxShadow: 'var(--shadow-elevated)' }}
+      aria-label={t('guide.title')}
+    >
+      <div className="flex items-center">
+        <h2 className="flex-1 text-sm font-medium">{t('guide.title')}</h2>
+        <button
+          type="button"
+          className="icon-btn icon-btn-sm"
+          aria-label={t('common.close')}
+          onClick={onClose}
+        >
+          <X size={13} />
+        </button>
+      </div>
+      <p className="text-xs text-secondary">{t('guide.intro')}</p>
+      <ol className="flex list-decimal flex-col gap-1 pl-4 text-xs text-secondary">
+        <li>{t('guide.stepLldp')}</li>
+        <li>{t('guide.stepSnmp')}</li>
+        <li>{t('guide.stepFlow')}</li>
+      </ol>
+      <div className="flex flex-wrap gap-2">
+        <label className="flex items-center gap-1.5 text-xs text-secondary">
+          {t('guide.collector')}
+          <input
+            className="field mono h-7 w-36 text-xs"
+            value={collector}
+            spellCheck={false}
+            onChange={(e) => setCollector(e.target.value.trim())}
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-secondary">
+          {t('guide.community')}
+          <input
+            className="field mono h-7 w-32 text-xs"
+            value={community}
+            placeholder="<community>"
+            spellCheck={false}
+            autoComplete="off"
+            onChange={(e) => setCommunity(e.target.value.trim())}
+          />
+        </label>
+      </div>
+      {guide.map((f) => (
+        <details key={f.family} className="rounded-sm border border-subtle p-2">
+          <summary className="cursor-pointer text-sm font-medium">
+            {t(`vendorFamily.${f.family}` as TKey)}
+          </summary>
+          {f.verify && <p className="mt-1 text-[11px] text-warning">{t('guide.verify')}</p>}
+          {f.blocks.map((b) => (
+            <div key={b.what} className="mt-2">
+              <div className="flex items-center">
+                <h3 className="label-caps flex-1">{t(`guide.${b.what}` as TKey)}</h3>
+                <button
+                  type="button"
+                  className="icon-btn icon-btn-sm"
+                  aria-label={t('guide.copy')}
+                  title={t('guide.copy')}
+                  onClick={() => copy(b.lines.join('\n'))}
+                >
+                  <Copy size={12} />
+                </button>
+              </div>
+              <pre className="scroll-thin mono overflow-x-auto rounded-sm bg-terminal p-2 text-[11px] leading-snug text-primary">
+                {b.lines.join('\n')}
+              </pre>
+            </div>
+          ))}
+        </details>
+      ))}
+      <p className="text-[11px] text-muted">{t('guide.save')}</p>
+    </aside>
+  );
+}
+
+/** The SNMPv3 user: name and protocols are shown, passwords never come back. */
+function V3Form() {
+  const t = useT();
+  const v3 = useTopology((s) => s.creds?.v3 ?? null);
+  const [user, setUser] = useState(v3?.user ?? '');
+  const [auth, setAuth] = useState<SnmpAuthProto | ''>(v3?.auth ?? 'sha');
+  const [privacy, setPrivacy] = useState<SnmpPrivProto | ''>(v3?.privacy ?? 'aes');
+  const [authPass, setAuthPass] = useState('');
+  const [privPass, setPrivPass] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const save = () => {
+    setError(null);
+    setSaved(false);
+    useTopology
+      .getState()
+      .setV3({
+        user: user.trim(),
+        auth: auth || null,
+        authPass,
+        privacy: auth && privacy ? privacy : null,
+        privPass,
+      })
+      .then(
+        () => {
+          setAuthPass('');
+          setPrivPass('');
+          setSaved(true);
+        },
+        (e: unknown) => setError(describeError(e, t).message),
+      );
+  };
+  const kept = v3 ? t('topoMap.v3Kept') : '';
+  return (
+    <div className="flex flex-col gap-1.5 rounded-sm border border-subtle p-2">
+      <h4 className="text-xs font-medium text-primary">{t('topoMap.v3Title')}</h4>
+      <p className="text-[11px] text-muted">{t('topoMap.v3Hint')}</p>
+      <input
+        className="field h-7 text-xs"
+        aria-label={t('topoMap.v3User')}
+        placeholder={t('topoMap.v3User')}
+        autoComplete="off"
+        spellCheck={false}
+        value={user}
+        onChange={(e) => setUser(e.target.value)}
+      />
+      <div className="flex gap-1">
+        <select
+          className="field h-7 w-28 text-xs"
+          aria-label={t('topoMap.v3Auth')}
+          value={auth}
+          onChange={(e) => setAuth(e.target.value as SnmpAuthProto | '')}
+        >
+          <option value="">{t('topoMap.v3None')}</option>
+          <option value="sha">SHA-1</option>
+          <option value="sha256">SHA-256</option>
+          <option value="md5">MD5</option>
+        </select>
+        <input
+          type="password"
+          className="field h-7 min-w-0 flex-1 text-xs"
+          aria-label={t('topoMap.v3AuthPass')}
+          placeholder={kept || t('topoMap.v3AuthPass')}
+          autoComplete="off"
+          disabled={!auth}
+          value={authPass}
+          onChange={(e) => setAuthPass(e.target.value)}
+        />
+      </div>
+      <div className="flex gap-1">
+        <select
+          className="field h-7 w-28 text-xs"
+          aria-label={t('topoMap.v3Priv')}
+          value={auth ? privacy : ''}
+          disabled={!auth}
+          onChange={(e) => setPrivacy(e.target.value as SnmpPrivProto | '')}
+        >
+          <option value="">{t('topoMap.v3None')}</option>
+          <option value="aes">AES-128</option>
+          <option value="des">DES</option>
+        </select>
+        <input
+          type="password"
+          className="field h-7 min-w-0 flex-1 text-xs"
+          aria-label={t('topoMap.v3PrivPass')}
+          placeholder={kept || t('topoMap.v3PrivPass')}
+          autoComplete="off"
+          disabled={!auth || !privacy}
+          value={privPass}
+          onChange={(e) => setPrivPass(e.target.value)}
+        />
+      </div>
+      <div className="flex items-center gap-1">
+        <button type="button" className="btn btn-sm" disabled={user.trim() === ''} onClick={save}>
+          {t('topoMap.save')}
+        </button>
+        {v3 && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => void useTopology.getState().clearV3()}
+          >
+            {t('topoMap.forget')}
+          </button>
+        )}
+        {saved && <span className="text-xs text-success">{t('topoMap.v3Saved')}</span>}
+      </div>
+      {v3 && !saved && (
+        <p className="text-[11px] text-muted">
+          {t('topoMap.v3Stored', {
+            user: v3.user,
+            auth: v3.auth?.toUpperCase() ?? t('topoMap.v3None'),
+            privacy: v3.privacy?.toUpperCase() ?? t('topoMap.v3None'),
+          })}
+        </p>
+      )}
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  );
+}
+
+/** What automatic discovery is doing: devices read, waiting, and the ones that did not
+ *  answer (with why). */
+function CrawlStatus({
+  crawled,
+  crawling,
+}: {
+  crawled: Record<string, CrawlEntry>;
+  crawling: boolean;
+}) {
+  const t = useT();
+  const all = Object.entries(crawled);
+  const ok = all.filter(([, e]) => e.device).length;
+  const busy = all.filter(([, e]) => e.busy).length;
+  const failed = all.filter(([, e]) => e.error);
+  return (
+    <div className="flex flex-col gap-1 text-xs">
+      <div className="flex items-center gap-2">
+        <span className="flex-1 text-secondary" role="status">
+          {t('topoMap.crawlStatus', { ok, busy, failed: failed.length })}
+        </span>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() =>
+            crawling ? useTopology.getState().stopCrawl() : useTopology.getState().startCrawl()
+          }
+        >
+          {crawling ? t('topoMap.crawlStop') : t('topoMap.crawlStart')}
+        </button>
+      </div>
+      {failed.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-warning">
+            {t('topoMap.crawlFailed', { count: failed.length })}
+          </summary>
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {failed.map(([ip, e]) => (
+              <li key={ip} className="flex gap-2">
+                <span className="mono w-24 shrink-0">{ip}</span>
+                <span className="min-w-0 flex-1 truncate text-muted" title={e.error ?? ''}>
+                  {e.name && e.name !== ip ? `${e.name} · ` : ''}
+                  {e.error}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
   );
 }
 

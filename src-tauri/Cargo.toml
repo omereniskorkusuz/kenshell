@@ -38,6 +38,10 @@ tauri-plugin-dialog = "2"
 # Encrypted backup (ADR-011): both already in the tree through russh / ssh-key.
 argon2 = { version = "0.6", default-features = false, features = ["alloc", "zeroize"] }
 ring = "0.17"
+# SNMPv3 privacy (AES-128-CFB, DES-CBC) and HMAC-MD5: already built for russh (ADR-023).
+aes = "0.9"
+des = "0.9"
+md5 = "0.8"
 # Config backups (ADR-016): already in the tree through russh; pure-Rust backend.
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 # Local interfaces for the network scanner scope (ADR-017); libc / windows-sys already in the tree.

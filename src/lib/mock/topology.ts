@@ -181,6 +181,25 @@ export function mockDiscovery(host: string, hosts: boolean): Discovery {
 
 /** Demo SNMP agent: a distribution switch behind core-sw1 that no session is open to. */
 export function mockSnmp(host: string): SnmpDevice {
+  // Discovery reaches devices by the addresses neighbours advertise.
+  const ip = host.replace(/:\d+$/, '');
+  if (ip !== '10.0.0.2' && !host.includes('edge') && !host.includes('dist')) {
+    const last = ip.split('.').pop() ?? '0';
+    return {
+      name: `sw-${last}`,
+      description: 'Layer 2 switch',
+      discovery: {
+        neighbors: [],
+        macs: [],
+        arp: [],
+        ownMac: null,
+        ownVendor: null,
+        gateway: null,
+        sources: ['SNMP system', 'SNMP LLDP-MIB'],
+      },
+      interfaces: [],
+    };
+  }
   return {
     name: host.includes('edge') ? 'edge-rtr' : 'dist-sw2',
     description: 'L3 switch software',

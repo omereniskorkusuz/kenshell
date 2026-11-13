@@ -617,6 +617,7 @@ class MockNetLive {
 
 const lives = new Map<RuntimeId, MockLive | MockNetLive>();
 let mockSnmpCommunity = false;
+let mockV3: { user: string; auth: string | null; privacy: string | null } | null = null;
 let mockFlowState = { running: false, sflow: 0, netflow: 0 };
 
 // Credential profiles + "keychain" (mock: only whether a password exists).
@@ -1000,6 +1001,16 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
       }
       case 'snmp_community_status':
         return mockSnmpCommunity;
+      case 'snmp_credentials':
+        return { community: mockSnmpCommunity, v3: mockV3 };
+      case 'snmp_v3_set': {
+        const u = a.user as { user: string; auth: string | null; privacy: string | null };
+        mockV3 = { user: u.user, auth: u.auth, privacy: u.privacy };
+        return undefined;
+      }
+      case 'snmp_v3_clear':
+        mockV3 = null;
+        return undefined;
       case 'snmp_community_set':
         mockSnmpCommunity = true;
         return undefined;
@@ -1011,7 +1022,7 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
         return new Promise((r, reject) =>
           setTimeout(
             () =>
-              String(a.host).includes('down')
+              String(a.host).includes('down') || String(a.host).endsWith('.254')
                 ? reject(Object.assign(new Error('timeout'), { code: 'timeout', detail: null }))
                 : r(d),
             400,

@@ -36,6 +36,9 @@ export interface DeviceInput {
   source?: 'session' | 'snmp';
   /** ifIndex → port name, when known (names the ports flow records refer to). */
   interfaces?: readonly (readonly [number, string])[];
+  /** The same device as this other input (an open session read over SNMP too): always
+   *  one node, whatever name the second source reports. */
+  sameAs?: string | undefined;
   /** When each learned MAC was last seen (ms), when the caller keeps a memory of them. */
   seen?: ReadonlyMap<string, number> | undefined;
 }
@@ -213,11 +216,12 @@ export function buildGraph(
       id !== undefined &&
       (!d.name || !nodes.get(id)?.name || nameKey(nodes.get(id)?.name ?? '') === nameKey(d.name));
     const known =
-      source === 'snmp'
+      (d.sameAs ? nodeOf.get(d.sameAs) : undefined) ??
+      (source === 'snmp'
         ? ((d.name ? byName.get(nameKey(d.name)) : undefined) ??
           (mac ? byMac.get(mac) : undefined) ??
           (agrees(sameIp) ? sameIp : undefined))
-        : undefined;
+        : undefined);
     const id = known ?? `d:${d.key}`;
     const n: TopoNode = nodes.get(id) ?? {
       id,

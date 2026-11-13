@@ -51,6 +51,8 @@ pub enum PduKind {
     GetNext = 0xA1,
     Response = 0xA2,
     GetBulk = 0xA5,
+    /// SNMPv3 engine discovery and USM errors.
+    Report = 0xA8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,13 +80,13 @@ fn put_len(out: &mut Vec<u8>, len: usize) {
     }
 }
 
-fn tlv(tag: u8, body: &[u8], out: &mut Vec<u8>) {
+pub(crate) fn tlv(tag: u8, body: &[u8], out: &mut Vec<u8>) {
     out.push(tag);
     put_len(out, body.len());
     out.extend_from_slice(body);
 }
 
-fn int_body(v: i64) -> Vec<u8> {
+pub(crate) fn int_body(v: i64) -> Vec<u8> {
     let b = v.to_be_bytes();
     let mut i = 0;
     // Drop redundant sign bytes, keep at least one.
@@ -134,7 +136,8 @@ fn value(v: &Value, out: &mut Vec<u8>) {
     }
 }
 
-pub fn encode(m: &Message) -> Vec<u8> {
+/// The PDU alone (tag, request id, the two numbers, bindings): what SNMPv3 wraps.
+pub fn encode_pdu(m: &Message) -> Vec<u8> {
     let mut binds = Vec::new();
     for (oid, v) in &m.bindings {
         let mut one = Vec::new();
@@ -147,10 +150,16 @@ pub fn encode(m: &Message) -> Vec<u8> {
     tlv(0x02, &int_body(i64::from(m.a)), &mut pdu);
     tlv(0x02, &int_body(i64::from(m.b)), &mut pdu);
     tlv(0x30, &binds, &mut pdu);
+    let mut out = Vec::new();
+    tlv(m.kind as u8, &pdu, &mut out);
+    out
+}
+
+pub fn encode(m: &Message) -> Vec<u8> {
     let mut body = Vec::new();
     tlv(0x02, &[1], &mut body); // version: v2c
     tlv(0x04, &m.community, &mut body);
-    tlv(m.kind as u8, &pdu, &mut body);
+    body.extend_from_slice(&encode_pdu(m));
     let mut out = Vec::new();
     tlv(0x30, &body, &mut out);
     out
@@ -158,10 +167,10 @@ pub fn encode(m: &Message) -> Vec<u8> {
 
 // ---- decoding -------------------------------------------------------------------------
 
-struct Reader<'a>(&'a [u8]);
+pub(crate) struct Reader<'a>(pub(crate) &'a [u8]);
 
 impl<'a> Reader<'a> {
-    fn tlv(&mut self) -> Option<(u8, &'a [u8])> {
+    pub(crate) fn tlv(&mut self) -> Option<(u8, &'a [u8])> {
         let (&tag, rest) = self.0.split_first()?;
         let (&l0, rest) = rest.split_first()?;
         let (len, rest) = if l0 < 0x80 {
@@ -182,13 +191,13 @@ impl<'a> Reader<'a> {
         self.0 = &rest[len..];
         Some((tag, &rest[..len]))
     }
-    fn expect(&mut self, tag: u8) -> Option<&'a [u8]> {
+    pub(crate) fn expect(&mut self, tag: u8) -> Option<&'a [u8]> {
         let (t, body) = self.tlv()?;
         (t == tag).then_some(body)
     }
 }
 
-fn int_of(body: &[u8]) -> Option<i64> {
+pub(crate) fn int_of(body: &[u8]) -> Option<i64> {
     if body.is_empty() || body.len() > 8 {
         return None;
     }
@@ -257,11 +266,22 @@ pub fn decode(datagram: &[u8]) -> Option<Message> {
     }
     let community = msg.expect(0x04)?.to_vec();
     let (tag, pdu) = msg.tlv()?;
+    decode_pdu_body(tag, pdu, community)
+}
+
+/// A PDU (one TLV) as carried inside an SNMPv3 scoped PDU.
+pub fn decode_pdu(bytes: &[u8]) -> Option<Message> {
+    let (tag, pdu) = Reader(bytes).tlv()?;
+    decode_pdu_body(tag, pdu, Vec::new())
+}
+
+fn decode_pdu_body(tag: u8, pdu: &[u8], community: Vec<u8>) -> Option<Message> {
     let kind = match tag {
         0xA0 => PduKind::Get,
         0xA1 => PduKind::GetNext,
         0xA2 => PduKind::Response,
         0xA5 => PduKind::GetBulk,
+        0xA8 => PduKind::Report,
         _ => return None,
     };
     let mut pdu = Reader(pdu);

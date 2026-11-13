@@ -21,12 +21,8 @@ fn next(mib: &Mib, oid: &Oid) -> (Oid, Value) {
         )
 }
 
-/// The response to one request datagram, or None when it is to be ignored.
-pub fn answer(mib: &Mib, community: &[u8], datagram: &[u8]) -> Option<Vec<u8>> {
-    let req = decode(datagram)?;
-    if req.community != community {
-        return None;
-    }
+/// The response PDU to a request PDU (`None` for anything that is not a request).
+pub fn respond(mib: &Mib, req: &Message) -> Option<Message> {
     let bindings = match req.kind {
         PduKind::Get => req
             .bindings
@@ -50,16 +46,25 @@ pub fn answer(mib: &Mib, community: &[u8], datagram: &[u8]) -> Option<Vec<u8>> {
             }
             out
         }
-        PduKind::Response => return None,
+        PduKind::Response | PduKind::Report => return None,
     };
-    Some(encode(&Message {
-        community: req.community,
+    Some(Message {
+        community: req.community.clone(),
         kind: PduKind::Response,
         request_id: req.request_id,
         a: 0,
         b: 0,
         bindings,
-    }))
+    })
+}
+
+/// The response to one v2c request datagram, or None when it is to be ignored.
+pub fn answer(mib: &Mib, community: &[u8], datagram: &[u8]) -> Option<Vec<u8>> {
+    let req = decode(datagram)?;
+    if req.community != community {
+        return None;
+    }
+    respond(mib, &req).map(|m| encode(&m))
 }
 
 /// Serves `mib` on `socket` until `stop` is set.

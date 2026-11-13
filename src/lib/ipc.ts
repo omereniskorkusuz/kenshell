@@ -265,6 +265,23 @@ export interface Discovery {
   sources: string[];
 }
 
+export type SnmpAuthProto = 'md5' | 'sha' | 'sha256';
+export type SnmpPrivProto = 'aes' | 'des';
+
+/** An SNMPv3 user as configured on the devices (the passwords only travel to be stored). */
+export interface SnmpV3User {
+  user: string;
+  auth: SnmpAuthProto | null;
+  authPass: string;
+  privacy: SnmpPrivProto | null;
+  privPass: string;
+}
+
+export interface SnmpCredentials {
+  community: boolean;
+  v3: { user: string; auth: SnmpAuthProto | null; privacy: SnmpPrivProto | null } | null;
+}
+
 /** A device read over SNMP for the topology map. */
 export interface SnmpDevice {
   name: string | null;
@@ -801,6 +818,11 @@ export const api = {
     call<Discovery>('topology_discover', { id, family, hosts }),
   /** SNMP community for the topology map: stored in the keychain, never read back. */
   snmpCommunityStatus: () => call<boolean>('snmp_community_status'),
+  /** What is stored (never a password). */
+  snmpCredentials: () => call<SnmpCredentials>('snmp_credentials'),
+  /** Empty passwords keep the stored ones. */
+  snmpV3Set: (user: SnmpV3User) => call<undefined>('snmp_v3_set', { user }),
+  snmpV3Clear: () => call<undefined>('snmp_v3_clear'),
   snmpCommunitySet: (community: string) => call<undefined>('snmp_community_set', { community }),
   snmpCommunityClear: () => call<undefined>('snmp_community_clear'),
   /** Reads `host` (or `host:port`) over SNMPv2c with the stored community. */

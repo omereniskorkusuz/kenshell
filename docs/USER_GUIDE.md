@@ -283,6 +283,34 @@ Click a device to see **Read with**: the exact commands (or SNMP tables) its dat
 from. Under each link it says which device reported it and how (LLDP, CDP, MAC table,
 SNMP, sFlow / NetFlow).
 
+#### Automatic discovery: the whole network from one device
+
+You do not need a session to every device. With SNMP credentials stored (**Sources →
+SNMPv2c community** or **SNMPv3 user**), KenShell starts from what you are connected to,
+reads the neighbours each device reports (their LLDP / CDP management address and the
+default gateway) over SNMP, then their neighbours, and so on until nothing new turns up.
+Connect to the core switch or the gateway and the rest of the network fills in by itself.
+
+- It reads only private addresses that a device itself advertised, only switches, routers,
+  access points and firewalls (never PCs or phones), at most 200 devices, read-only.
+- **Discover** in the map's toolbar starts it by hand and stops it; **Follow neighbours
+  automatically** (on by default) keeps it going whenever new devices turn up.
+- Devices that do not answer are listed with the reason (no SNMP, wrong credentials,
+  unreachable).
+
+**SNMPv3:** enter the user name, the authentication protocol and password (SHA-1, SHA-256
+or MD5) and the privacy protocol and password (AES-128 or DES) exactly as configured on the
+devices. They are stored in your system keychain and never shown again; leave a password
+field empty to keep the stored one. SNMPv3 is tried first, then the v2c community.
+
+#### Device setup
+
+**Device setup** in the map's toolbar lists, for each CLI type, the commands that switch on
+what the map needs: LLDP, a read-only SNMP community and an SNMPv3 user (SHA + AES), and
+sFlow / NetFlow towards this computer (its address is filled in). Passwords stay
+placeholders. Lines that differ between software releases are marked: check them with `?`
+on the device first, and save the configuration afterwards.
+
 #### Other sources: SNMP, sFlow and NetFlow
 
 Open sessions are always used. **Sources** in the map's toolbar adds devices you have no
