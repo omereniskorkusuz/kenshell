@@ -423,4 +423,88 @@ describe('other sources', () => {
     const l = layoutGraph(g);
     expect(l.pos.get(core?.id ?? '')?.level).toBe(0);
   });
+
+  it('the user network as read on 2026-11-13: one core, one cable per link', () => {
+    const core = dev(
+      'c',
+      'Ruijie',
+      disc({
+        // ARP shows a routed-interface MAC, LLDP the chassis MAC.
+        ownMac: '105f02ecdeab',
+        neighbors: [
+          nb({
+            name: 'acc-sw16',
+            chassis: '88:3a:30:00:00:16',
+            localInterface: 'TenGigabitEthernet 0/29',
+            remoteInterface: '1/1/27',
+            ip: '10.0.100.16',
+            capability: 'Bridge, Router',
+          }),
+          nb({
+            name: 'alcatel6560',
+            chassis: '2c:fa:a2:00:00:15',
+            localInterface: 'TenGigabitEthernet 0/32',
+            remoteInterface: '1030',
+            ip: '10.0.100.15',
+            capability: 'Bridge, Router',
+          }),
+        ],
+      }),
+      '10.0.100.12',
+    );
+    const cx = dev(
+      'x',
+      'acc-sw16',
+      disc({
+        neighbors: [
+          nb({
+            name: 'Ruijie',
+            chassis: '58:b4:bb:d1:f4:1b',
+            localInterface: '1/1/1',
+            remoteInterface: 'Gi0/1',
+            ip: '127.0.0.1',
+            capability: 'Bridge, WLAN',
+          }),
+          nb({
+            name: 'Ruijie',
+            chassis: '10:5f:02:ec:de:aa',
+            localInterface: '1/1/27',
+            remoteInterface: 'Te0/29',
+            ip: '10.0.100.12',
+            capability: 'Bridge, Router',
+          }),
+        ],
+      }),
+      '10.0.100.16',
+    );
+    const os = dev(
+      'o',
+      'alcatel6560',
+      disc({
+        neighbors: [
+          nb({
+            name: 'Ruijie',
+            chassis: '10:5f:02:ec:de:aa',
+            localInterface: '1/1/30',
+            remoteInterface: 'Te0/32',
+            ip: '10.0.100.12',
+            capability: 'Bridge Router',
+          }),
+        ],
+      }),
+      '10.0.100.15',
+    );
+    const g = buildGraph([core, os, cx], { hosts: false });
+    expect(g.nodes.filter((n) => n.ip === '10.0.100.12')).toHaveLength(1);
+    expect(g.nodes.filter((n) => n.name === 'Ruijie')).toHaveLength(2); // the core and the AP
+    const between = (a: string, b: string) =>
+      g.edges.filter((e) => (e.a === a && e.b === b) || (e.a === b && e.b === a));
+    expect(between('d:c', 'd:o')).toHaveLength(1);
+    const e = between('d:c', 'd:o')[0];
+    // The interface index gave way to the real port name.
+    expect([e?.aPort, e?.bPort].sort()).toEqual(['1/1/30', 'Te0/32']);
+    expect(between('d:c', 'd:x')).toHaveLength(1);
+    expect(pickRoot(g)).toBe('d:c');
+    expect(layoutGraph(g).extra).toHaveLength(0);
+  });
 });

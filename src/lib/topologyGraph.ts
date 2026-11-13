@@ -86,9 +86,17 @@ const macKey = (mac: string | null | undefined): string | null => {
 };
 /** `port1`, `Port 1` are port names of their own, not a short form of Port-channel. */
 const iface = (port: string) => (/^port ?\d/i.test(port.trim()) ? null : parseIface(port));
-/** Same port, any spelling. */
+/** Same port, any spelling. A bare number (an interface index some devices send as the
+ *  LLDP port id) matches any port: it cannot be compared with a name. */
 const portKey = (port: string | null): string | null =>
-  port === null ? null : (iface(port)?.key ?? port.replace(/\s+/g, '').toLowerCase());
+  port === null || /^\d+$/.test(port.trim())
+    ? null
+    : (iface(port)?.key ?? port.replace(/\s+/g, '').toLowerCase());
+/** The more telling of two names for the same port. */
+const better = (have: string | null, other: string | null): string | null =>
+  have === null || (/^\d+$/.test(have) && other !== null && !/^\d+$/.test(other))
+    ? portShort(other)
+    : have;
 export const portShort = (port: string | null): string | null =>
   port === null ? null : (iface(port)?.short ?? port.trim());
 
@@ -204,11 +212,11 @@ export function buildGraph(
       // The same link seen again (other protocol, other end or other source): fill in
       // what was missing.
       if (same) {
-        e.aPort ??= portShort(aPort);
-        e.bPort ??= portShort(bPort);
+        e.aPort = better(e.aPort, aPort);
+        e.bPort = better(e.bPort, bPort);
       } else {
-        e.bPort ??= portShort(aPort);
-        e.aPort ??= portShort(bPort);
+        e.bPort = better(e.bPort, aPort);
+        e.aPort = better(e.aPort, bPort);
       }
       return;
     }
@@ -239,8 +247,16 @@ export function buildGraph(
         const other = id === undefined ? undefined : nodes.get(id);
         return other !== undefined && (!mac || !other.mac || other.mac === mac) ? id : undefined;
       };
+      // The address we connect to is the device itself, whatever MAC it shows: a routed
+      // switch answers ARP with another MAC than the chassis id it sends over LLDP.
+      const reached = ip ? byIp.get(ip) : undefined;
+      const direct =
+        reached !== undefined && nodes.get(reached)?.source && nodes.get(reached)?.ip === ip
+          ? reached
+          : undefined;
       let id =
         (mac ? byMac.get(mac) : undefined) ??
+        direct ??
         fits(key ? byName.get(key) : undefined) ??
         fits(ip ? byIp.get(ip) : undefined);
       const kind = kindOf(nb.capability, nb.platform);
@@ -266,9 +282,10 @@ export function buildGraph(
       n.model ??= nb.platform;
       n.mac ??= mac;
       if (kind && (n.source === null || kind !== 'host')) n.kind = kind;
-      // The advertised management address also identifies it (a session may go to
-      // another of its addresses).
+      // The advertised management address and chassis MAC also identify it from now on
+      // (a session may go to another of its addresses; it may answer ARP with another MAC).
       index(n, ip);
+      if (mac) byMac.set(mac, id);
       const pk = portKey(nb.localInterface);
       if (pk) used.add(pk);
       link(self, nb.localInterface, id, nb.remoteInterface);
