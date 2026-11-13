@@ -641,3 +641,23 @@ button.scan-cell:not(:disabled):hover {
   font: 9px/13px var(--font-ui);
   letter-spacing: var(--tracking-label);
 }
+.topo-card[data-gateway] {
+  border-color: var(--warning);
+}
+.topo-card[data-gateway] .topo-icon {
+  color: var(--warning);
+}
+.topo-card[data-stale] {
+  opacity: 0.5;
+}
+.topo-gw {
+  position: absolute;
+  bottom: 4px;
+  right: 5px;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning);
+  font: 9px/13px var(--font-ui);
+  letter-spacing: var(--tracking-label);
+}

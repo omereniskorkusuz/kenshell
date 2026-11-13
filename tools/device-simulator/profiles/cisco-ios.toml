@@ -344,3 +344,13 @@ Internet  10.10.0.52              0   3c52.8200.0b02  ARPA   Vlan10
 Internet  10.20.0.101             2   3c52.8200.0c03  ARPA   Vlan20
 Internet  10.20.0.102             5   3c52.8200.0c04  ARPA   Vlan20
 """
+
+[[commands]]
+words = ["show", "ip", "route", "0.0.0.0"]
+output = """
+Routing entry for 0.0.0.0/0, supernet
+  Known via "static", distance 1, metric 0, candidate default path
+  Routing Descriptor Blocks:
+  * 10.0.0.254
+      Route metric is 0, traffic share count is 1
+"""

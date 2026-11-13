@@ -190,7 +190,8 @@
     "detachFailed": "Sekme yeni pencereye taşınamadı",
     "dropOutside": "Yeni pencerede açmak için bırakın",
     "dragHint": "Sekmeyi sıralamak için sürükleyin; bölmek için bir bölmenin üstüne, ayırmak için pencere dışına bırakın",
-    "broadcasting": "broadcast açık"
+    "broadcasting": "broadcast açık",
+    "rename": "Yeniden adlandır"
   },
   "terminal": {
     "dropped": "— Sekme gizliyken {{size}} eski çıktı atlandı —",
@@ -1207,7 +1208,30 @@
     "flowTitle": "sFlow / NetFlow",
     "flowHint": "Akış gönderen cihazın hangi portundan hangi adreslerin girdiğini gösterir. Cihazın akış hedefini bu bilgisayara yönlendirin.",
     "flowListen": "Akış verisini dinle",
-    "flowStatus": "Dinleniyor: {{sflow}} sFlow ve {{netflow}} NetFlow paketi, {{hosts}} adres görüldü"
+    "flowStatus": "Dinleniyor: {{sflow}} sFlow ve {{netflow}} NetFlow paketi, {{hosts}} adres görüldü",
+    "gateway": "Ağ geçidi",
+    "gatewayHint": "Cihazların varsayılan rotası buraya gidiyor.",
+    "lastSeen": "Son görülme {{time}}",
+    "readWith": "Okunan kaynaklar",
+    "via": "{{by}} → {{how}}",
+    "how": {
+      "lldp": "LLDP",
+      "cdp": "CDP",
+      "snmp": "SNMP",
+      "mac": "MAC tablosu",
+      "flow": "sFlow / NetFlow",
+      "route": "Varsayılan rota"
+    },
+    "howTitle": "Harita nasıl oluşturuluyor",
+    "howLinks": "Switch, router ve erişim noktaları arasındaki bağlantılar: LLDP / CDP. Her cihaz adını, adresini ve portunu yaklaşık 30 saniyede bir komşularına duyurur; bu yüzden bu bağlantılar hep günceldir. Açık oturumlardan ve SNMP ile LLDP-MIB'den okunur.",
+    "howHosts": "Uç cihazlar: switch'lerin MAC (yönlendirme) tabloları hangi adresin hangi porttan öğrenildiğini söyler (SNMP'de BRIDGE-MIB). sFlow / NetFlow, okuyamadığınız switch'lerin arkasındakiler dahil trafik gönderen her adresi ekler.",
+    "howArp": "ARP yalnızca bir MAC'in yanına IP adresini yazmak için kullanılır; bir cihazın nerede olduğuna asla ARP karar vermez.",
+    "howGateway": "Ağ geçidi cihazların varsayılan rotasından (show ip route 0.0.0.0 ya da SNMP'de ipRouteTable) bulunur ve en üste çizilir.",
+    "howMemory": "MAC ve ARP kayıtları switch'lerde birkaç dakikada silinir. Harita gördüklerini 24 saat hatırlar; 10 dakikadır görülmeyenleri soluk çizer.",
+    "refreshEvery": "Yeniden oku",
+    "refreshOff": "Kapalı",
+    "refreshMinutes": "{{m}} dk'da bir",
+    "snmpSessions": "Açık oturumların cihazlarını SNMP ile de oku"
   },
   "newTab": {
     "title": "Yeni oturum",

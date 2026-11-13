@@ -259,6 +259,10 @@ export interface Discovery {
   arp: { ip: string; mac: string }[];
   ownMac: string | null;
   ownVendor: string | null;
+  /** Next hop of the device's default route. */
+  gateway: string | null;
+  /** The commands / SNMP tables that answered. */
+  sources: string[];
 }
 
 /** A device read over SNMP for the topology map. */

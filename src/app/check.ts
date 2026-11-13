@@ -138,12 +138,16 @@ export async function runCheck(raw: string): Promise<void> {
     report.cards = [...document.querySelectorAll<HTMLElement>('.topo-card')].map((e) => ({
       kind: e.dataset.kind,
       source: e.dataset.source ?? null,
+      gateway: e.dataset.gateway !== undefined,
+      top: Number.parseFloat(e.style.top || '0'),
       lines: e.innerText
         .split('\n')
         .map((l) => l.trim())
         .filter(Boolean),
     }));
     report.ports = texts('.topo-port');
+    report.discoverySources = keys.map((k) => topo().byTab[k]?.discovery?.sources ?? []);
+    report.gateways = keys.map((k) => topo().byTab[k]?.discovery?.gateway ?? null);
     report.snmp = spec.snmp
       ? {
           name: topo().snmp[spec.snmp.host]?.device?.name ?? null,

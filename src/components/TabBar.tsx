@@ -65,6 +65,8 @@ export function TabBar() {
   const suppressClick = useRef(false);
   const menu = useMenu();
   const [menuKey, setMenuKey] = useState<string | null>(null);
+  /** Tab whose name is being edited in place. */
+  const [editing, setEditing] = useState<string | null>(null);
 
   const setDrag = (next: TabDrag | null) => {
     const ui = useUi.getState();
@@ -186,6 +188,8 @@ export function TabBar() {
       });
     }
     entries.push(
+      { kind: 'separator' },
+      { label: t('tabs.rename'), onSelect: () => setEditing(key) },
       { kind: 'separator' },
       {
         label: t('actions.toggleBroadcast'),
@@ -331,7 +335,37 @@ export function TabBar() {
                   data-testid="broadcast-mark"
                 />
               )}
-              <span className="tab-title mono min-w-0 flex-1 truncate">{tab.name}</span>
+              {editing === tab.key ? (
+                <input
+                  className="field mono h-6 min-w-0 flex-1 px-1 text-xs"
+                  aria-label={t('tabs.rename')}
+                  defaultValue={tab.name}
+                  autoFocus
+                  onFocus={(e) => e.currentTarget.select()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === 'Enter') {
+                      useTabs.getState().rename(tab.key, e.currentTarget.value);
+                      setEditing(null);
+                    } else if (e.key === 'Escape') {
+                      setEditing(null);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    useTabs.getState().rename(tab.key, e.currentTarget.value);
+                    setEditing(null);
+                  }}
+                />
+              ) : (
+                <span
+                  className="tab-title mono min-w-0 flex-1 truncate"
+                  onDoubleClick={() => setEditing(tab.key)}
+                >
+                  {tab.name}
+                </span>
+              )}
               {env && (
                 <span className="env-letter" title={envLabel(tab.envTag) ?? ''}>
                   {envLetter(tab.envTag)}

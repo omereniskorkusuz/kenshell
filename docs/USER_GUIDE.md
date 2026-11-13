@@ -117,6 +117,9 @@ can also reconnect automatically (see the session's advanced options).
 | Move tab to a new window | ⌘⇧N |
 | Close / reopen closed tab | ⌘W / ⌘⇧T |
 
+
+Right-click a tab → **Rename** (or double-click its name) to give it a name of your own; Enter keeps it, Esc cancels, an empty name goes back to the address.
+
 ### Terminal basics
 
 - **Copy and paste:** selecting text copies it, and a right-click pastes. Both can be
@@ -260,12 +263,34 @@ complete it is.
 A device that has LLDP and CDP switched off appears only as an address on its neighbour's
 port.
 
+#### Where the map's data comes from
+
+**Sources → How the map is built** explains it in the app; in short:
+
+- **Links between switches, routers and access points** come from LLDP / CDP. Every device
+  announces its name, address and port to its neighbours about every 30 seconds, so these
+  links are always current.
+- **End devices** come from the switches' forwarding (MAC) tables and from sFlow / NetFlow.
+- **ARP** is used only to write an IP address next to a MAC; it never decides where a device
+  is.
+- **The gateway** comes from the devices' default route (`show ip route 0.0.0.0`, or the
+  route table over SNMP). It is drawn on top with a **Gateway** badge.
+- MAC and ARP entries age out on the switches within minutes. The map remembers what it has
+  seen for 24 hours and fades what has not been seen for 10 minutes. While the map is open
+  it reads everything again every 2 minutes (**Sources → Read again**).
+
+Click a device to see **Read with**: the exact commands (or SNMP tables) its data came
+from. Under each link it says which device reported it and how (LLDP, CDP, MAC table,
+SNMP, sFlow / NetFlow).
+
 #### Other sources: SNMP, sFlow and NetFlow
 
 Open sessions are always used. **Sources** in the map's toolbar adds devices you have no
 session to:
 
-- **SNMP (v2c):** type the read-only community once and press **Save**. It goes straight
+- **SNMP (v2c):** type the read-only community once and press **Save**. The devices of your
+  open sessions are then read over SNMP too (LLDP-MIB, BRIDGE-MIB, the route table), unless
+  you untick **Also read the open sessions' devices over SNMP**. It goes straight
   into your system keychain and is never shown again, written to a file, a log or an
   export. Then add each device's address (`10.0.0.2`, or `10.0.0.2:1161` for another
   port). KenShell asks the device for its name, interface names, LLDP neighbours,

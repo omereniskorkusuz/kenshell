@@ -43,7 +43,13 @@ import {
 } from '../lib/topologyGraph';
 import { useTabs } from '../stores/tabs';
 import { useSettings } from '../stores/settings';
-import { useTopology, type SnmpEntry, type TopoEntry } from '../stores/topology';
+import {
+  useTopology,
+  withSightings,
+  type Sightings,
+  type SnmpEntry,
+  type TopoEntry,
+} from '../stores/topology';
 import { useUi } from '../stores/ui';
 
 const ICONS: Record<NodeKind, LucideIcon> = {
@@ -87,6 +93,9 @@ export default function TopologyMap() {
   const root = useTopology((s) => s.root);
   const snmp = useTopology((s) => s.snmp);
   const flow = useTopology((s) => s.flow);
+  const sightings = useTopology((s) => s.sightings);
+  const sessionSnmp = useTopology((s) => s.sessionSnmp);
+  const refreshSecs = useSettings((s) => s.values['topology.refreshSecs']);
   const [picked, setPicked] = useState<string | null>(null);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [view, setView] = useState<View>({ k: 1, x: PAD, y: PAD });
@@ -109,8 +118,18 @@ export default function TopologyMap() {
     return () => clearInterval(timer);
   }, [collecting]);
 
-  const connected = useMemo(() => deviceInputs(identity, byTab), [identity, byTab]);
-  const polled = useMemo(() => snmpInputs(snmp), [snmp]);
+  // Tables age out on the devices: read again every few minutes while the map is shown.
+  useEffect(() => {
+    if (refreshSecs <= 0) return;
+    const timer = setInterval(() => useTopology.getState().refresh(true), refreshSecs * 1000);
+    return () => clearInterval(timer);
+  }, [refreshSecs]);
+
+  const connected = useMemo(
+    () => deviceInputs(identity, byTab, sightings, sessionSnmp),
+    [identity, byTab, sightings, sessionSnmp],
+  );
+  const polled = useMemo(() => snmpInputs(snmp, sightings), [snmp, sightings]);
   const devices = useMemo(() => [...connected, ...polled], [connected, polled]);
   const flows = flow?.hosts;
   const graph = useMemo(() => buildGraph(devices, { hosts, flows }), [devices, hosts, flows]);
@@ -178,6 +197,24 @@ export default function TopologyMap() {
       .map((h) => ({ key: `snmp:${h}`, name: `SNMP ${h}`, error: snmp[h]?.error ?? '' })),
   ];
   const empty = devices.length === 0 && !flows?.length;
+  /** Not seen for 10 minutes: drawn faded, with when it was seen last (relative to the
+   *  newest read, so a render does not depend on the clock). */
+  const latestRead = Math.max(0, ...Object.values(byTab).map((e) => e.readAt ?? 0));
+  const stale = (n: TopoNode) => n.seenAt != null && latestRead - n.seenAt > 10 * 60_000;
+  /** What a node's own device answered (sessions and SNMP), for the details panel. */
+  const sourcesOf = (n: TopoNode): string[] => {
+    const out = new Set<string>();
+    if (n.tabKey) {
+      for (const c of byTab[n.tabKey]?.discovery?.sources ?? []) out.add(c);
+      for (const c of sessionSnmp[n.tabKey]?.device?.discovery.sources ?? []) out.add(c);
+    }
+    for (const [host, e] of Object.entries(snmp)) {
+      if (e.device && (host.replace(/:\d+$/, '') === n.ip || e.device.name === n.name)) {
+        for (const c of e.device.discovery.sources) out.add(c);
+      }
+    }
+    return [...out];
+  };
   const sel = picked ? nodeById.get(picked) : undefined;
   const center = (id: string) => {
     const p = layout.pos.get(id);
@@ -400,6 +437,13 @@ export default function TopologyMap() {
                     data-kind={n.kind}
                     data-session={n.tabKey !== null || undefined}
                     data-source={n.source ?? undefined}
+                    data-gateway={n.gateway || undefined}
+                    data-stale={stale(n) || undefined}
+                    title={
+                      stale(n) && n.seenAt != null
+                        ? t('topoMap.lastSeen', { time: new Date(n.seenAt).toLocaleString() })
+                        : undefined
+                    }
                     data-on={picked === n.id || undefined}
                     style={{ left: p.x, top: p.y, width: NODE_W, height: NODE_H }}
                     aria-pressed={picked === n.id}
@@ -430,6 +474,7 @@ export default function TopologyMap() {
                     {n.tabKey !== null && (
                       <span className="topo-live" title={t('topoMap.session')} aria-hidden />
                     )}
+                    {n.gateway && <span className="topo-gw">{t('topoMap.gateway')}</span>}
                     {n.tabKey === null && n.source !== null && (
                       <span className="topo-tag" title={t(`topoMap.source.${n.source}` as TKey)}>
                         {n.source === 'snmp' ? 'SNMP' : 'FLOW'}
@@ -486,6 +531,22 @@ export default function TopologyMap() {
                   ),
               )}
             </dl>
+            {sel.gateway && <p className="text-xs text-secondary">{t('topoMap.gatewayHint')}</p>}
+            {sel.seenAt != null && (
+              <p className="text-xs text-muted">
+                {t('topoMap.lastSeen', { time: new Date(sel.seenAt).toLocaleString() })}
+              </p>
+            )}
+            {sourcesOf(sel).length > 0 && (
+              <div>
+                <h3 className="label-caps mb-1">{t('topoMap.readWith')}</h3>
+                <ul className="mono flex flex-col gap-0.5 text-[11px] text-secondary">
+                  {sourcesOf(sel).map((c) => (
+                    <li key={c}>{c}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div>
               <h3 className="label-caps mb-1">{t('topoMap.links')}</h3>
               <ul className="flex flex-col gap-0.5 text-xs">
@@ -505,6 +566,16 @@ export default function TopologyMap() {
                           <span className="min-w-0 flex-1 truncate">{nameOf(other)}</span>
                           <span className="mono shrink-0 text-muted">{theirs ?? ''}</span>
                         </button>
+                        <p className="px-1 text-[10px] text-muted">
+                          {e.via
+                            .map((v) =>
+                              t('topoMap.via', {
+                                how: t(`topoMap.how.${v.how}` as TKey),
+                                by: v.by,
+                              }),
+                            )
+                            .join(' · ')}
+                        </p>
                       </li>
                     );
                   })}
@@ -586,37 +657,67 @@ function identityOf(tabs: readonly LiveTab[]): string {
     .join(ROW);
 }
 
-function deviceInputs(identity: string, byTab: Record<string, TopoEntry>): DeviceInput[] {
+function deviceInputs(
+  identity: string,
+  byTab: Record<string, TopoEntry>,
+  sightings: Record<string, Sightings>,
+  sessionSnmp: Record<string, SnmpEntry>,
+): DeviceInput[] {
   if (identity === '') return [];
-  return identity.split(ROW).map((row) => {
+  return identity.split(ROW).flatMap((row) => {
     const [key = '', , name = '', host = '', model = ''] = row.split(FIELD);
-    return {
-      key,
-      name,
-      host: host || null,
-      model: model || null,
-      discovery: byTab[key]?.discovery ?? null,
-    };
+    const read = byTab[key]?.discovery;
+    const mem = read ? withSightings(read, sightings[key]) : null;
+    const out: DeviceInput[] = [
+      {
+        key,
+        name,
+        host: host || null,
+        model: model || null,
+        discovery: mem?.discovery ?? null,
+        seen: mem?.seen,
+      },
+    ];
+    // The same device over SNMP: merged into the session's node by name / MAC / address.
+    const polled = sessionSnmp[key]?.device;
+    if (polled) {
+      const m = withSightings(polled.discovery, sightings[`ss:${key}`]);
+      out.push({
+        key: `ss:${key}`,
+        name: polled.name ?? name,
+        host: host || null,
+        model: polled.description?.slice(0, 80) ?? null,
+        discovery: m.discovery,
+        seen: m.seen,
+        source: 'snmp',
+        interfaces: polled.interfaces,
+      });
+    }
+    return out;
   });
 }
 
-function snmpInputs(snmp: Record<string, SnmpEntry>): DeviceInput[] {
-  return Object.entries(snmp).flatMap(([host, e]) =>
-    e.device
-      ? [
-          {
-            key: `snmp:${host}`,
-            name: e.device.name ?? host,
-            // `host:port` → the address alone.
-            host: host.replace(/:\d+$/, ''),
-            model: e.device.description?.slice(0, 80) ?? null,
-            discovery: e.device.discovery,
-            source: 'snmp' as const,
-            interfaces: e.device.interfaces,
-          },
-        ]
-      : [],
-  );
+function snmpInputs(
+  snmp: Record<string, SnmpEntry>,
+  sightings: Record<string, Sightings>,
+): DeviceInput[] {
+  return Object.entries(snmp).flatMap(([host, e]) => {
+    if (!e.device) return [];
+    const m = withSightings(e.device.discovery, sightings[`snmp:${host}`]);
+    return [
+      {
+        key: `snmp:${host}`,
+        name: e.device.name ?? host,
+        // `host:port` → the address alone.
+        host: host.replace(/:\d+$/, ''),
+        model: e.device.description?.slice(0, 80) ?? null,
+        discovery: m.discovery,
+        seen: m.seen,
+        source: 'snmp' as const,
+        interfaces: e.device.interfaces,
+      },
+    ];
+  });
 }
 
 /**
@@ -633,6 +734,8 @@ function Sources({ onClose }: { onClose: () => void }) {
   const flowEnabled = useSettings((s) => s.values['topology.flowEnabled']);
   const sflowPort = useSettings((s) => s.values['topology.sflowPort']);
   const netflowPort = useSettings((s) => s.values['topology.netflowPort']);
+  const snmpSessions = useSettings((s) => s.values['topology.snmpSessions']);
+  const refreshSecs = useSettings((s) => s.values['topology.refreshSecs']);
   const [secret, setSecret] = useState('');
   const [host, setHost] = useState('');
   const [failed, setFailed] = useState(false);
@@ -688,10 +791,49 @@ function Sources({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       <p className="text-xs text-muted">{t('topoMap.sourcesHint')}</p>
+      <details className="rounded-sm border border-subtle p-2 text-xs text-secondary">
+        <summary className="cursor-pointer font-medium text-primary">
+          {t('topoMap.howTitle')}
+        </summary>
+        <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-4">
+          <li>{t('topoMap.howLinks')}</li>
+          <li>{t('topoMap.howHosts')}</li>
+          <li>{t('topoMap.howArp')}</li>
+          <li>{t('topoMap.howGateway')}</li>
+          <li>{t('topoMap.howMemory')}</li>
+        </ul>
+      </details>
+      <label className="flex items-center gap-1.5 text-xs">
+        {t('topoMap.refreshEvery')}
+        <select
+          className="field h-7 text-xs"
+          value={refreshSecs}
+          onChange={(e) =>
+            useSettings.getState().set('topology.refreshSecs', Number(e.target.value))
+          }
+        >
+          {[0, 60, 120, 300, 600].map((v) => (
+            <option key={v} value={v}>
+              {v === 0 ? t('topoMap.refreshOff') : t('topoMap.refreshMinutes', { m: v / 60 })}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <section className="flex flex-col gap-2">
         <h3 className="label-caps">{t('topoMap.snmpTitle')}</h3>
         <p className="text-xs text-muted">{t('topoMap.snmpHint')}</p>
+        <label className="flex items-center gap-1.5 text-xs">
+          <input
+            type="checkbox"
+            checked={snmpSessions}
+            onChange={(e) => {
+              useSettings.getState().set('topology.snmpSessions', e.target.checked);
+              st.refresh(true);
+            }}
+          />
+          {t('topoMap.snmpSessions')}
+        </label>
         <div className="flex flex-wrap items-center gap-1">
           <input
             type="password"

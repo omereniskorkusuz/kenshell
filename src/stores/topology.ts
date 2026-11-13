@@ -16,6 +16,57 @@ export interface TopoEntry {
   error: string | null;
   /** Session generation the data belongs to (a reconnect reads again). */
   runtimeId: number | null;
+  /** When it was last read (ms). */
+  readAt: number | null;
+}
+
+/**
+ * MAC and ARP entries age out of a switch within minutes. The map remembers every end
+ * device it has seen (per reporting device) with the time it was last seen, so a quiet
+ * printer does not vanish between two reads; old ones are drawn faded.
+ */
+export interface Sightings {
+  macs: Map<string, Discovery['macs'][number] & { at: number }>;
+  arp: Map<string, { ip: string; at: number }>;
+}
+/** Forgotten after this long without being seen again. */
+export const SIGHTING_TTL_MS = 24 * 60 * 60 * 1000;
+
+export function remember(prev: Sightings | undefined, d: Discovery, now: number): Sightings {
+  const macs = new Map(prev?.macs);
+  const arp = new Map(prev?.arp);
+  for (const m of d.macs) macs.set(`${m.mac}|${m.interface}`, { ...m, at: now });
+  for (const a of d.arp) arp.set(a.mac, { ip: a.ip, at: now });
+  for (const [k, v] of macs) if (now - v.at > SIGHTING_TTL_MS) macs.delete(k);
+  for (const [k, v] of arp) if (now - v.at > SIGHTING_TTL_MS) arp.delete(k);
+  // A MAC that moved to another port is only where it was seen last.
+  const latest = new Map<string, number>();
+  for (const v of macs.values()) latest.set(v.mac, Math.max(latest.get(v.mac) ?? 0, v.at));
+  for (const [k, v] of macs) if (v.at < (latest.get(v.mac) ?? 0)) macs.delete(k);
+  return { macs, arp };
+}
+
+/** A discovery with every remembered end device, and when each was last seen. */
+export function withSightings(
+  d: Discovery,
+  mem: Sightings | undefined,
+): { discovery: Discovery; seen: Map<string, number> } {
+  if (!mem) return { discovery: d, seen: new Map() };
+  const seen = new Map<string, number>();
+  for (const v of mem.macs.values()) seen.set(v.mac, v.at);
+  return {
+    discovery: {
+      ...d,
+      macs: [...mem.macs.values()].map((m) => ({
+        mac: m.mac,
+        vlan: m.vlan,
+        interface: m.interface,
+        vendor: m.vendor,
+      })),
+      arp: [...mem.arp].map(([mac, v]) => ({ mac, ip: v.ip })),
+    },
+    seen,
+  };
 }
 
 export interface SnmpEntry {
@@ -26,6 +77,10 @@ export interface SnmpEntry {
 
 interface TopologyState {
   byTab: Record<string, TopoEntry>;
+  /** Remembered end devices per tab / SNMP host (see `Sightings`). */
+  sightings: Record<string, Sightings>;
+  /** SNMP reads of the open sessions' own devices (`topology.snmpSessions`). */
+  sessionSnmp: Record<string, SnmpEntry>;
   /** SNMP hosts (as typed) → what they answered. */
   snmp: Record<string, SnmpEntry>;
   /** A community is stored in the keychain (null = not asked yet). */
@@ -61,6 +116,7 @@ export const useTopology = create<TopologyState>()((set, get) => {
           busy: false,
           error: null,
           runtimeId: null,
+          readAt: null,
           ...s.byTab[key],
           ...next,
         },
@@ -79,7 +135,11 @@ export const useTopology = create<TopologyState>()((set, get) => {
     patch(key, { busy: true, error: null, runtimeId });
     try {
       const discovery = await api.topologyDiscover(runtimeId, family, hosts);
-      patch(key, { discovery, busy: false });
+      const now = Date.now();
+      patch(key, { discovery, busy: false, readAt: now });
+      set((s) => ({
+        sightings: { ...s.sightings, [key]: remember(s.sightings[key], discovery, now) },
+      }));
     } catch (e) {
       patch(key, { busy: false, error: describeError(e, t).message });
     }
@@ -90,9 +150,46 @@ export const useTopology = create<TopologyState>()((set, get) => {
     try {
       const device = await api.topologySnmp(host);
       // Removed while it was being read?
-      if (getSetting('topology.snmpHosts').includes(host)) patchSnmp(host, { device, busy: false });
+      if (getSetting('topology.snmpHosts').includes(host)) {
+        patchSnmp(host, { device, busy: false });
+        const now = Date.now();
+        set((s) => ({
+          sightings: {
+            ...s.sightings,
+            [`snmp:${host}`]: remember(s.sightings[`snmp:${host}`], device.discovery, now),
+          },
+        }));
+      }
     } catch (e) {
       patchSnmp(host, { busy: false, error: describeError(e, t).message });
+    }
+  };
+
+  /** SNMP for a device we already have a session to: more tables, no CLI parsing. */
+  const readSessionSnmp = async (key: string, host: string) => {
+    set((s) => ({
+      sessionSnmp: {
+        ...s.sessionSnmp,
+        [key]: { device: null, error: null, ...s.sessionSnmp[key], busy: true },
+      },
+    }));
+    try {
+      const device = await api.topologySnmp(host);
+      const now = Date.now();
+      set((s) => ({
+        sessionSnmp: { ...s.sessionSnmp, [key]: { device, busy: false, error: null } },
+        sightings: {
+          ...s.sightings,
+          [`ss:${key}`]: remember(s.sightings[`ss:${key}`], device.discovery, now),
+        },
+      }));
+    } catch (e) {
+      set((s) => ({
+        sessionSnmp: {
+          ...s.sessionSnmp,
+          [key]: { device: null, busy: false, error: describeError(e, t).message },
+        },
+      }));
     }
   };
 
@@ -111,6 +208,8 @@ export const useTopology = create<TopologyState>()((set, get) => {
 
   return {
     byTab: {},
+    sightings: {},
+    sessionSnmp: {},
     snmp: {},
     community: null,
     flow: null,
@@ -138,6 +237,15 @@ export const useTopology = create<TopologyState>()((set, get) => {
           continue;
         }
         void read(tab.key, tab.runtimeId, tab.device.vendor?.family ?? null);
+      }
+      // The same devices over SNMP too, when a community is stored.
+      if (get().community && getSetting('topology.snmpSessions')) {
+        for (const tab of tabs) {
+          if (tab.state !== 'connected' || tab.target.type !== 'network') continue;
+          const cur = get().sessionSnmp[tab.key];
+          if (cur?.busy || (!force && cur && (cur.device || cur.error))) continue;
+          void readSessionSnmp(tab.key, tab.target.host);
+        }
       }
 
       const wanted = getSetting('topology.snmpHosts');

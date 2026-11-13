@@ -190,7 +190,8 @@
     "detachFailed": "Could not move the tab to a new window",
     "dropOutside": "Release to open in a new window",
     "dragHint": "Drag tabs to reorder, onto a pane to split, or out of the window to detach",
-    "broadcasting": "broadcasting"
+    "broadcasting": "broadcasting",
+    "rename": "Rename"
   },
   "terminal": {
     "dropped": "— {{size}} of older output skipped while this tab was hidden —",
@@ -1207,7 +1208,30 @@
     "flowTitle": "sFlow / NetFlow",
     "flowHint": "Shows which addresses enter which port of an exporting device. Point the device's flow export at this computer.",
     "flowListen": "Listen for flow exports",
-    "flowStatus": "Listening: {{sflow}} sFlow and {{netflow}} NetFlow datagrams, {{hosts}} addresses seen"
+    "flowStatus": "Listening: {{sflow}} sFlow and {{netflow}} NetFlow datagrams, {{hosts}} addresses seen",
+    "gateway": "Gateway",
+    "gatewayHint": "The default route of the devices points here.",
+    "lastSeen": "Last seen {{time}}",
+    "readWith": "Read with",
+    "via": "{{how}} from {{by}}",
+    "how": {
+      "lldp": "LLDP",
+      "cdp": "CDP",
+      "snmp": "SNMP",
+      "mac": "MAC table",
+      "flow": "sFlow / NetFlow",
+      "route": "Default route"
+    },
+    "howTitle": "How the map is built",
+    "howLinks": "Links between switches, routers and access points: LLDP / CDP. Every device announces its name, address and port to its neighbours about every 30 seconds, so these links are always current. Read from the open sessions and, over SNMP, from LLDP-MIB.",
+    "howHosts": "End devices: the switches' forwarding (MAC) tables say which address was learned on which port (over SNMP: BRIDGE-MIB). sFlow / NetFlow add every address that sends traffic, also through switches you cannot read.",
+    "howArp": "ARP is used only to put an IP address next to a MAC; it never decides where a device is.",
+    "howGateway": "The gateway comes from the devices' default route (show ip route 0.0.0.0, or ipRouteTable over SNMP) and is drawn on top.",
+    "howMemory": "MAC and ARP entries age out on the switches within minutes. The map keeps what it has seen for 24 hours and fades what has not been seen for 10 minutes.",
+    "refreshEvery": "Read again",
+    "refreshOff": "Off",
+    "refreshMinutes": "every {{m}} min",
+    "snmpSessions": "Also read the open sessions' devices over SNMP"
   },
   "newTab": {
     "title": "New session",

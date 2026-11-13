@@ -76,6 +76,10 @@ export interface AppSettings {
   'ai.model': string;
   /** Devices the topology map reads over SNMP (`host` or `host:port`). */
   'topology.snmpHosts': string[];
+  /** Also read the open sessions' devices over SNMP (when a community is stored). */
+  'topology.snmpSessions': boolean;
+  /** Read the map's sources again every this many seconds while it is on screen (0 = off). */
+  'topology.refreshSecs': number;
   /** Listen for sFlow / NetFlow exports while the app runs. */
   'topology.flowEnabled': boolean;
   'topology.sflowPort': number;
@@ -131,6 +135,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'history.connections': [],
   'topology.snmpHosts': [],
   'topology.flowEnabled': false,
+  'topology.snmpSessions': true,
+  'topology.refreshSecs': 120,
   'topology.sflowPort': 6343,
   'topology.netflowPort': 2055,
 };
@@ -225,7 +231,10 @@ export function sanitizeValue<K extends SettingKey>(key: K, value: unknown): App
             ].slice(0, 64)
           : d[k];
       case 'topology.flowEnabled':
+      case 'topology.snmpSessions':
         return bool(value, d[k]);
+      case 'topology.refreshSecs':
+        return clampInt(value, 0, 3600, d[k]);
       case 'topology.sflowPort':
       case 'topology.netflowPort':
         return clampInt(value, 0, 65535, d[k]);

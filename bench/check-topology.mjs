@@ -219,6 +219,21 @@ expect(
   'a NetFlow sighting is on the map',
 );
 expect(
+  JSON.stringify(report.gateways) === JSON.stringify(['10.0.0.254', '10.0.0.1']),
+  "each device's default gateway read from its routing table",
+);
+{
+  const top = Math.min(...cards.map((c) => c.top));
+  const gw = cards.find((c) => c.lines[0] === '10.0.0.254');
+  expect(gw?.gateway === true && gw.top === top, 'the gateway (10.0.0.254) is drawn on top');
+}
+expect(
+  (report.discoverySources ?? []).every(
+    (s) => s.some((c) => c.includes('lldp')) && s.some((c) => c.includes('route')),
+  ),
+  'each device lists the commands its data came from',
+);
+expect(
   (report.terminals ?? []).length === 2 && report.terminals.every((t) => t.leak === false),
   'no hidden command or its output reached a terminal',
 );

@@ -39,11 +39,95 @@ pub struct Discovery {
     /// The device's own MAC (from its own ARP entries), if it could be told.
     pub own_mac: Option<String>,
     pub own_vendor: Option<String>,
+    /// Next hop of the device's default route (its gateway), if it has one.
+    pub gateway: Option<String>,
+    /// Where the data came from: the commands (or SNMP tables) that answered.
+    pub sources: Vec<String>,
 }
 
 /// Upper bounds: a core switch can know tens of thousands of MACs; the map never needs them.
 pub const MAX_MACS: usize = 4000;
 pub const MAX_ARP: usize = 4000;
+
+/// Read-only commands that show the default route, tried in order until one names a
+/// next hop (a layer-2 switch has only a default gateway).
+pub fn gateway_commands(family: Option<&str>) -> &'static [&'static str] {
+    match family {
+        Some("ruijie") => &["show ip route 0.0.0.0", "show ip route"],
+        Some("aruba") => &["show ip route 0.0.0.0/0", "show ip route"],
+        Some("alcatel") => &["show ip routes"],
+        Some("juniper") => &["show route 0.0.0.0/0 exact"],
+        Some("cisco") | None | Some("generic") => &[
+            "show ip route 0.0.0.0",
+            "show ip route",
+            "show ip default-gateway",
+        ],
+        _ => &[],
+    }
+}
+
+/// The default route's next hop in any vendor's route listing: `Gateway of last resort is
+/// X`, `ip default-gateway X`-style lines, or the line of `0.0.0.0/0` (`0.0.0.0 0.0.0.0`,
+/// `default`) with the first other address on it or the next lines (`via X`).
+pub fn default_gateway(text: &str) -> Option<String> {
+    let ip_of = |t: &str| {
+        let t = t.trim_matches(|c: char| !c.is_ascii_digit() && c != '.');
+        (is_ipv4(t) && t != "0.0.0.0" && !t.starts_with("255.")).then(|| t.to_owned())
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    for line in &lines {
+        let l = line.to_ascii_lowercase();
+        if let Some(rest) = l.split("gateway of last resort is").nth(1)
+            && let Some(ip) = rest.split_whitespace().find_map(ip_of)
+        {
+            return Some(ip);
+        }
+    }
+    for (i, line) in lines.iter().enumerate() {
+        let l = line.to_ascii_lowercase();
+        let words: Vec<&str> = l.split_whitespace().collect();
+        if l.contains("default-gateway") || l.contains("default gateway") {
+            if let Some(ip) = words.iter().find_map(|w| ip_of(w)) {
+                return Some(ip);
+            }
+            continue;
+        }
+        let default = words.iter().enumerate().any(|(k, w)| {
+            let w = w.trim_end_matches(',');
+            w == "0.0.0.0/0"
+                || (w == "0.0.0.0"
+                    && words.get(k + 1).is_some_and(|n| {
+                        n.trim_end_matches(',') == "0.0.0.0" || n.starts_with('[')
+                    }))
+                || (w == "default" && k == 0)
+                || (w == "s*" || w == "s*e" || w == "s*>")
+        });
+        if !default {
+            continue;
+        }
+        // The next hop is on this line or on the following ones (Junos: `> to X via ge-…`).
+        for next in lines.iter().skip(i).take(4) {
+            let n = next.to_ascii_lowercase();
+            let ws: Vec<&str> = n.split_whitespace().collect();
+            let after_via = ws
+                .iter()
+                .position(|w| *w == "via" || *w == "to")
+                .and_then(|p| ws.get(p + 1))
+                .and_then(|w| ip_of(w));
+            if let Some(ip) = after_via {
+                return Some(ip);
+            }
+            if let Some(ip) = ws
+                .iter()
+                .filter(|w| !w.contains('/'))
+                .find_map(|w| ip_of(w))
+            {
+                return Some(ip);
+            }
+        }
+    }
+    None
+}
 
 /// Read-only commands for the MAC and ARP tables of a vendor family.
 pub fn host_commands(family: Option<&str>) -> &'static [&'static str] {
@@ -206,7 +290,11 @@ pub fn discovery(
         ..Discovery::default()
     };
     for (command, text) in outputs {
-        if command.contains("mac") {
+        if command.contains("route") || command.contains("default-gateway") {
+            if d.gateway.is_none() {
+                d.gateway = default_gateway(text);
+            }
+        } else if command.contains("mac") {
             d.macs = mac_entries(family, text);
         } else if command.contains("arp") {
             let (arp, own) = arp_entries(text);
@@ -233,6 +321,7 @@ pub async fn discover(
 ) -> crate::error::Result<Discovery> {
     let mut near = Vec::new();
     let mut tables = Vec::new();
+    let mut sources = Vec::new();
     let wanted = super::neighbors::commands(family)
         .iter()
         .map(|c| (c, true))
@@ -247,17 +336,53 @@ pub async fn discover(
             .capture(id, command, std::time::Duration::from_secs(60))
             .await
         {
-            Ok(text) if neighbour => near.push(((*command).to_owned(), text)),
-            Ok(text) => tables.push(((*command).to_owned(), text)),
+            Ok(text) => {
+                if !looks_rejected(&text) {
+                    sources.push((*command).to_owned());
+                }
+                if neighbour {
+                    near.push(((*command).to_owned(), text));
+                } else {
+                    tables.push(((*command).to_owned(), text));
+                }
+            }
             Err(e) if e.code == crate::error::ErrorCode::ConnectionClosed => return Err(e),
             Err(_) => {}
         }
     }
-    Ok(discovery(
-        family,
-        super::neighbors::neighbors(family, &near),
-        &tables,
-    ))
+    // The gateway: the first command that names one.
+    for command in gateway_commands(family) {
+        match sessions
+            .capture(id, command, std::time::Duration::from_secs(30))
+            .await
+        {
+            Ok(text) if default_gateway(&text).is_some() => {
+                sources.push((*command).to_owned());
+                tables.push(((*command).to_owned(), text));
+                break;
+            }
+            Err(e) if e.code == crate::error::ErrorCode::ConnectionClosed => return Err(e),
+            _ => {}
+        }
+    }
+    let mut d = discovery(family, super::neighbors::neighbors(family, &near), &tables);
+    d.sources = sources;
+    Ok(d)
+}
+
+/// The device said it does not know the command.
+fn looks_rejected(text: &str) -> bool {
+    let l = text.to_ascii_lowercase();
+    [
+        "invalid input",
+        "unknown command",
+        "incomplete command",
+        "invalid command",
+        "error:",
+        "syntax error",
+    ]
+    .iter()
+    .any(|k| l.contains(k))
 }
 
 #[cfg(test)]
@@ -368,6 +493,60 @@ Internet  10.0.0.99               0   Incomplete      ARPA
         assert_eq!(ex.len(), 1);
         assert_eq!(ex[0].interface, "ge-0/0/1.0");
         assert!(mac_entries(Some("aruba"), "00:50:56:96:d8:6d\n% Invalid\n\0").is_empty());
+    }
+
+    #[test]
+    fn default_gateway_in_every_layout() {
+        let cases = [
+            (
+                "Gateway of last resort is 10.0.100.1 to network 0.0.0.0\n\nS*    0.0.0.0/0 [1/0] via 10.0.100.1\n",
+                "10.0.100.1",
+            ),
+            (
+                "Routing entry for 0.0.0.0/0, supernet\n  Known via \"static\", distance 1\n  Routing Descriptor Blocks:\n  * 10.0.0.254\n",
+                "10.0.0.254",
+            ),
+            // Ruijie: `S* 0.0.0.0/0 [1/0] via 10.0.100.1`
+            (
+                "Codes:  C - Connected, S - Static\nGateway of last resort is no set\nS*    0.0.0.0/0 [1/0] via 10.0.100.1\nC     10.0.100.0/24 is directly connected, VLAN 1\n",
+                "10.0.100.1",
+            ),
+            // AOS 8 `show ip routes`
+            (
+                " + = Equal cost multipath routes\n Total 3 routes\n\n  Dest Address       Gateway Addr        Age        Protocol\n------------------+-------------------+----------+-----------\n  0.0.0.0/0          10.0.100.1         5d 2h      STATIC\n  10.0.100.0/24     10.0.100.15        5d 2h      LOCAL\n",
+                "10.0.100.1",
+            ),
+            // AOS-CX
+            (
+                "Displaying ipv4 routes selected for forwarding\n\n0.0.0.0/0, vrf default\n\tvia  10.0.100.1,  [1/0],  static\n10.0.100.0/24, vrf default\n\tvia  vlan1,  [0/0],  connected\n",
+                "10.0.100.1",
+            ),
+            // Junos
+            (
+                "inet.0: 5 destinations, 5 routes\n\n0.0.0.0/0          *[Static/5] 3w2d 04:11:12\n                    >  to 10.0.100.1 via ge-0/0/0.0\n",
+                "10.0.100.1",
+            ),
+            // Layer-2 IOS
+            ("10.0.100.1\n", ""),
+            ("ip default-gateway 10.0.100.1\n", "10.0.100.1"),
+            ("Default Gateway : 10.0.100.1\n", "10.0.100.1"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(default_gateway(text).unwrap_or_default(), want, "{text}");
+        }
+        assert_eq!(
+            default_gateway(
+                "Gateway of last resort is not set\nC 10.0.0.0/24 is directly connected\n"
+            ),
+            None
+        );
+        assert_eq!(
+            default_gateway("% Invalid input detected at '^' marker.\n"),
+            None
+        );
+        assert!(looks_rejected("% Invalid input detected"));
+        assert!(!looks_rejected("LLDP Neighbor Information"));
+        assert!(gateway_commands(Some("alcatel")).contains(&"show ip routes"));
     }
 
     #[test]

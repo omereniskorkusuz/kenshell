@@ -25,6 +25,8 @@ const BASE_PORT_IF: &[u32] = &[1, 3, 6, 1, 2, 1, 17, 1, 4, 1, 2];
 const FDB_PORT: &[u32] = &[1, 3, 6, 1, 2, 1, 17, 4, 3, 1, 2];
 const QFDB_PORT: &[u32] = &[1, 3, 6, 1, 2, 1, 17, 7, 1, 2, 2, 1, 2];
 const ARP_PHYS: &[u32] = &[1, 3, 6, 1, 2, 1, 4, 22, 1, 2];
+/// ipRouteNextHop of the default route (0.0.0.0).
+const DEFAULT_NEXT_HOP: &[u32] = &[1, 3, 6, 1, 2, 1, 4, 21, 1, 7, 0, 0, 0, 0];
 
 /// One polled device.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -86,7 +88,18 @@ pub fn discover(client: &mut Client) -> Result<SnmpDevice> {
         SYS_NAME.to_vec(),
         SYS_DESCR.to_vec(),
         LLDP_LOC_CHASSIS.to_vec(),
+        DEFAULT_NEXT_HOP.to_vec(),
     ])?;
+    let gateway = match sys.get(3).map(|(_, v)| v) {
+        Some(Value::Ip([a, b, c, d])) if [*a, *b, *c, *d] != [0, 0, 0, 0] => {
+            Some(format!("{a}.{b}.{c}.{d}"))
+        }
+        _ => None,
+    };
+    let mut sources = vec!["SNMP system".to_owned()];
+    if gateway.is_some() {
+        sources.push("SNMP ipRouteTable".to_owned());
+    }
     let name = sys.first().and_then(|(_, v)| v.text());
     let description = sys.get(1).and_then(|(_, v)| v.text());
     let own_mac = sys
@@ -95,17 +108,24 @@ pub fn discover(client: &mut Client) -> Result<SnmpDevice> {
         .filter(|b| b.len() == 6)
         .map(hex);
     // After the first answer the device is known to talk: a table it lacks is just empty.
-    let mut table = |root: &[u32]| client.walk(root).unwrap_or_default();
+    let mut answered: Vec<&'static str> = Vec::new();
+    let mut table = |root: &[u32], name: &'static str| {
+        let rows = client.walk(root).unwrap_or_default();
+        if !rows.is_empty() && !answered.contains(&name) {
+            answered.push(name);
+        }
+        rows
+    };
 
     let mut if_names: HashMap<u32, String> = HashMap::new();
     for root in [IF_DESCR, IF_NAME] {
-        for (oid, v) in table(root) {
+        for (oid, v) in table(root, "SNMP IF-MIB") {
             if let (Some(&index), Some(text)) = (suffix(&oid, root).first(), v.text()) {
                 if_names.insert(index, text);
             }
         }
     }
-    let loc_ports: HashMap<u32, String> = table(LLDP_LOC_PORT_ID)
+    let loc_ports: HashMap<u32, String> = table(LLDP_LOC_PORT_ID, "SNMP LLDP-MIB")
         .into_iter()
         .filter_map(|(oid, v)| Some((*suffix(&oid, LLDP_LOC_PORT_ID).first()?, v.text()?)))
         .collect();
@@ -122,7 +142,7 @@ pub fn discover(client: &mut Client) -> Result<SnmpDevice> {
         ip: Option<String>,
     }
     let mut rems: std::collections::BTreeMap<(u32, u32), Rem> = std::collections::BTreeMap::new();
-    for (oid, v) in table(LLDP_REM) {
+    for (oid, v) in table(LLDP_REM, "SNMP LLDP-MIB") {
         let &[column, _time, port, index] = suffix(&oid, LLDP_REM) else {
             continue;
         };
@@ -137,7 +157,7 @@ pub fn discover(client: &mut Client) -> Result<SnmpDevice> {
             _ => {}
         }
     }
-    for (oid, _) in table(LLDP_REM_ADDR) {
+    for (oid, _) in table(LLDP_REM_ADDR, "SNMP LLDP-MIB") {
         // timeMark.localPortNum.remIndex.addrSubtype.addrLen.address…
         let s = suffix(&oid, LLDP_REM_ADDR);
         if let [_, port, index, 1, 4, a, b, c, d] = *s
@@ -178,7 +198,7 @@ pub fn discover(client: &mut Client) -> Result<SnmpDevice> {
         .collect();
 
     // Forwarding table: MAC → bridge port → ifIndex → name. The VLAN-aware table first.
-    let bridge_if: HashMap<u32, u32> = table(BASE_PORT_IF)
+    let bridge_if: HashMap<u32, u32> = table(BASE_PORT_IF, "SNMP BRIDGE-MIB")
         .into_iter()
         .filter_map(|(oid, v)| {
             Some((
@@ -190,7 +210,7 @@ pub fn discover(client: &mut Client) -> Result<SnmpDevice> {
     let mut macs: Vec<MacEntry> = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for (root, vlan_first) in [(QFDB_PORT, true), (FDB_PORT, false)] {
-        for (oid, v) in table(root) {
+        for (oid, v) in table(root, "SNMP BRIDGE-MIB") {
             let s = suffix(&oid, root);
             let (vlan, mac) = match (vlan_first, s.len()) {
                 (true, 7) => (Some(s[0].to_string()), &s[1..]),
@@ -232,7 +252,7 @@ pub fn discover(client: &mut Client) -> Result<SnmpDevice> {
         }
     }
 
-    let arp: Vec<ArpEntry> = table(ARP_PHYS)
+    let arp: Vec<ArpEntry> = table(ARP_PHYS, "SNMP IP-MIB")
         .into_iter()
         .filter_map(|(oid, v)| {
             let &[_if, a, b, c, d] = suffix(&oid, ARP_PHYS) else {
@@ -258,6 +278,11 @@ pub fn discover(client: &mut Client) -> Result<SnmpDevice> {
             arp,
             own_vendor: own_mac.as_deref().and_then(oui::vendor).map(str::to_owned),
             own_mac,
+            gateway,
+            sources: {
+                sources.extend(answered.iter().map(|s| (*s).to_owned()));
+                sources
+            },
         },
         interfaces,
     })
@@ -306,6 +331,8 @@ mod tests {
         let mut c = Client::connect(agent.addr, "public").unwrap();
         let d = discover(&mut c).unwrap();
         assert_eq!(d.name.as_deref(), Some("dist-sw-01"));
+        assert_eq!(d.discovery.gateway.as_deref(), Some("10.0.0.2"));
+        assert!(d.discovery.sources.iter().any(|s| s.contains("LLDP")));
         assert_eq!(d.discovery.own_mac.as_deref(), Some("001122339500"));
         assert_eq!(d.interfaces.len(), 3);
         let n = &d.discovery.neighbors;

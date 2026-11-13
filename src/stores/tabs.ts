@@ -54,7 +54,7 @@ import { useLibrary } from './library';
 import { getSetting, useSettings } from './settings';
 import { toast } from './toasts';
 import { useUi } from './ui';
-import { addHistory } from '../lib/history';
+import { addHistory, historyKey } from '../lib/history';
 
 export interface OpenMeta {
   sessionId?: number | null;
@@ -111,6 +111,8 @@ interface TabsState {
   forgetHostKey(key?: string | null): void;
   resize(key: string, cols: number, rows: number): void;
 
+  /** Renames a tab (empty = back to its endpoint). Also the name in the Recent list. */
+  rename(key: string, name: string): void;
   /** Moves a tab to position `to` in the tab strip. */
   move(key: string, to: number): void;
   /** Moves the active tab one place left (-1) or right (+1). */
@@ -745,6 +747,24 @@ export const useTabs = create<TabsState>()((set, get) => {
           api.liveResize(cur.runtimeId, cols, rows).catch(() => {});
         }, 100),
       );
+    },
+
+    rename(key, name) {
+      const cur = tab(key);
+      if (!cur) return;
+      const clean = name.replace(/\s+/g, ' ').trim().slice(0, 80) || endpointLabel(cur.target);
+      if (clean === cur.name) return;
+      update(key, (x) => ({ ...x, name: clean }));
+      announce(key);
+      // The Recent list shows the name the user gave it.
+      const hist = getSetting('history.connections');
+      const k = historyKey(cur.target, cur.sessionId);
+      if (cur.sessionId === null && hist.some((h) => h.key === k)) {
+        useSettings.getState().set(
+          'history.connections',
+          hist.map((h) => (h.key === k ? { ...h, name: clean } : h)),
+        );
+      }
     },
 
     move(key, to) {

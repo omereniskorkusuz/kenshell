@@ -152,6 +152,13 @@ pub fn sample_mib(
             Value::Int(i64::from(*port)),
         );
     }
+    // Default route via the first ARP entry's address.
+    if let Some(([a, b, c, d], _)) = arp.first() {
+        m.insert(
+            oid("1.3.6.1.2.1.4.21.1.7.0.0.0.0"),
+            Value::Ip([*a, *b, *c, *d]),
+        );
+    }
     for ([a, b, c, d], address) in arp {
         m.insert(
             oid(&format!("1.3.6.1.2.1.4.22.1.2.1.{a}.{b}.{c}.{d}")),

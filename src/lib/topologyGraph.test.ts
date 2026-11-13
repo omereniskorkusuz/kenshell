@@ -31,6 +31,8 @@ const disc = (over: Partial<Discovery>): Discovery => ({
   arp: [],
   ownMac: null,
   ownVendor: null,
+  gateway: null,
+  sources: [],
   ...over,
 });
 const dev = (key: string, name: string, discovery: Discovery | null, host: string | null = null) =>
@@ -506,5 +508,53 @@ describe('other sources', () => {
     expect(between('d:c', 'd:x')).toHaveLength(1);
     expect(pickRoot(g)).toBe('d:c');
     expect(layoutGraph(g).extra).toHaveLength(0);
+  });
+
+  it('the gateway goes on top, whatever told us about it; every link says where it came from', () => {
+    const core = dev(
+      'c',
+      'core',
+      disc({
+        gateway: '10.0.100.1',
+        neighbors: [
+          nb({
+            name: 'edge',
+            localInterface: 'Te0/29',
+            remoteInterface: '1/1/27',
+            capability: 'Bridge',
+            lldp: true,
+            cdp: true,
+          }),
+        ],
+        macs: [{ mac: '6c62fec6e7e8', vlan: '1', interface: 'Te0/31', vendor: 'Router maker' }],
+        arp: [{ ip: '10.0.100.1', mac: '6c62fec6e7e8' }],
+      }),
+      '10.0.100.12',
+    );
+    const edge = dev('e', 'edge', disc({ gateway: '10.0.100.1' }), '10.0.100.16');
+    const seen = new Map([['6c62fec6e7e8', 1234]]);
+    const g = buildGraph([{ ...core, seen }, edge], { hosts: true });
+    const gw = g.nodes.find((n) => n.ip === '10.0.100.1');
+    // Learned on Te0/31 of the core: no longer a plain end device, and on top.
+    expect(gw).toMatchObject({ gateway: true, kind: 'router', seenAt: 1234 });
+    expect(g.nodes.filter((n) => n.gateway)).toHaveLength(1);
+    expect(pickRoot(g)).toBe(gw?.id);
+    const l = layoutGraph(g);
+    expect(l.pos.get(gw?.id ?? '')?.level).toBe(0);
+    expect(l.pos.get('d:c')?.level).toBe(1);
+    // Sources.
+    const up = g.edges.find((e) => e.b === gw?.id);
+    expect(up?.via).toEqual([{ how: 'mac', by: 'core' }]);
+    const trunk = g.edges.find((e) => e.a === 'd:c' && e.b === 'd:e');
+    expect(trunk?.via.map((v) => v.how).sort()).toEqual(['cdp', 'lldp']);
+
+    // A gateway nobody sees on a port: its own node, linked to the device that routes to it.
+    const g2 = buildGraph([dev('x', 'sw', disc({ gateway: '192.0.2.1' }), '192.0.2.10')], {
+      hosts: true,
+    });
+    const lone = g2.nodes.find((n) => n.id === 'gw:192.0.2.1');
+    expect(lone).toMatchObject({ gateway: true, kind: 'router' });
+    expect(g2.edges[0]?.via[0]?.how).toBe('route');
+    expect(pickRoot(g2)).toBe('gw:192.0.2.1');
   });
 });

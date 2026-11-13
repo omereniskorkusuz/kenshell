@@ -89,6 +89,14 @@ const CORE: Discovery = {
   ],
   ownMac: '001a2b0000c1',
   ownVendor: 'Example Systems',
+  gateway: '10.0.0.254',
+  sources: [
+    'show cdp neighbors detail',
+    'show lldp neighbors detail',
+    'show mac address-table',
+    'show ip arp',
+    'show ip route 0.0.0.0',
+  ],
 };
 
 const ACCESS3: Discovery = {
@@ -135,6 +143,13 @@ const ACCESS3: Discovery = {
   arp: [{ ip: '10.0.0.20', mac: '5869aa001111' }],
   ownMac: '5869aa001111',
   ownVendor: 'Example Networks Co.',
+  gateway: '10.0.0.1',
+  sources: [
+    'show lldp neighbors detail',
+    'show mac-address-table',
+    'show arp',
+    'show ip route 0.0.0.0',
+  ],
 };
 
 const OTHER: Discovery = {
@@ -154,6 +169,8 @@ const OTHER: Discovery = {
   arp: [],
   ownMac: null,
   ownVendor: null,
+  gateway: null,
+  sources: ['show lldp neighbors detail'],
 };
 
 export function mockDiscovery(host: string, hosts: boolean): Discovery {
@@ -194,6 +211,8 @@ export function mockSnmp(host: string): SnmpDevice {
       arp: [{ ip: '10.10.0.77', mac: '3c5a000000d5' }],
       ownMac: '001a2b0000d2',
       ownVendor: 'Example Systems',
+      gateway: '10.0.0.1',
+      sources: ['SNMP system', 'SNMP LLDP-MIB', 'SNMP BRIDGE-MIB', 'SNMP IP-MIB'],
     },
     interfaces: [
       [1, 'Te1/0/1'],

@@ -26,6 +26,16 @@ export interface DeviceInput {
   source?: 'session' | 'snmp';
   /** ifIndex → port name, when known (names the ports flow records refer to). */
   interfaces?: readonly (readonly [number, string])[];
+  /** When each learned MAC was last seen (ms), when the caller keeps a memory of them. */
+  seen?: ReadonlyMap<string, number> | undefined;
+}
+
+/** How a link or an end device became known. */
+export type ViaKind = 'lldp' | 'cdp' | 'snmp' | 'mac' | 'flow' | 'route';
+export interface Via {
+  how: ViaKind;
+  /** The device that reported it. */
+  by: string;
 }
 
 /** An address a flow exporter saw entering one of its ports. */
@@ -54,6 +64,10 @@ export interface TopoNode {
   source: NodeSource | null;
   /** `group` only: how many addresses were seen on the port. */
   count: number;
+  /** A device's default route points here. */
+  gateway?: boolean;
+  /** End devices: when last seen in a MAC table or a flow (ms). */
+  seenAt?: number | null;
 }
 
 export interface TopoEdge {
@@ -63,6 +77,8 @@ export interface TopoEdge {
   /** Port on `a` / on `b` (display form), when known. */
   aPort: string | null;
   bPort: string | null;
+  /** Every report of this link: which device told us, and how. */
+  via: Via[];
 }
 
 export interface TopoGraph {
@@ -124,6 +140,8 @@ interface Candidate {
   mac: string | null;
   ip: string | null;
   vendor: string | null;
+  via: Via;
+  at: number | null;
 }
 
 export function buildGraph(
@@ -199,8 +217,11 @@ export function buildGraph(
   const arp = new Map<string, string>();
   for (const d of devices) for (const e of d.discovery?.arp ?? []) arp.set(e.mac, e.ip);
 
-  const link = (a: string, aPort: string | null, b: string, bPort: string | null) => {
+  const link = (a: string, aPort: string | null, b: string, bPort: string | null, via: Via) => {
     if (a === b) return;
+    const note = (e: TopoEdge) => {
+      if (!e.via.some((v) => v.how === via.how && v.by === via.by)) e.via.push(via);
+    };
     const [ak, bk] = [portKey(aPort), portKey(bPort)];
     const fits = (x: string | null, y: string | null) => x === null || y === null || x === y;
     for (const e of edges) {
@@ -218,6 +239,7 @@ export function buildGraph(
         e.bPort = better(e.bPort, aPort);
         e.aPort = better(e.aPort, bPort);
       }
+      note(e);
       return;
     }
     edges.push({
@@ -226,6 +248,7 @@ export function buildGraph(
       b,
       aPort: portShort(aPort),
       bPort: portShort(bPort),
+      via: [via],
     });
   };
 
@@ -288,7 +311,12 @@ export function buildGraph(
       if (mac) byMac.set(mac, id);
       const pk = portKey(nb.localInterface);
       if (pk) used.add(pk);
-      link(self, nb.localInterface, id, nb.remoteInterface);
+      const by = nodes.get(self)?.name ?? '';
+      const how: ViaKind = d.source === 'snmp' ? 'snmp' : nb.cdp && !nb.lldp ? 'cdp' : 'lldp';
+      link(self, nb.localInterface, id, nb.remoteInterface, { how, by });
+      if (nb.cdp && nb.lldp && d.source !== 'snmp') {
+        link(self, nb.localInterface, id, nb.remoteInterface, { how: 'cdp', by });
+      }
     }
   }
 
@@ -313,6 +341,7 @@ export function buildGraph(
       if (again) {
         again.ip ??= c.ip;
         again.vendor ??= c.vendor;
+        if (c.at !== null && (again.at === null || c.at > again.at)) again.at = c.at;
       } else {
         g.seen.push({ ...c });
       }
@@ -320,8 +349,16 @@ export function buildGraph(
 
     for (const d of ordered) {
       const self = nodeOf.get(d.key) as string;
+      const by = nodes.get(self)?.name ?? '';
+      const how: ViaKind = d.source === 'snmp' ? 'snmp' : 'mac';
       for (const m of d.discovery?.macs ?? []) {
-        add(self, m.interface, { mac: m.mac, ip: arp.get(m.mac) ?? null, vendor: m.vendor });
+        add(self, m.interface, {
+          mac: m.mac,
+          ip: arp.get(m.mac) ?? null,
+          vendor: m.vendor,
+          via: { how, by },
+          at: d.seen?.get(m.mac) ?? null,
+        });
       }
     }
     for (const f of opts.flows ?? []) {
@@ -350,6 +387,8 @@ export function buildGraph(
         mac,
         ip: cleanIp(f.ip) ?? (mac ? (arp.get(mac) ?? null) : null),
         vendor: f.vendor,
+        via: { how: 'flow', by: nodes.get(id)?.name ?? agent },
+        at: null,
       });
     }
 
@@ -369,7 +408,7 @@ export function buildGraph(
             source: null,
             count: g.seen.length,
           });
-          link(self, g.port, id, null);
+          link(self, g.port, id, null, g.seen[0]?.via ?? { how: 'mac', by: '' });
           continue;
         }
         for (const c of g.seen) {
@@ -387,11 +426,49 @@ export function buildGraph(
             tabKey: null,
             source: null,
             count: 0,
+            seenAt: c.at,
           });
-          link(self, g.port, id, null);
+          link(self, g.port, id, null, c.via);
         }
       }
     }
+  }
+
+  // 4. Gateways: where the devices' default routes point. Found among what is already on
+  //    the map (by address, or by the MAC the address resolves to); otherwise a node of
+  //    its own, hung off the devices that route to it.
+  const macOfIp = new Map<string, string>();
+  for (const [m, ip] of arp) macOfIp.set(ip, m);
+  for (const d of ordered) {
+    const gw = cleanIp(d.discovery?.gateway);
+    if (!gw) continue;
+    const self = nodeOf.get(d.key) as string;
+    const gmac = macOfIp.get(gw);
+    let id =
+      byIp.get(gw) ??
+      [...nodes.values()].find((n) => n.ip === gw)?.id ??
+      (gmac ? (byMac.get(gmac) ?? (nodes.has(`h:${gmac}`) ? `h:${gmac}` : undefined)) : undefined);
+    if (id === self) continue;
+    if (!id) {
+      id = `gw:${gw}`;
+      nodes.set(id, {
+        id,
+        name: gw,
+        kind: 'router',
+        ip: gw,
+        vendor: null,
+        model: null,
+        mac: gmac ?? null,
+        tabKey: null,
+        source: null,
+        count: 0,
+      });
+      link(self, null, id, null, { how: 'route', by: nodes.get(self)?.name ?? '' });
+    }
+    const n = nodes.get(id) as TopoNode;
+    n.gateway = true;
+    n.ip ??= gw;
+    if (n.kind === 'host' || n.kind === 'group') n.kind = 'router';
   }
 
   return { nodes: [...nodes.values()], edges };
@@ -455,6 +532,7 @@ export function pickRoot(graph: TopoGraph, among?: ReadonlySet<string>): string 
   for (const n of graph.nodes) {
     if (among && !among.has(n.id)) continue;
     const score =
+      (n.gateway ? 1_000_000 : 0) +
       rank[n.kind] * 10_000 +
       (infra.get(n.id) ?? 0) * 100 +
       (degree.get(n.id) ?? 0) * 2 +

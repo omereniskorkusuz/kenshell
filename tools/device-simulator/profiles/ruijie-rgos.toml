@@ -248,3 +248,11 @@ Protocol  Address          Age(min)  Hardware        Type   Interface
 Internet  10.0.0.12        --        5869.6c00.1111  arpa   VLAN 1
 Internet  10.0.0.1         12        0011.2233.4400  arpa   VLAN 1
 """
+
+[[commands]]
+words = ["show", "ip", "route", "0.0.0.0"]
+output = """
+Codes:  C - Connected, L - Local, S - Static
+Gateway of last resort is 10.0.0.1 to network 0.0.0.0
+S*    0.0.0.0/0 [1/0] via 10.0.0.1
+"""
