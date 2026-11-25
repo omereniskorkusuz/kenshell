@@ -348,3 +348,8 @@ The source code is published so you can read it and see how KenShell works. No l
 granted: you may not copy, modify, redistribute or reuse it, in whole or in part, without
 my written permission. You are welcome to download and use the released app. Bug reports
 and ideas are welcome as issues; changes to the code are made only by me.
+
+KenShell uses open-source libraries, which remain under their own licences (see
+`package.json` and `src-tauri/Cargo.toml`). PuTTY, SecureCRT, MobaXterm and other product
+names mentioned here are trademarks of their respective owners; they are named only to
+describe compatibility, and KenShell is not affiliated with or endorsed by them.
