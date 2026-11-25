@@ -6,3 +6,4 @@ package-lock.json
 *.md
 # local tool config
 .cl*/
+kenshell

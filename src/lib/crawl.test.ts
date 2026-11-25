@@ -26,13 +26,7 @@ const disc = (neighbors: Neighbor[], gateway: string | null = null): Discovery =
 
 describe('automatic discovery', () => {
   it('only private, ordinary addresses', () => {
-    for (const ip of [
-      '10.0.100.12',
-      '172.16.0.1',
-      '172.31.255.254',
-      '192.168.1.1',
-      '100.64.0.9',
-    ]) {
+    for (const ip of ['10.0.100.12', '172.16.0.1', '172.31.255.254', '192.168.1.1', '100.64.0.9']) {
       expect(crawlable(ip)).toBe(true);
     }
     for (const ip of [
