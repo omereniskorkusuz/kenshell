@@ -955,8 +955,8 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
           .slice(0, 6)
           .toLowerCase();
         const demo: Record<string, string> = {
-          '00000c': 'Cisco Systems',
-          '58696c': 'Ruijie Networks',
+          '00000c': 'Example Systems',
+          '58696c': 'Example Networks Co.',
         };
         return { vendor: demo[hex] ?? null, tableSize: 3 };
       }
@@ -1623,10 +1623,10 @@ export async function netscanRun(
     200: { ports: [443], mac: 'b8:27:eb:11:22:33', rtt: 14.2 },
   };
   const vendors: Record<number, string> = {
-    1: 'Ruijie Networks',
-    2: 'Cisco Systems',
-    3: 'Ruijie Networks',
-    11: 'Apple',
+    1: 'Example Networks Co.',
+    2: 'Example Systems',
+    3: 'Example Networks Co.',
+    11: 'Example Devices',
   };
   const result: ScanResult = {
     range: { first: `${base}1`, last: `${base}254` },

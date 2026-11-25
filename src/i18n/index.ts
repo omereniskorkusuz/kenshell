@@ -37,7 +37,8 @@ export function detectLocale(languages: readonly string[]): Locale {
   return 'en';
 }
 
-let current: Locale = detectLocale(typeof navigator === 'undefined' ? [] : navigator.languages);
+/** English until the language setting is applied (the default setting is English too). */
+let current: Locale = 'en';
 const listeners = new Set<() => void>();
 
 export function getLocale(): Locale {

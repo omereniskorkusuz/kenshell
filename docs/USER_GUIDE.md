@@ -442,7 +442,7 @@ Open with **⌘,**. Changes apply immediately.
 | Section | Highlights |
 | --- | --- |
 | **Appearance** | Theme (dark, light, system), mode stripe width, mode colours per device type. |
-| **Language** | English or Turkish. On first launch, the system language is used. |
+| **Language** | English (the default) or Turkish; **System** follows the computer's language. |
 | **Terminal** | Font, size, line spacing, cursor, output colouring categories, autocomplete, `--More--` handling, scrollback, copy on select, right-click paste, charset, line timestamps, renderer. |
 | **Connection** | SSH defaults (keepalive, legacy algorithms), paste delay, identifying devices after login. |
 | **Logins** | Credential profiles. |

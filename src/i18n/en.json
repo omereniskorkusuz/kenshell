@@ -1175,7 +1175,7 @@
     "title": "Topology",
     "open": "Topology map",
     "closeTab": "Close the topology map",
-    "summary": "{{devices}} devices · {{links}} links · from {{sessions}} open sessions",
+    "summary": "Devices: {{devices}} · links: {{links}} · from open sessions: {{sessions}}",
     "reading_one": "Reading {{count}} device…",
     "reading_other": "Reading {{count}} devices…",
     "noSessions": "Connect to a switch or router first. The map is built from your open sessions: their neighbours (LLDP / CDP), MAC and ARP tables, read with hidden read-only commands.",

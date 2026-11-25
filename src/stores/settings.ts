@@ -96,7 +96,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   'appearance.theme': 'dark',
   'appearance.modeStripeWidth': 4,
   'appearance.colors': NO_COLORS,
-  'general.language': 'system',
+  // English by default; Turkish (or the system language) is one click away in Settings.
+  'general.language': 'en',
   'terminal.fontSize': 13,
   'terminal.scrollback': 10_000,
   'terminal.fontFamily': '',

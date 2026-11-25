@@ -7,7 +7,7 @@
 <p align="center">
   <b>The terminal that knows it is talking to a switch.</b><br/>
   SSH, Telnet and serial console in one small, fast desktop app,<br/>
-  with a built-in CLI analyzer for switches, routers and firewalls.
+  with a CLI analyzer, a topology map and a network scanner built in.
 </p>
 
 <p align="center">
@@ -19,35 +19,81 @@
 <p align="center">
   <a href="#download-and-install"><b>Download</b></a> ·
   <a href="docs/USER_GUIDE.md"><b>User Guide</b></a> ·
+  <a href="#a-quick-tour"><b>Tour</b></a> ·
   <a href="#features"><b>Features</b></a> ·
   <a href="#for-developers"><b>For developers</b></a>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshot-home.png" width="860" alt="KenShell start screen with saved sessions and a detected USB console" />
+  <img src="docs/assets/screenshot-session-analyzer.png" width="900" alt="A switch session in KenShell: privileged mode and PROD tags in the identity bar, a show command in the terminal and the same output as a table in the analyzer panel" />
 </p>
 
-KenShell is a lightweight network terminal for network engineers. It combines what you
-would normally use PuTTY or SecureCRT for (connecting to devices) with what you would use
-a CLI analyzer for (understanding their output). Plug in a console cable and you're on the
-device in seconds. Open an SSH session and KenShell tells you which device it is, which CLI
-mode you're in, and whether it's production. Run a `show` command and get a sortable table.
+## Why I built KenShell
 
-## Why KenShell
+I'm a network engineer. On a normal day I'm on a dozen switches, routers, firewalls and
+access points from several manufacturers, half of them over SSH and the other half through
+a console cable in a cold server room. For years that meant PuTTY or SecureCRT for the
+connection, a separate tool to make sense of the output, a spreadsheet for free IPs and a
+whiteboard for the topology.
 
-Most terminal emulators treat a switch like any other Unix host. KenShell knows it is talking
-to network gear:
+KenShell is the tool I wanted instead: one small, fast desktop app that knows it is talking
+to network gear. Plug in a console cable and I'm on the device in seconds. Open an SSH
+session and it tells me which device it is, which CLI mode I'm in and whether it's
+production. Run a `show` command and I get a sortable table. Open the topology tab and it
+draws how my switches are cabled together. Scan a VLAN and I see what is alive and which
+addresses are free.
 
-- **Plug-and-connect USB console.** Plug in a console cable and the port shows up in the
-  sidebar with its chip (FTDI, Prolific, CP210x, CH340 …). KenShell detects the baud rate
-  automatically, and tells you when a driver is missing.
-- **You always know where you are.** Every session shows its connection identity (protocol,
-  target, device hostname, model, OS version) and a colour stripe for the current CLI mode:
-  user, privileged, config, boot or shell. Production sessions are tagged so you don't mistake
-  them for lab gear.
-- **Knows the major network CLIs.** It recognises the prompts and modes of the common
-  switch, router and firewall operating systems.
-- **Small and fast.** Starts in a quarter of a second and stays under 100 MB of memory.
+It runs on macOS, Windows and Linux. The interface is in English, with Turkish one click
+away in **Settings → Language**.
+
+## A quick tour
+
+### Sessions that know where you are
+
+Every session shows its connection identity (protocol, target, device name, model, OS
+version) and a colour for the current CLI mode: user, privileged, config, boot or shell.
+Production sessions carry a **PROD** tag so I never mistake them for lab gear. The analyzer
+panel turns the last `show` output into a table I can filter, sort and export.
+
+### Topology map
+
+<p align="center">
+  <img src="docs/assets/screenshot-topology.png" width="900" alt="KenShell topology map: the gateway firewall on top, the core switch under it and access switches, an access point and end devices below, with the port on each end of every cable" />
+</p>
+
+The **Topology** tab draws my network as a hierarchy: the gateway on top, then the core,
+then the access layer, each device as its own card with its type, model and IP, and the
+port on both ends of every cable. It reads LLDP / CDP neighbours, MAC and ARP tables from
+the sessions I have open, with hidden read-only commands. With SNMP (v2c or v3) it doesn't
+even need a session: starting from one device it follows the neighbours until it has the
+whole network. An sFlow / NetFlow collector adds the end devices. **Device setup** shows the
+exact commands to enable LLDP, SNMP and flow export on each device type.
+
+### Network scanner
+
+<p align="center">
+  <img src="docs/assets/screenshot-scan-grid.png" width="440" alt="Scan results as a grid: used, probably free, this computer and the gateway" />
+  &nbsp;
+  <img src="docs/assets/screenshot-scan-list.png" width="440" alt="Scan results as a list with response time, host name, MAC, vendor and open ports" />
+</p>
+
+**Scan my network** finds what is alive on my own subnet or on a private network behind a
+router, such as a switch management VLAN (up to a /16). It pings at a steady 2000 packets a
+second, so a /24 takes a few seconds, and also knocks on the management ports (SSH, Telnet,
+web, RDP) to catch devices that ignore ping. I get response times, MAC addresses, vendors,
+DNS or NetBIOS names, a grid of used and free addresses, search, CSV export, and the last
+20 scans saved. It is discovery only: no vulnerability scanning, no password guessing, and
+only private address ranges.
+
+### Plug-and-connect console
+
+<p align="center">
+  <img src="docs/assets/screenshot-home.png" width="900" alt="KenShell start screen with saved sessions, a detected USB console cable and a driver hint" />
+</p>
+
+Plug in a console cable and it appears in the sidebar with its chip and the last baud rate
+that worked. KenShell detects the baud rate automatically and tells me when a driver is
+missing, with a link to the official driver page.
 
 ## Features
 
@@ -111,22 +157,23 @@ to network gear:
   traceroute.
 
 **App**
-- **Interface:** dark, light or system theme, English and Turkish, customisable shortcuts,
+- **Interface:** dark, light or system theme, English (default) and Turkish, customisable shortcuts,
   a command palette for every action, and accessible keyboard navigation.
 - **Updates:** a small card announces a new version; nothing installs until you click it.
 - **Privacy:** no telemetry. Passwords and secrets never reach logs, the database or exports.
 
 ## Performance
 
-KenShell is built to stay out of your way, even on an old laptop in a cold server room.
+I wanted it to stay out of my way, even on an old laptop during a site visit, so speed and
+size are hard limits checked on every build, not wishes.
 
 | Measure (macOS arm64 release build) | Result   | Budget  |
 | ----------------------------------- | -------- | ------- |
-| Cold start (median)                 | 265 ms   | < 1 s   |
-| Idle memory                         | 84.3 MB  | < 100 MB |
-| Extra memory per open session       | 3.3 MB   | < 15 MB |
+| Cold start (median)                 | 295 ms   | < 1 s   |
+| Idle memory                         | 94 MB    | < 100 MB |
+| Extra memory per open session       | ~5 MB    | < 15 MB |
 | Installer (dmg)                     | 7.05 MB  | < 15 MB |
-| JavaScript (gzipped)                | 435.1 KB | < 500 KB |
+| JavaScript (gzipped)                | 463.7 KB | < 500 KB |
 
 ## Download and install
 
@@ -295,5 +342,9 @@ only through typed IPC commands and event channels.
 
 ## License
 
-Copyright © 2026 omereniskorkusuz. All rights reserved. This repository is private; no licence
-is granted to use, copy or distribute the code.
+Copyright © 2026 omereniskorkusuz. All rights reserved.
+
+The source code is published so you can read it and see how KenShell works. No licence is
+granted: you may not copy, modify, redistribute or reuse it, in whole or in part, without
+my written permission. You are welcome to download and use the released app. Bug reports
+and ideas are welcome as issues; changes to the code are made only by me.
