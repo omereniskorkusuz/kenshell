@@ -77,6 +77,69 @@ impl SecretStore for Keychain {
     }
 }
 
+/// Keychain accounts read again and again by background work (the topology map reads the
+/// SNMP credentials for every device, every refresh). macOS asks the user each time an
+/// app it does not trust yet reads an item, so these are read once per run and kept in
+/// memory; session passwords are not (they are read once per connect anyway).
+fn cached_account(account: &str) -> bool {
+    account.starts_with("snmp-")
+}
+
+/// A store that remembers [`cached_account`] values (and their absence) for the run.
+pub struct Cached<S> {
+    inner: S,
+    memory: std::sync::Mutex<std::collections::HashMap<String, Option<Secret>>>,
+}
+
+impl<S: SecretStore> Cached<S> {
+    pub fn new(inner: S) -> Self {
+        Self {
+            inner,
+            memory: std::sync::Mutex::default(),
+        }
+    }
+
+    fn memory(
+        &self,
+    ) -> std::sync::MutexGuard<'_, std::collections::HashMap<String, Option<Secret>>> {
+        self.memory
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+}
+
+impl<S: SecretStore> SecretStore for Cached<S> {
+    fn get(&self, account: &str) -> Result<Option<Secret>> {
+        if !cached_account(account) {
+            return self.inner.get(account);
+        }
+        if let Some(known) = self.memory().get(account) {
+            return Ok(known.clone());
+        }
+        // An error (e.g. the user denied access) is not remembered: asked again next time.
+        let value = self.inner.get(account)?;
+        self.memory().insert(account.to_owned(), value.clone());
+        Ok(value)
+    }
+
+    fn set(&self, account: &str, secret: &str) -> Result<()> {
+        self.inner.set(account, secret)?;
+        if cached_account(account) {
+            self.memory()
+                .insert(account.to_owned(), Some(Zeroizing::new(secret.to_owned())));
+        }
+        Ok(())
+    }
+
+    fn delete(&self, account: &str) -> Result<()> {
+        self.inner.delete(account)?;
+        if cached_account(account) {
+            self.memory().insert(account.to_owned(), None);
+        }
+        Ok(())
+    }
+}
+
 /// In-memory store: tests, and self-check runs (`bench/check-topology.mjs`), which must
 /// never touch the user's keychain.
 #[derive(Default)]
@@ -122,6 +185,45 @@ impl fmt::Debug for Credentials {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Counts reads that reach the underlying store.
+    #[derive(Default)]
+    struct Counting(MemoryStore, std::sync::atomic::AtomicUsize);
+    impl SecretStore for Counting {
+        fn get(&self, account: &str) -> Result<Option<Secret>> {
+            self.1.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.0.get(account)
+        }
+        fn set(&self, account: &str, secret: &str) -> Result<()> {
+            self.0.set(account, secret)
+        }
+        fn delete(&self, account: &str) -> Result<()> {
+            self.0.delete(account)
+        }
+    }
+
+    #[test]
+    fn snmp_credentials_are_read_from_the_keychain_once_per_run() {
+        let c = Cached::new(Counting::default());
+        let reads = || c.inner.1.load(std::sync::atomic::Ordering::Relaxed);
+        for _ in 0..5 {
+            assert!(c.get("snmp-v3").unwrap().is_none());
+        }
+        assert_eq!(reads(), 1, "absence is remembered too");
+        c.set("snmp-v3", "x").unwrap();
+        assert_eq!(
+            c.get("snmp-v3").unwrap().as_deref().map(String::as_str),
+            Some("x")
+        );
+        c.delete("snmp-v3").unwrap();
+        assert!(c.get("snmp-v3").unwrap().is_none());
+        assert_eq!(reads(), 1);
+        // Session passwords always go to the keychain.
+        c.set("session:1", "p").unwrap();
+        c.get("session:1").unwrap();
+        c.get("session:1").unwrap();
+        assert_eq!(reads(), 3);
+    }
 
     #[test]
     fn debug_and_errors_never_show_the_password() {

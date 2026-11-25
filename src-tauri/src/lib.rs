@@ -233,7 +233,7 @@ pub fn run() {
             let secrets: Arc<dyn secrets::SecretStore> = if check_dir.is_some() {
                 Arc::new(secrets::MemoryStore::default())
             } else {
-                Arc::new(secrets::Keychain)
+                Arc::new(secrets::Cached::new(secrets::Keychain))
             };
             let sessions = Arc::new(SessionManager::new(
                 Arc::clone(&db),
