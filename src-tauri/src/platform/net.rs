@@ -253,56 +253,72 @@ pub fn is_echo_reply(packet: &[u8]) -> bool {
     icmp.first() == Some(&0)
 }
 
-/// Sends one echo request to every address and collects who answers within `wait`
-/// after the last send. None when this OS / user cannot open an unprivileged ICMP
-/// socket (Windows, or Linux with a restrictive `ping_group_range`): the scanner then
-/// relies on TCP and the ARP table. Blocking.
+/// Echo requests per second of the sweep: fast enough for a /16 in about half a minute,
+/// slow enough for small switches and firewalls not to drop the burst.
+pub const SWEEP_RATE: u32 = 2000;
+
+/// Sends one echo request to every address, paced at [`SWEEP_RATE`], and returns who
+/// answered within `wait` after the last send, with the round-trip time. `sent` is told
+/// how many requests went out so far. None when this OS / user cannot open an
+/// unprivileged ICMP socket (Windows, or Linux with a restrictive `ping_group_range`):
+/// the scanner then falls back to [`ping_once`]. Blocking.
 #[cfg(unix)]
 pub fn icmp_sweep(
     hosts: &[Ipv4Addr],
     wait: Duration,
     cancel: &std::sync::atomic::AtomicBool,
-) -> Option<std::collections::HashSet<Ipv4Addr>> {
+    sent: &(dyn Fn(u64) + Send + Sync),
+) -> Option<std::collections::HashMap<Ipv4Addr, Duration>> {
     use socket2::{Domain, Protocol, Socket, Type};
+    use std::collections::HashMap;
     use std::sync::atomic::Ordering;
     use std::time::Instant;
 
     let sock = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::ICMPV4)).ok()?;
-    sock.set_read_timeout(Some(Duration::from_millis(20)))
-        .ok()?;
+    sock.set_nonblocking(true).ok()?;
     // A datagram socket: std's UdpSocket reads it safely (recv_from on the same fd).
     let sock = std::net::UdpSocket::from(sock);
     let ident = (std::process::id() & 0xffff) as u16;
-    let mut alive = std::collections::HashSet::new();
+    let mut sent_at: HashMap<Ipv4Addr, Instant> = HashMap::with_capacity(hosts.len());
+    let mut alive: HashMap<Ipv4Addr, Duration> = HashMap::new();
     let mut buf = [0u8; 1500];
-    let mut drain = |sock: &std::net::UdpSocket,
-                     alive: &mut std::collections::HashSet<Ipv4Addr>| {
+    let mut drain = |sent_at: &HashMap<Ipv4Addr, Instant>,
+                     alive: &mut HashMap<Ipv4Addr, Duration>| {
         while let Ok((n, from)) = sock.recv_from(&mut buf) {
             if is_echo_reply(&buf[..n])
                 && let std::net::SocketAddr::V4(a) = from
-                && hosts.contains(a.ip())
+                && let Some(t) = sent_at.get(a.ip())
             {
-                alive.insert(*a.ip());
+                alive.entry(*a.ip()).or_insert_with(|| t.elapsed());
             }
         }
     };
+    let start = Instant::now();
+    let step = Duration::from_secs(1) / SWEEP_RATE;
     for (i, ip) in hosts.iter().enumerate() {
         if cancel.load(Ordering::Relaxed) {
             return Some(alive);
         }
+        sent_at.insert(*ip, Instant::now());
         let _ = sock.send_to(
             &echo_request(ident, i as u16),
             std::net::SocketAddrV4::new(*ip, 0),
         );
-        // A short pause every few packets keeps the burst polite; answers are read
-        // while sending.
-        if i % 16 == 15 {
-            drain(&sock, &mut alive);
+        // Pace in slices of 20 packets (10 ms), reading answers in between.
+        if i % 20 == 19 {
+            drain(&sent_at, &mut alive);
+            sent(i as u64 + 1);
+            let due = start + step * (i as u32 + 1);
+            if let Some(rest) = due.checked_duration_since(Instant::now()) {
+                std::thread::sleep(rest);
+            }
         }
     }
+    sent(hosts.len() as u64);
     let end = Instant::now() + wait;
     while Instant::now() < end && !cancel.load(Ordering::Relaxed) {
-        drain(&sock, &mut alive);
+        drain(&sent_at, &mut alive);
+        std::thread::sleep(Duration::from_millis(10));
     }
     Some(alive)
 }
@@ -312,9 +328,43 @@ pub fn icmp_sweep(
     _hosts: &[Ipv4Addr],
     _wait: Duration,
     _cancel: &std::sync::atomic::AtomicBool,
-) -> Option<std::collections::HashSet<Ipv4Addr>> {
-    // Unprivileged ICMP needs IcmpSendEcho on Windows (Known Issues); TCP + ARP cover it.
+    _sent: &(dyn Fn(u64) + Send + Sync),
+) -> Option<std::collections::HashMap<Ipv4Addr, Duration>> {
+    // Unprivileged ICMP sockets do not exist on Windows: the system ping is used instead.
     None
+}
+
+/// The round-trip time in a ping reply line, in any language: the number before `ms`
+/// after `=` or `<` (`time=1.23 ms`, `Zeit<1ms`, `süre=12ms`). `<1ms` counts as 0.
+pub fn parse_ping_time(text: &str) -> Option<Duration> {
+    for line in text.lines() {
+        let mut rest = line;
+        while let Some(at) = rest.find(['=', '<']) {
+            let after = rest[at + 1..].trim_start();
+            let num: String = after
+                .chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.' || *c == ',')
+                .collect();
+            let tail = after[num.len()..].trim_start();
+            if !num.is_empty() && tail.starts_with("ms") {
+                let ms: f64 = num.replace(',', ".").parse().ok()?;
+                let ms = if rest.as_bytes()[at] == b'<' { 0.0 } else { ms };
+                return Some(Duration::from_secs_f64(ms / 1000.0));
+            }
+            rest = &rest[at + 1..];
+        }
+    }
+    None
+}
+
+/// One echo through the system `ping` (the fallback when no ICMP socket can be opened).
+/// Only a reply with a round-trip time counts: Windows ping also "succeeds" on a
+/// router's "destination host unreachable". Blocking.
+pub fn ping_once(ip: Ipv4Addr, timeout: Duration) -> Option<Duration> {
+    let ms = u32::try_from(timeout.as_millis()).unwrap_or(1000);
+    let probe = super::diag::ping(super::diag::OS, &ip.to_string(), Some(1), ms);
+    let args: Vec<&str> = probe.args.iter().map(String::as_str).collect();
+    parse_ping_time(&run(probe.program, &args)?)
 }
 
 #[cfg(test)]
@@ -372,6 +422,23 @@ mod tests {
     }
 
     #[test]
+    fn ping_times_in_any_language() {
+        let ms = |n: f64| Some(Duration::from_secs_f64(n / 1000.0));
+        let mac = "64 bytes from 10.0.0.1: icmp_seq=0 ttl=64 time=1.234 ms";
+        assert_eq!(parse_ping_time(mac), ms(1.234));
+        let win = "Reply from 10.0.0.1: bytes=32 time=12ms TTL=64";
+        assert_eq!(parse_ping_time(win), ms(12.0));
+        let win_tr = "10.0.0.1 yanıtı: bayt=32 süre<1ms TTL=64";
+        assert_eq!(parse_ping_time(win_tr), Some(Duration::ZERO));
+        let de = "Antwort von 10.0.0.1: Bytes=32 Zeit=3ms TTL=64";
+        assert_eq!(parse_ping_time(de), ms(3.0));
+        // A router's "unreachable" reply has no time: not alive.
+        let unreachable = "Reply from 10.0.0.254: Destination host unreachable.";
+        assert_eq!(parse_ping_time(unreachable), None);
+        assert_eq!(parse_ping_time("TTL=64 bytes=32"), None);
+    }
+
+    #[test]
     fn icmp_packets() {
         let p = echo_request(0x1234, 7);
         assert_eq!(&p[..2], &[8, 0]);
@@ -398,8 +465,9 @@ mod tests {
             let cancel = std::sync::atomic::AtomicBool::new(false);
             println!(
                 "icmp: {:?}",
-                icmp_sweep(&[gw], Duration::from_millis(800), &cancel)
+                icmp_sweep(&[gw], Duration::from_millis(800), &cancel, &|_| {})
             );
+            println!("ping: {:?}", ping_once(gw, Duration::from_secs(1)));
             println!("rdns: {:?}", reverse_dns(gw));
         }
         println!("arp entries: {}", arp_table().len());

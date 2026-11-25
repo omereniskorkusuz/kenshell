@@ -7,9 +7,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use serde::Serialize;
 use tauri::ipc::Channel;
 
-use crate::netscan::probe::{self, NetProber, Progress, ScanResult};
+use tauri::State;
 
+use crate::netscan::probe::{self, NetProber, Options, Plan, Progress, ScanResult};
 use crate::netscan::scope::{self, LocalNet, Range, ScopeError};
+use crate::state::AppState;
+use crate::storage::ScanSummary;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,6 +21,8 @@ pub struct Networks {
     /// The first network's default target (its /24, or the subnet when smaller).
     pub default_target: Option<String>,
     pub max_addresses: u32,
+    /// Up to this many addresses every address also gets TCP connects.
+    pub full_tcp_limit: u64,
     pub concurrency: usize,
     pub ports: Vec<u16>,
     /// Prefixes in the embedded MAC vendor table (P4-T15).
@@ -33,7 +38,8 @@ pub struct NetworkView {
     pub default_target: String,
 }
 
-/// This computer's scannable subnets (private / link-local, directly connected).
+/// This computer's connected private / link-local subnets (routed private networks can be
+/// typed in as well).
 #[tauri::command]
 pub fn netscan_networks() -> Networks {
     let networks: Vec<NetworkView> = scope::local_networks()
@@ -48,6 +54,7 @@ pub fn netscan_networks() -> Networks {
         default_target: networks.first().map(|n| n.default_target.clone()),
         networks,
         max_addresses: scope::MAX_ADDRESSES,
+        full_tcp_limit: scope::FULL_TCP_LIMIT,
         concurrency: scope::CONCURRENCY,
         ports: scope::PORTS.to_vec(),
         oui_size: crate::netscan::oui::size(),
@@ -75,7 +82,10 @@ pub fn oui_lookup(mac: String) -> OuiLookup {
 pub struct CheckResult {
     pub range: Range,
     pub count: u64,
-    pub iface: String,
+    /// The connected interface; None = a routed network (through the gateway, no ARP).
+    pub iface: Option<String>,
+    /// Every address also gets TCP connects (otherwise only those that answer ping).
+    pub full_tcp: bool,
 }
 
 /// Whether `target` may be scanned (and how many addresses), or why not.
@@ -84,8 +94,9 @@ pub fn netscan_check(target: String) -> Result<CheckResult, ScopeError> {
     let (range, net) = scope::check(&target, &scope::local_networks())?;
     Ok(CheckResult {
         count: range.len(),
+        full_tcp: range.len() <= scope::FULL_TCP_LIMIT,
         range,
-        iface: net.iface,
+        iface: net.map(|n| n.iface),
     })
 }
 
@@ -104,10 +115,12 @@ pub enum ScanError {
 }
 
 /// Scans `target` (checked against the scope rules here, whatever the UI did). Progress
-/// goes to `on_progress`; the result is returned at the end.
+/// goes to `on_progress`; the result is returned at the end and saved to the history.
 #[tauri::command]
 pub async fn netscan_run(
+    state: State<'_, AppState>,
     target: String,
+    options: Options,
     on_progress: Channel<Progress>,
 ) -> Result<ScanResult, ScanError> {
     let (range, net) = scope::check(&target, &scope::local_networks())
@@ -119,21 +132,43 @@ pub async fn netscan_run(
     let gateway = tauri::async_runtime::spawn_blocking(crate::platform::net::default_gateway)
         .await
         .ok()
-        .flatten()
-        .filter(|g| net.contains(*g));
-    let result = probe::run(
+        .flatten();
+    let plan = Plan {
         range,
-        net.ip,
+        own: net.as_ref().map(|n: &LocalNet| n.ip),
         gateway,
-        Arc::new(NetProber),
-        Arc::clone(&CANCEL),
-        |p| {
-            let _ = on_progress.send(p);
-        },
-    )
+        options,
+    };
+    let result = probe::run(plan, Arc::new(NetProber), Arc::clone(&CANCEL), |p| {
+        let _ = on_progress.send(p);
+    })
     .await;
     RUNNING.store(false, Ordering::SeqCst);
+    // A history failure must not lose the result on screen.
+    if let Err(e) = state.db.add_scan(&target, &result) {
+        tracing::warn!(code = ?e.code, "could not save the scan to the history");
+    }
     Ok(result)
+}
+
+/// The saved scans, newest first.
+#[tauri::command]
+pub fn netscan_history(state: State<'_, AppState>) -> crate::error::Result<Vec<ScanSummary>> {
+    state.db.list_scans()
+}
+
+/// One saved scan's result.
+#[tauri::command]
+pub fn netscan_history_get(
+    state: State<'_, AppState>,
+    id: i64,
+) -> crate::error::Result<Option<ScanResult>> {
+    state.db.get_scan(id)
+}
+
+#[tauri::command]
+pub fn netscan_history_delete(state: State<'_, AppState>, id: i64) -> crate::error::Result<()> {
+    state.db.delete_scan(id)
 }
 
 /// Stops the running scan (results so far are returned).

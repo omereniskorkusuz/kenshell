@@ -92,8 +92,10 @@ to network gear:
   (v2c and v3) with automatic discovery follows the neighbours from one device to the
   whole network; an sFlow / NetFlow collector adds the end devices.
 - **Multi-device:** run read-only commands on many devices at once.
-- **Network scanner:** ICMP, the ARP table, TCP 22/23/80/443/3389 and reverse DNS, with
-  vendor names from the built-in IEEE OUI table.
+- **Network scanner:** connected and routed private networks up to a /16; a paced ICMP
+  sweep with response times (system ping as fallback), the ARP table, TCP
+  22/23/80/443/3389, reverse DNS and NetBIOS names, vendor names from the built-in IEEE OUI
+  table, search, CSV and the last 20 scans saved.
 
 **Notes and snippets**
 - **Device notes:** Markdown, pinnable, searchable, and linked to interfaces

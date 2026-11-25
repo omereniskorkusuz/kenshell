@@ -5,9 +5,12 @@ use std::net::Ipv4Addr;
 
 use serde::Serialize;
 
-/// Largest scan: a /22 (1024 addresses).
-pub const MAX_PREFIX_WIDTH: u8 = 22;
+/// Largest scan: a /16 (65 536 addresses).
+pub const MAX_PREFIX_WIDTH: u8 = 16;
 pub const MAX_ADDRESSES: u32 = 1 << (32 - MAX_PREFIX_WIDTH as u32);
+/// Up to this many addresses every address also gets TCP connects (finds devices that
+/// ignore ping); a wider scan pings first and connects only to those that answered.
+pub const FULL_TCP_LIMIT: u64 = 1024;
 /// Parallel probes (spec: default 64).
 pub const CONCURRENCY: usize = 64;
 /// Management ports tried with a plain TCP connect (discovery only).
@@ -35,7 +38,7 @@ impl LocalNet {
 }
 
 /// A requested range, inclusive.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Range {
     pub first: Ipv4Addr,
@@ -58,9 +61,7 @@ pub enum ScopeError {
     Invalid,
     /// Outside 10/8, 172.16/12, 192.168/16, 169.254/16.
     NotPrivate,
-    /// Not inside a subnet this computer is directly connected to.
-    NotConnected,
-    /// Wider than a /22.
+    /// Wider than a /16.
     TooLarge,
 }
 
@@ -88,9 +89,13 @@ pub fn allowed(a: Ipv4Addr) -> bool {
     a.is_private() || a.is_link_local()
 }
 
-/// `192.168.1.0/24`, `192.168.1.7`, `192.168.1.10-50`, `192.168.1.10-192.168.1.50`.
-pub fn parse_range(text: &str) -> Result<Range, ScopeError> {
+/// `192.168.1.0/24`, `192.168.1.7`, `192.168.1.10-50`, `192.168.1.10-192.168.1.50`,
+/// with the prefix when the text was a CIDR.
+fn parse_target(text: &str) -> Result<(Range, Option<u8>), ScopeError> {
     let t = text.trim();
+    if t.len() > 64 {
+        return Err(ScopeError::Invalid);
+    }
     if let Some((ip, p)) = t.split_once('/') {
         let ip: Ipv4Addr = ip.trim().parse().map_err(|_| ScopeError::Invalid)?;
         let p: u8 = p.trim().parse().map_err(|_| ScopeError::Invalid)?;
@@ -99,7 +104,7 @@ pub fn parse_range(text: &str) -> Result<Range, ScopeError> {
         }
         let first = network_of(ip, p);
         let last = Ipv4Addr::from(u32::from(first) | !mask(p));
-        return Ok(Range { first, last });
+        return Ok((Range { first, last }, Some(p)));
     }
     if let Some((a, b)) = t.split_once('-') {
         let first: Ipv4Addr = a.trim().parse().map_err(|_| ScopeError::Invalid)?;
@@ -115,43 +120,57 @@ pub fn parse_range(text: &str) -> Result<Range, ScopeError> {
         if u32::from(last) < u32::from(first) {
             return Err(ScopeError::Invalid);
         }
-        return Ok(Range { first, last });
+        return Ok((Range { first, last }, None));
     }
     let ip: Ipv4Addr = t.parse().map_err(|_| ScopeError::Invalid)?;
+    Ok((
+        Range {
+            first: ip,
+            last: ip,
+        },
+        None,
+    ))
+}
+
+/// `range` without the network and broadcast addresses of the `/prefix` around it.
+fn inner(range: Range, network: Ipv4Addr, prefix: u8) -> Result<Range, ScopeError> {
+    if prefix > 30 {
+        return Ok(range);
+    }
+    let bcast = u32::from(network) | !mask(prefix);
+    let lo = u32::from(range.first).max(u32::from(network) + 1);
+    let hi = u32::from(range.last).min(bcast - 1);
+    if lo > hi {
+        return Err(ScopeError::Invalid);
+    }
     Ok(Range {
-        first: ip,
-        last: ip,
+        first: Ipv4Addr::from(lo),
+        last: Ipv4Addr::from(hi),
     })
 }
 
-/// The addresses to scan for `text`, or why it may not be scanned. A whole subnet leaves
-/// out its network and broadcast addresses.
-pub fn check(text: &str, locals: &[LocalNet]) -> Result<(Range, LocalNet), ScopeError> {
-    let mut r = parse_range(text)?;
+/// The addresses to scan for `text`, or why it may not be scanned, with the connected
+/// subnet that holds them all (None = a routed network, reached through the gateway: no
+/// ARP there). Private / link-local only. A subnet leaves out its network and broadcast
+/// addresses (the connected subnet's, or for a routed CIDR its own).
+pub fn check(text: &str, locals: &[LocalNet]) -> Result<(Range, Option<LocalNet>), ScopeError> {
+    let (r, prefix) = parse_target(text)?;
     if !allowed(r.first) || !allowed(r.last) {
         return Err(ScopeError::NotPrivate);
     }
-    let net = locals
-        .iter()
-        .find(|n| n.contains(r.first) && n.contains(r.last) && allowed(n.ip))
-        .ok_or(ScopeError::NotConnected)?;
-    // Network and broadcast addresses of the connected subnet are never probed.
-    if net.prefix <= 30 {
-        let bcast = u32::from(net.network) | !mask(net.prefix);
-        let lo = u32::from(r.first).max(u32::from(net.network) + 1);
-        let hi = u32::from(r.last).min(bcast - 1);
-        if lo > hi {
-            return Err(ScopeError::Invalid);
-        }
-        r = Range {
-            first: Ipv4Addr::from(lo),
-            last: Ipv4Addr::from(hi),
-        };
-    }
+    // Checked before trimming: a /15 must not pass as 2^17 - 2 addresses.
     if r.len() > u64::from(MAX_ADDRESSES) {
         return Err(ScopeError::TooLarge);
     }
-    Ok((r, net.clone()))
+    let net = locals
+        .iter()
+        .find(|n| n.contains(r.first) && n.contains(r.last) && allowed(n.ip));
+    let r = match (net, prefix) {
+        (Some(n), _) => inner(r, n.network, n.prefix)?,
+        (None, Some(p)) => inner(r, r.first, p)?,
+        (None, None) => r,
+    };
+    Ok((r, net.cloned()))
 }
 
 /// The default target for a connected subnet: the subnet itself up to a /24, otherwise the
@@ -233,51 +252,42 @@ mod tests {
     }
 
     #[test]
-    fn only_directly_connected_subnets() {
+    fn routed_private_networks_too() {
         let l = locals();
-        // Private but not ours.
-        for other in [
-            "192.168.2.0/24",
-            "10.21.0.0/24",
-            "172.16.8.0/24",
-            "10.0.0.0/8",
-        ] {
-            assert!(
-                matches!(
-                    check(other, &l),
-                    Err(ScopeError::NotConnected | ScopeError::TooLarge)
-                ),
-                "{other}"
-            );
-        }
-        assert_eq!(check("192.168.2.0/24", &l), Err(ScopeError::NotConnected));
-        // Straddling two subnets.
-        assert_eq!(
-            check("192.168.1.250-192.168.2.5", &l),
-            Err(ScopeError::NotConnected)
+        // A management VLAN behind the router: scanned through the gateway, no ARP.
+        let (r, n) = check("192.168.2.0/24", &l).unwrap();
+        assert!(n.is_none());
+        assert_eq!(r.len(), 254, "its own network and broadcast left out");
+        let (r, n) = check("10.0.100.0/24", &[]).unwrap();
+        assert!(
+            n.is_none() && r.len() == 254,
+            "nothing connected: still routed"
         );
-        // Nothing connected: nothing can be scanned.
-        assert_eq!(check("192.168.1.0/24", &[]), Err(ScopeError::NotConnected));
+        let (r, _) = check("192.168.1.250-192.168.2.5", &l).unwrap();
+        assert_eq!(r.len(), 12, "a plain range is taken as written");
+        assert_eq!(check("10.0.0.0/8", &l), Err(ScopeError::TooLarge));
+        assert_eq!(check("192.168.2.0", &l).unwrap().0.len(), 1);
     }
 
     #[test]
-    fn at_most_a_slash_22() {
+    fn at_most_a_slash_16() {
         let l = locals();
         let (r, n) = check("172.16.4.0/22", &l).unwrap();
-        assert_eq!(n.iface, "Lab");
+        assert_eq!(n.unwrap().iface, "Lab");
         assert_eq!(r.len(), 1022, "network and broadcast left out");
-        assert_eq!(check("10.20.0.0/21", &l), Err(ScopeError::TooLarge));
-        assert_eq!(check("10.20.0.0/16", &l), Err(ScopeError::TooLarge));
+        let (r, n) = check("10.20.0.0/16", &l).unwrap();
+        assert_eq!((r.len(), n.unwrap().iface.as_str()), (65_534, "Ethernet"));
+        assert_eq!(check("10.20.0.0/15", &l), Err(ScopeError::TooLarge));
         assert_eq!(
-            check("10.20.0.1-10.20.4.1", &l),
+            check("10.20.0.0-10.21.0.0", &l),
             Err(ScopeError::TooLarge),
-            "1025 addresses"
+            "65 537 addresses"
         );
-        assert!(check("10.20.0.1-10.20.4.0", &l).is_ok(), "exactly 1024");
-        assert!(check("10.20.0.0/22", &l).is_ok());
+        assert!(check("10.20.0.0-10.20.255.255", &l).is_ok());
         assert_eq!(MAX_ADDRESSES, 1 << (32 - u32::from(MAX_PREFIX_WIDTH)));
         assert_eq!(CONCURRENCY, 64);
         assert_eq!(PORTS, [22, 23, 80, 443, 3389]);
+        assert_eq!(check(&"1".repeat(65), &l), Err(ScopeError::Invalid));
     }
 
     #[test]

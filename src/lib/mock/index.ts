@@ -21,6 +21,8 @@ import type {
   Snippet,
   SnippetInput,
   RuntimeId,
+  ScanResult,
+  ScanSummary,
   SessionEvent,
   SessionInput,
   SessionRecord,
@@ -933,6 +935,15 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
       case 'sftp_close':
       case 'transfer_cancel':
         return undefined;
+      case 'netscan_history':
+        return mockScanHistory.map((h) => h.summary);
+      case 'netscan_history_get':
+        return mockScanHistory.find((h) => h.summary.id === a.id)?.result ?? null;
+      case 'netscan_history_delete': {
+        const i = mockScanHistory.findIndex((h) => h.summary.id === a.id);
+        if (i >= 0) mockScanHistory.splice(i, 1);
+        return undefined;
+      }
       case 'netscan_cancel':
         mockScanCancel = true;
         return undefined;
@@ -970,7 +981,8 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
             },
           ],
           defaultTarget: '192.168.1.0/24',
-          maxAddresses: 1024,
+          maxAddresses: 65536,
+          fullTcpLimit: 1024,
           concurrency: 64,
           ports: [22, 23, 80, 443, 3389],
           ouiSize: 3,
@@ -982,18 +994,28 @@ export function mockInvoke(cmd: string, args: Args): Promise<unknown> {
             range: { first: '192.168.1.1', last: '192.168.1.254' },
             count: 254,
             iface: 'Wi-Fi',
+            fullTcp: true,
           };
         if (/^10\.20\.\d+\.0\/2[2-4]$/.test(target))
           return {
             range: { first: '10.20.0.1', last: '10.20.0.254' },
             count: 254,
             iface: 'Ethernet',
+            fullTcp: true,
           };
+        if (/^(10|172|192\.168|169\.254)\.[\d.]+\/(1[6-9]|2\d|3[0-2])$/.test(target)) {
+          const prefix = Number(target.split('/')[1]);
+          const count = 2 ** (32 - prefix) - 2;
+          return {
+            range: { first: '10.0.100.1', last: '10.0.100.254' },
+            count,
+            iface: null,
+            fullTcp: count <= 1024,
+          };
+        }
         throw {
           reason: /^(10|172|192\.168|169\.254)\./.test(target)
-            ? /\/(1\d|2[01])$/.test(target)
-              ? 'tooLarge'
-              : 'notConnected'
+            ? 'tooLarge'
             : /^\d/.test(target)
               ? 'notPrivate'
               : 'invalid',
@@ -1566,13 +1588,20 @@ function mockDiff(left: string, right: string) {
   return { rows, added, removed, changed, coarse: false };
 }
 
-/** Browser demo scan of 192.168.1.0/24: a handful of devices, progress over ~1.5 s. */
+/** Saved demo scans (the real app keeps the last 20 in its database). */
+export const mockScanHistory: { summary: ScanSummary; result: ScanResult }[] = [];
+let mockScanId = 0;
+
+/** Browser demo scan: a handful of devices, progress over ~1.5 s, saved to the history. */
 export async function netscanRun(
   target: string,
+  options: { resolveDns: boolean },
   onProgress: (p: { stage: 'sweep' | 'arp' | 'details'; done: number; total: number }) => void,
-) {
+): Promise<ScanResult> {
   mockScanCancel = false;
-  const base = target.startsWith('10.20.') ? '10.20.0.' : '192.168.1.';
+  const started = Date.now();
+  const routed = target.startsWith('10.10.');
+  const base = target.startsWith('10.20.') ? '10.20.0.' : routed ? '10.0.100.' : '192.168.1.';
   const total = 254;
   for (let done = 0; done <= total; done += 32) {
     if (mockScanCancel) break;
@@ -1580,44 +1609,62 @@ export async function netscanRun(
     await new Promise((r) => setTimeout(r, 120));
   }
   onProgress({ stage: 'details', done: 1, total: 1 });
-  const devices: Record<number, { ports: number[]; name?: string; mac: string }> = {
-    1: { ports: [80, 443], name: 'gateway.lan', mac: '58:69:6c:00:00:01' },
-    2: { ports: [22, 443], name: 'core-sw1.lan', mac: '00:1a:2b:03:04:05' },
-    3: { ports: [22, 23], name: 'access-sw3.lan', mac: '58:69:6c:00:11:11' },
-    10: { ports: [80], name: 'printer-3f.lan', mac: '00:00:48:aa:bb:cc' },
-    11: { ports: [], mac: 'f0:18:98:12:34:56' },
-    34: { ports: [], name: 'my-laptop.lan', mac: 'a4:83:e7:00:00:34' },
-    90: { ports: [3389], name: 'win-pc', mac: '00:15:5d:01:02:03' },
-    200: { ports: [443], mac: 'b8:27:eb:11:22:33' },
+  const devices: Record<
+    number,
+    { ports: number[]; name?: string; mac: string; rtt: number | null }
+  > = {
+    1: { ports: [80, 443], name: 'gateway.lan', mac: '58:69:6c:00:00:01', rtt: 0.8 },
+    2: { ports: [22, 443], name: 'core-sw1.lan', mac: '00:1a:2b:03:04:05', rtt: 1.4 },
+    3: { ports: [22, 23], name: 'access-sw3.lan', mac: '58:69:6c:00:11:11', rtt: 2.1 },
+    10: { ports: [80], name: 'printer-3f.lan', mac: '00:00:48:aa:bb:cc', rtt: 3.6 },
+    11: { ports: [], mac: 'f0:18:98:12:34:56', rtt: null },
+    34: { ports: [], name: 'my-laptop.lan', mac: 'a4:83:e7:00:00:34', rtt: 0 },
+    90: { ports: [3389], name: 'PC-MUHASEBE', mac: '00:15:5d:01:02:03', rtt: null },
+    200: { ports: [443], mac: 'b8:27:eb:11:22:33', rtt: 14.2 },
   };
-  return {
-    hosts: Array.from({ length: total }, (_, i) => {
-      const n = i + 1;
-      const d = devices[n];
-      return {
-        vendor: d
-          ? ((
-              {
-                1: 'Ruijie Networks',
-                2: 'Cisco Systems',
-                3: 'Ruijie Networks',
-                11: 'Apple',
-              } as Record<number, string>
-            )[n] ?? null)
-          : null,
+  const vendors: Record<number, string> = {
+    1: 'Ruijie Networks',
+    2: 'Cisco Systems',
+    3: 'Ruijie Networks',
+    11: 'Apple',
+  };
+  const result: ScanResult = {
+    range: { first: `${base}1`, last: `${base}254` },
+    hosts: Object.entries(devices)
+      .map(([k, d]) => [Number(k), d] as const)
+      .filter(([n, d]) => !routed || (d.rtt !== null && n !== 34))
+      .map(([n, d]) => ({
         ip: `${base}${n}`,
-        alive: Boolean(d),
-        icmp: Boolean(d) && n !== 90,
-        openPorts: d?.ports ?? [],
-        mac: d?.mac ?? null,
-        hostname: d?.name ?? null,
-        own: n === 34,
+        rttMs: d.rtt,
+        openPorts: d.ports,
+        mac: routed ? null : d.mac,
+        vendor: routed ? null : (vendors[n] ?? null),
+        hostname: n === 90 || options.resolveDns ? (d.name ?? null) : null,
+        own: !routed && n === 34,
         gateway: n === 1,
-      };
-    }),
-    icmpAvailable: true,
+      })),
+    method: 'icmpSocket',
+    fullTcp: true,
+    local: !routed,
     cancelled: mockScanCancel,
+    durationMs: Date.now() - started,
   };
+  mockScanHistory.unshift({
+    summary: {
+      id: ++mockScanId,
+      target,
+      startedAt: started,
+      durationMs: result.durationMs,
+      cancelled: result.cancelled,
+      method: result.method,
+      alive: result.hosts.length,
+      total,
+      truncated: false,
+    },
+    result,
+  });
+  mockScanHistory.splice(20);
+  return result;
 }
 
 /** Browser demo transfer: 1 MB over ~1.2 s. */

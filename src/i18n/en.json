@@ -910,12 +910,11 @@
     "addresses_one": "{{count}} address on {{iface}}",
     "addresses_other": "{{count}} addresses on {{iface}}",
     "noNetworks": "No private network is connected.",
-    "scopeNote": "Only your own, directly connected private subnets; at most a /22. Discovery only: ping, the ARP table and a connection attempt to ports {{ports}}.",
+    "scopeNote": "Private networks (10/8, 172.16/12, 192.168/16, link-local), connected to this computer or behind a router; at most a /16. Discovery only: ping, the ARP table, connect attempts to ports {{ports}}, DNS / NetBIOS name.",
     "reason": {
       "invalid": "Not an address, CIDR or range.",
       "notPrivate": "Only private (10/8, 172.16/12, 192.168/16) and link-local addresses.",
-      "notConnected": "Not inside a subnet this computer is connected to.",
-      "tooLarge": "Too large: pick a /22 or smaller (e.g. one /24)."
+      "tooLarge": "Too wide: at most a /16 (65,536 addresses)."
     },
     "stage": {
       "sweep": "Probing addresses…",
@@ -925,11 +924,11 @@
     "view": {
       "grid": "Grid",
       "list": "Used",
-      "free": "Free addresses"
+      "free": "Free addresses",
+      "history": "History"
     },
-    "summary": "{{used}} used · {{free}} probably free",
+    "summary": "{{alive}} live hosts · {{total}} addresses · {{secs}} s",
     "cancelled": "stopped early",
-    "noIcmp": "no ping (TCP + ARP)",
     "used": "Used",
     "free": "Probably free",
     "own": "This computer",
@@ -951,7 +950,35 @@
       "hostname": "Host name",
       "mac": "MAC",
       "vendor": "Vendor",
-      "ports": "Open ports"
+      "ports": "Open ports",
+      "rtt": "Response"
+    },
+    "targetPlaceholder": "e.g. 192.168.1.0/24 · 10.0.100.0/24 · 10.0.0.5",
+    "routed": "{{count}} addresses · routed network (through the gateway; no MAC or vendor)",
+    "routedNote": "Routed network: device MAC addresses are not visible from this computer, so MAC and vendor stay empty.",
+    "pingOnly": "wide range: only hosts that answer ping are found (pick a /22 or narrower for devices that ignore ping)",
+    "resolveDns": "Resolve DNS names",
+    "secs": "{{secs}} s",
+    "saved": "Saved scan · {{date}}",
+    "truncated": "only the first 5000 hosts were kept",
+    "noHosts": "No host in this range answered.",
+    "search": "Search: IP, name, MAC, vendor",
+    "historyNote": "The last 20 scans are kept (up to 5000 hosts each), also after the app is closed.",
+    "historyEmpty": "No saved scans yet.",
+    "method": {
+      "icmpSocket": "ICMP socket",
+      "pingCommand": "ping command (fallback)"
+    },
+    "hist": {
+      "date": "Date",
+      "target": "Range",
+      "state": "Status",
+      "hosts": "Live / addresses",
+      "duration": "Time",
+      "done": "Done",
+      "cancelled": "Stopped",
+      "view": "View",
+      "delete": "Delete"
     }
   },
   "transfer": {

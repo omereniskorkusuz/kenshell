@@ -219,16 +219,27 @@ Side panel → **Analyzer**.
 
 ## 7. Network scanner and topology
 
-**Scan my network** (top bar) finds devices on networks this computer is connected to.
+**Scan my network** (top bar) finds devices on your networks: the ones this computer is
+connected to, and private networks behind a router (for example a switch management VLAN).
 
 - **Discovery only:** ping, the ARP table, and a connection attempt to TCP 22, 23, 80, 443
-  and 3389. Hostnames come from reverse DNS, and vendor names from the built-in IEEE OUI
+  and 3389. Names come from reverse DNS (**Resolve DNS names**, on by default) or, when a
+  device has none, from NetBIOS (Windows PCs). Vendor names come from the built-in IEEE OUI
   table.
-- **Scope:** only your own directly connected private subnets, at most a /22. You can enter
-  a custom range within those limits.
-- **Results:** a grid and a list with **Used** and **Probably free** addresses, which is
-  handy when looking for a free IP. Right-click an address to connect, ping or copy.
-  Export to CSV.
+- **How it pings:** one ICMP socket at 2000 packets per second, so a /24 takes a few
+  seconds and a /16 about half a minute. Where the system does not allow that (Windows,
+  some Linux setups) KenShell runs the system `ping` per address instead; the result line
+  says which method was used.
+- **Scope:** private (10/8, 172.16/12, 192.168/16) and link-local addresses only, at most a
+  /16. Up to a /22 every address also gets the TCP connection attempts, which finds devices
+  that ignore ping; a wider range finds only the hosts that answer ping. A routed network
+  shows no MAC addresses or vendors: those are only visible on your own subnet.
+- **Results:** a grid, a searchable list (IP, name, MAC, vendor) with response times
+  (**ARP** = found in the ARP table but did not answer ping), and the **Probably free**
+  blocks, handy when looking for a free IP. Right-click an address to connect, save it as a
+  session, open its web page or copy it. Export to CSV.
+- **History:** the last 20 scans are kept, also after the app is closed (up to 5000 hosts
+  each). **History → View** opens one again; the bin icon deletes it.
 
 ### Topology map
 

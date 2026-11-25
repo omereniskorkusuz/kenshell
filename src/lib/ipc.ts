@@ -3,7 +3,7 @@
  * Types mirror `src-tauri/src/model.rs` and `error.rs` (camelCase) — keep them in sync.
  */
 import { Channel, invoke } from '@tauri-apps/api/core';
-import type { ScanHost } from './netscan';
+import type { ScanHost, ScanRange } from './netscan';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { SessionPatch } from './bulk';
 import type * as MockModule from './mock';
@@ -209,6 +209,8 @@ export interface ScanNetworks {
   networks: ScanNetwork[];
   defaultTarget: string | null;
   maxAddresses: number;
+  /** Up to this many addresses every address also gets TCP connects. */
+  fullTcpLimit: number;
   concurrency: number;
   ports: number[];
   /** Prefixes in the embedded MAC vendor table. */
@@ -216,7 +218,7 @@ export interface ScanNetworks {
 }
 
 /** Why a target may not be scanned (P4-T12 scope rules). */
-export type ScopeReason = 'invalid' | 'notPrivate' | 'notConnected' | 'tooLarge';
+export type ScopeReason = 'invalid' | 'notPrivate' | 'tooLarge';
 
 export interface ScanProgress {
   stage: 'sweep' | 'arp' | 'details';
@@ -224,16 +226,47 @@ export interface ScanProgress {
   total: number;
 }
 
+/** How the sweep pinged: one ICMP socket, or the system ping per address (fallback). */
+export type ScanMethod = 'icmpSocket' | 'pingCommand';
+
 export interface ScanResult {
+  range: ScanRange;
+  /** Live hosts only, in address order. */
   hosts: ScanHost[];
-  icmpAvailable: boolean;
+  method: ScanMethod;
+  /** Every address got TCP connects (small ranges), not only those that answered ping. */
+  fullTcp: boolean;
+  /** A connected subnet (ARP used); false = routed through the gateway. */
+  local: boolean;
   cancelled: boolean;
+  durationMs: number;
+}
+
+export interface ScanOptions {
+  /** Reverse DNS for live hosts (NetBIOS is asked when there is no DNS name). */
+  resolveDns: boolean;
+}
+
+/** A saved scan (the last 20 are kept). */
+export interface ScanSummary {
+  id: number;
+  target: string;
+  startedAt: number;
+  durationMs: number;
+  cancelled: boolean;
+  method: ScanMethod;
+  alive: number;
+  total: number;
+  /** More than 5000 live hosts: only the first 5000 were kept. */
+  truncated: boolean;
 }
 
 export interface ScanCheck {
-  range: { first: string; last: string };
+  range: ScanRange;
   count: number;
-  iface: string;
+  /** The connected interface; null = a routed network (through the gateway, no ARP). */
+  iface: string | null;
+  fullTcp: boolean;
 }
 
 export interface Neighbor {
@@ -813,6 +846,10 @@ export const api = {
   openDeviceWeb: (ip: string, https: boolean) => call<undefined>('open_device_web', { ip, https }),
   /** Rejects with `{ reason: ScopeReason }` when the target is out of scope. */
   netscanCheck: (target: string) => call<ScanCheck>('netscan_check', { target }),
+  /** Saved scans, newest first. */
+  netscanHistory: () => call<ScanSummary[]>('netscan_history'),
+  netscanHistoryGet: (id: number) => call<ScanResult | null>('netscan_history_get', { id }),
+  netscanHistoryDelete: (id: number) => call<undefined>('netscan_history_delete', { id }),
   neighborsDiscover: (id: number, family: string | null) =>
     call<Neighbor[]>('neighbors_discover', { id, family }),
   /** Neighbours plus (with `hosts`) the MAC and ARP tables, read hidden. */
@@ -1007,12 +1044,13 @@ export async function onConsoleChanged(cb: (change: ConsoleChange) => void): Pro
  */
 export async function netscanRun(
   target: string,
+  options: ScanOptions,
   onProgress: (p: ScanProgress) => void,
 ): Promise<ScanResult> {
-  if (!inTauri()) return (await loadMock()).netscanRun(target, onProgress);
+  if (!inTauri()) return (await loadMock()).netscanRun(target, options, onProgress);
   const ch = new Channel<ScanProgress>();
   ch.onmessage = onProgress;
-  return invoke<ScanResult>('netscan_run', { target, onProgress: ch });
+  return invoke<ScanResult>('netscan_run', { target, options, onProgress: ch });
 }
 
 // ------------------------------------------------------------------ file transfer (P5-T01)

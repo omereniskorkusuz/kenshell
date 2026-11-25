@@ -32,6 +32,8 @@ pub use snippets::{Snippet, SnippetInput};
 mod known_hosts;
 mod migrations;
 mod port_memory;
+mod scan_history;
+pub use scan_history::ScanSummary;
 mod profiles;
 mod sessions;
 mod settings;

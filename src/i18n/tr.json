@@ -910,12 +910,11 @@
     "addresses_one": "{{iface}} üzerinde {{count}} adres",
     "addresses_other": "{{iface}} üzerinde {{count}} adres",
     "noNetworks": "Bağlı özel ağ yok.",
-    "scopeNote": "Yalnız bu bilgisayarın doğrudan bağlı özel alt ağları; en fazla /22. Yalnız keşif: ping, ARP tablosu ve {{ports}} portlarına bağlantı denemesi.",
+    "scopeNote": "Özel ağlar (10/8, 172.16/12, 192.168/16, link-local), bu bilgisayara bağlı ya da yönlendirici arkasında; en fazla /16. Yalnız keşif: ping, ARP tablosu, {{ports}} portlarına bağlantı denemesi, DNS / NetBIOS adı.",
     "reason": {
       "invalid": "Adres, CIDR ya da aralık değil.",
       "notPrivate": "Yalnız özel (10/8, 172.16/12, 192.168/16) ve link-local adresler.",
-      "notConnected": "Bu bilgisayarın bağlı olduğu bir alt ağın içinde değil.",
-      "tooLarge": "Çok geniş: /22 ya da daha küçüğünü seçin (ör. bir /24)."
+      "tooLarge": "Çok geniş: en fazla /16 (65 536 adres)."
     },
     "stage": {
       "sweep": "Adresler yoklanıyor…",
@@ -925,11 +924,11 @@
     "view": {
       "grid": "Izgara",
       "list": "Dolu",
-      "free": "Boş adresler"
+      "free": "Boş adresler",
+      "history": "Geçmiş"
     },
-    "summary": "{{used}} dolu · {{free}} muhtemelen boş",
+    "summary": "{{alive}} aktif host · {{total}} adres · {{secs}} sn",
     "cancelled": "erken durduruldu",
-    "noIcmp": "ping yok (TCP + ARP)",
     "used": "Dolu",
     "free": "Muhtemelen boş",
     "own": "Bu bilgisayar",
@@ -951,7 +950,35 @@
       "hostname": "Host adı",
       "mac": "MAC",
       "vendor": "Üretici",
-      "ports": "Açık portlar"
+      "ports": "Açık portlar",
+      "rtt": "Yanıt süresi"
+    },
+    "targetPlaceholder": "Ör: 192.168.1.0/24 · 10.0.100.0/24 · 10.0.0.5",
+    "routed": "{{count}} adres · yönlendirilmiş ağ (ağ geçidi üzerinden; MAC ve üretici görünmez)",
+    "routedNote": "Yönlendirilmiş ağ: cihazların MAC adresi bu bilgisayardan görünmez, bu yüzden MAC ve üretici boş.",
+    "pingOnly": "geniş aralık: yalnız ping'e yanıt verenler bulunur (ping'i engelleyen cihazlar için /22 ya da daha dar aralık seçin)",
+    "resolveDns": "DNS adlarını çöz",
+    "secs": "{{secs}} sn",
+    "saved": "Kayıtlı tarama · {{date}}",
+    "truncated": "yalnız ilk 5000 host saklandı",
+    "noHosts": "Bu aralıkta yanıt veren host bulunamadı.",
+    "search": "Ara: IP, ad, MAC, üretici",
+    "historyNote": "Son 20 tarama saklanır (her birinde en çok 5000 host); uygulama kapanınca da kalır.",
+    "historyEmpty": "Henüz kayıtlı tarama yok.",
+    "method": {
+      "icmpSocket": "ICMP soketi",
+      "pingCommand": "ping komutu (yedek yöntem)"
+    },
+    "hist": {
+      "date": "Tarih",
+      "target": "Aralık",
+      "state": "Durum",
+      "hosts": "Aktif / adres",
+      "duration": "Süre",
+      "done": "Tamamlandı",
+      "cancelled": "Durduruldu",
+      "view": "Görüntüle",
+      "delete": "Sil"
     }
   },
   "transfer": {

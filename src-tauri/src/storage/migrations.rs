@@ -210,6 +210,24 @@ CREATE INDEX idx_backups_device ON config_backups(device_id, created_at);
 CREATE INDEX idx_backups_session ON config_backups(session_id, created_at);
 "#,
     },
+    Migration {
+        name: "v11 network scan history",
+        sql: r#"
+CREATE TABLE scan_history (
+    id          INTEGER PRIMARY KEY,
+    target      TEXT    NOT NULL,
+    started_at  INTEGER NOT NULL,
+    duration_ms INTEGER NOT NULL,
+    status      TEXT    NOT NULL CHECK (status IN ('done', 'cancelled')),
+    method      TEXT    NOT NULL,
+    alive       INTEGER NOT NULL,
+    total       INTEGER NOT NULL,
+    truncated   INTEGER NOT NULL DEFAULT 0,
+    result_json TEXT    NOT NULL
+);
+CREATE INDEX idx_scan_history_started ON scan_history(started_at);
+"#,
+    },
 ];
 
 /// Schema version this build expects.
@@ -305,6 +323,7 @@ mod tests {
                 "notes_fts_docsize",
                 "notes_fts_idx",
                 "port_memory",
+                "scan_history",
                 "sessions",
                 "settings",
                 "snippets"
